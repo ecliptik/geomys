@@ -20,8 +20,9 @@ Geomys is a Gopher browser for classic Macintosh (68000/Macintosh Plus) written 
 - Cross-compile on Linux using [Retro68](https://github.com/autc04/Retro68) toolchain
 - Toolchain built from source, installed at `Retro68-build/toolchain/` (in-repo, gitignored)
 - Source cloned at `Retro68/` (in-repo, gitignored)
-- Build: `./scripts/build.sh`
+- Build: `./scripts/build.sh` (re-use build.sh and release.sh patterns from Flynn)
 - CMake flag: `-m68000` for Mac Plus compatibility
+- Target artifacts: 800K `.dsk` floppy images and `.hqx` (BinHex) compressed binaries
 - Retro68 API quirks vs classic Toolbox: `qd.thePort` not `thePort`, `GetMenuHandle` not `GetMHandle`, `AppendResMenu` not `AddResMenu`, `LMGetApplLimit()` not `GetApplLimit`
 
 ## Testing
@@ -43,11 +44,19 @@ Geomys is a Gopher browser for classic Macintosh (68000/Macintosh Plus) written 
 - Use feature branches for new features, squash commits when merging to main
 - Never use git worktrees when working with agent teams
 - Always include `Co-Authored-By: Claude Code` in commits (enforced by prepare-commit-msg hook)
+- Always create a plan for implementing a feature and break into multiple phases
 - Include short SHA in About Geomys for build identification
 - Do NOT commit: disk images, GEOMYS.md, or other non-source artifacts
 - Maintain: README.md, CHANGELOG.md
 - Always print the full path of created disk images
 - When taking screenshots of Snow, always crop to show only the full System 6 desktop
+
+## Agent Teams
+
+When creating a team, always include:
+- **UI/UX reviewer** — reviews and offers guidance to keep Geomys aligned with Apple HIG
+- **Macintosh 68000 and C expert** — reviews and offers guidance on performance, architecture, and feature implementation
+- **Technical writer** — updates documentation as development progresses (CHANGELOG.md, README.md, docs/, About Geomys)
 
 ## Architecture
 
@@ -57,7 +66,8 @@ Geomys is a Gopher browser for classic Macintosh (68000/Macintosh Plus) written 
 - Fully modularized build with feature flags (similar to Flynn)
 - Code should be easy to understand and extend — break into modules, avoid large files
 - Align with Apple Human Interface Guidelines (see references)
-- Create About Geomys as TeachText document in docs/
+- Create About Geomys as TeachText document in docs/ (resource type `ttro`, reference Flynn's `docs/About Flynn`)
+- When building the MVP, keep future features in mind to make them easier to implement later (keyboard nav, favorites, 256 color, themes, multi-window, System 7)
 
 ## UI Design
 
