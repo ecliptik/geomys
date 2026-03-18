@@ -6,12 +6,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLCHAIN="$SCRIPT_DIR/Retro68-build/toolchain/m68k-apple-macos/cmake/retro68.toolchain.cmake"
 BUILD_DIR="$SCRIPT_DIR/build"
 
-# --- Feature flag defaults (= lite preset) ---
-GEOMYS_OFFSCREEN=OFF
+# --- Feature flag defaults (= full preset, all ON) ---
+GEOMYS_OFFSCREEN=ON
 GEOMYS_STATUS_BAR=ON
-GEOMYS_FAVORITES=OFF
+GEOMYS_FAVORITES=ON
 GEOMYS_COLOR=OFF
 GEOMYS_DOWNLOAD=OFF
+GEOMYS_GOPHER_PLUS=ON
+GEOMYS_GLYPHS=ON
+GEOMYS_CP437=ON
+GEOMYS_STYLES=ON
+GEOMYS_CACHE=ON
 
 PRESET=""
 
@@ -20,24 +25,39 @@ apply_preset() {
     case "$1" in
         minimal)
             GEOMYS_OFFSCREEN=OFF
-            GEOMYS_STATUS_BAR=OFF
-            GEOMYS_FAVORITES=OFF
-            GEOMYS_COLOR=OFF
-            GEOMYS_DOWNLOAD=OFF
-            ;;
-        lite|macplus)
-            GEOMYS_OFFSCREEN=OFF
             GEOMYS_STATUS_BAR=ON
             GEOMYS_FAVORITES=OFF
             GEOMYS_COLOR=OFF
             GEOMYS_DOWNLOAD=OFF
+            GEOMYS_GOPHER_PLUS=OFF
+            GEOMYS_GLYPHS=OFF
+            GEOMYS_CP437=OFF
+            GEOMYS_STYLES=OFF
+            GEOMYS_CACHE=OFF
             ;;
-        full)
+        lite|macplus)
             GEOMYS_OFFSCREEN=ON
             GEOMYS_STATUS_BAR=ON
             GEOMYS_FAVORITES=ON
             GEOMYS_COLOR=OFF
             GEOMYS_DOWNLOAD=OFF
+            GEOMYS_GOPHER_PLUS=OFF
+            GEOMYS_GLYPHS=OFF
+            GEOMYS_CP437=ON
+            GEOMYS_STYLES=OFF
+            GEOMYS_CACHE=OFF
+            ;;
+        full|default)
+            GEOMYS_OFFSCREEN=ON
+            GEOMYS_STATUS_BAR=ON
+            GEOMYS_FAVORITES=ON
+            GEOMYS_COLOR=OFF
+            GEOMYS_DOWNLOAD=OFF
+            GEOMYS_GOPHER_PLUS=ON
+            GEOMYS_GLYPHS=ON
+            GEOMYS_CP437=ON
+            GEOMYS_STYLES=ON
+            GEOMYS_CACHE=ON
             ;;
         *)
             echo "Error: unknown preset '$1' (valid: minimal, lite, full; macplus is alias for lite)"
@@ -67,23 +87,40 @@ done
 # Second pass: apply individual overrides
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --preset)       shift 2 ;;  # already handled
-        --offscreen)    GEOMYS_OFFSCREEN=ON;     shift ;;
-        --no-offscreen) GEOMYS_OFFSCREEN=OFF;    shift ;;
-        --statusbar)    GEOMYS_STATUS_BAR=ON;    shift ;;
-        --no-statusbar) GEOMYS_STATUS_BAR=OFF;   shift ;;
-        --favorites)    GEOMYS_FAVORITES=ON;     shift ;;
-        --no-favorites) GEOMYS_FAVORITES=OFF;    shift ;;
-        --color)        GEOMYS_COLOR=ON;          shift ;;
-        --no-color)     GEOMYS_COLOR=OFF;         shift ;;
-        --download)     GEOMYS_DOWNLOAD=ON;       shift ;;
-        --no-download)  GEOMYS_DOWNLOAD=OFF;      shift ;;
+        --preset)        shift 2 ;;  # already handled
+        --offscreen)     GEOMYS_OFFSCREEN=ON;      shift ;;
+        --no-offscreen)  GEOMYS_OFFSCREEN=OFF;     shift ;;
+        --statusbar)     GEOMYS_STATUS_BAR=ON;     shift ;;
+        --no-statusbar)  GEOMYS_STATUS_BAR=OFF;    shift ;;
+        --favorites)     GEOMYS_FAVORITES=ON;      shift ;;
+        --no-favorites)  GEOMYS_FAVORITES=OFF;     shift ;;
+        --color)         GEOMYS_COLOR=ON;           shift ;;
+        --no-color)      GEOMYS_COLOR=OFF;          shift ;;
+        --download)      GEOMYS_DOWNLOAD=ON;        shift ;;
+        --no-download)   GEOMYS_DOWNLOAD=OFF;       shift ;;
+        --gopher-plus)   GEOMYS_GOPHER_PLUS=ON;    shift ;;
+        --no-gopher-plus) GEOMYS_GOPHER_PLUS=OFF;  shift ;;
+        --glyphs)        GEOMYS_GLYPHS=ON;          shift ;;
+        --no-glyphs)     GEOMYS_GLYPHS=OFF;         shift ;;
+        --cp437)         GEOMYS_CP437=ON;            shift ;;
+        --no-cp437)      GEOMYS_CP437=OFF;           shift ;;
+        --styles)        GEOMYS_STYLES=ON;           shift ;;
+        --no-styles)     GEOMYS_STYLES=OFF;          shift ;;
+        --cache)         GEOMYS_CACHE=ON;            shift ;;
+        --no-cache)      GEOMYS_CACHE=OFF;           shift ;;
         *)
             MAKE_ARGS+=("$1")
             shift
             ;;
     esac
 done
+
+# --- Dependency resolution ---
+# CP437 requires GLYPHS for full rendering
+if [ "$GEOMYS_CP437" = "ON" ] && [ "$GEOMYS_GLYPHS" = "OFF" ]; then
+    echo "Note: --cp437 requires --glyphs for full rendering, enabling it"
+    GEOMYS_GLYPHS=ON
+fi
 
 # --- Compute SIZE resource partition ---
 compute_size() {
@@ -93,17 +130,21 @@ compute_size() {
     [ "$GEOMYS_OFFSCREEN" = "ON" ] && shared=$(( shared + 22 ))
     [ "$GEOMYS_STATUS_BAR" = "ON" ] && shared=$(( shared + 1 ))
     [ "$GEOMYS_FAVORITES" = "ON" ] && shared=$(( shared + 3 ))
+    [ "$GEOMYS_GLYPHS" = "ON" ] && shared=$(( shared + 6 ))
+    [ "$GEOMYS_CP437" = "ON" ] && shared=$(( shared + 1 ))
+    [ "$GEOMYS_CACHE" = "ON" ] && shared=$(( shared + 100 ))
+    [ "$GEOMYS_GOPHER_PLUS" = "ON" ] && shared=$(( shared + 3 ))
 
     # Total with 30% headroom
-    local computed=$(( base + shared + 80 + 32 + 12 + 3 ))  # items + text + tcp + history
+    local computed=$(( base + shared + 80 + 32 + 12 + 4 ))  # items + text + tcp + history
     SIZE_PREFERRED=$(( computed * 130 / 100 ))
-    SIZE_MINIMUM=$(( SIZE_PREFERRED - 64 ))
+    SIZE_MINIMUM=$(( SIZE_PREFERRED - 128 ))
 
     # Clamp
     [ $SIZE_PREFERRED -lt 256 ] && SIZE_PREFERRED=256 || true
     [ $SIZE_MINIMUM -lt 192 ] && SIZE_MINIMUM=192 || true
-    [ $SIZE_PREFERRED -gt 512 ] && SIZE_PREFERRED=512 || true
-    [ $SIZE_MINIMUM -gt 448 ] && SIZE_MINIMUM=448 || true
+    [ $SIZE_PREFERRED -gt 768 ] && SIZE_PREFERRED=768 || true
+    [ $SIZE_MINIMUM -gt 640 ] && SIZE_MINIMUM=640 || true
 }
 
 compute_size
@@ -155,7 +196,12 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_STATUS_BAR="$GEOMYS_STATUS_BAR" \
     -DGEOMYS_FAVORITES="$GEOMYS_FAVORITES" \
     -DGEOMYS_COLOR="$GEOMYS_COLOR" \
-    -DGEOMYS_DOWNLOAD="$GEOMYS_DOWNLOAD"
+    -DGEOMYS_DOWNLOAD="$GEOMYS_DOWNLOAD" \
+    -DGEOMYS_GOPHER_PLUS="$GEOMYS_GOPHER_PLUS" \
+    -DGEOMYS_GLYPHS="$GEOMYS_GLYPHS" \
+    -DGEOMYS_CP437="$GEOMYS_CP437" \
+    -DGEOMYS_STYLES="$GEOMYS_STYLES" \
+    -DGEOMYS_CACHE="$GEOMYS_CACHE"
 make "${MAKE_ARGS[@]}"
 
 # Fix creator code in MacBinary header (Retro68 sets '????' instead of 'GEOM')
@@ -201,8 +247,9 @@ if [ -f "$BUILD_DIR/Geomys.dsk" ]; then
 fi
 
 # --- Determine file prefix from preset ---
-PRESET_LABEL="${PRESET:-lite}"
+PRESET_LABEL="${PRESET:-full}"
 [ "$PRESET_LABEL" = "macplus" ] && PRESET_LABEL="lite"
+[ "$PRESET_LABEL" = "default" ] && PRESET_LABEL="full"
 case "$PRESET_LABEL" in
     full)    FILE_PREFIX="Geomys" ;;
     minimal) FILE_PREFIX="Geomys-Minimal" ;;
@@ -217,13 +264,18 @@ cp "$BUILD_DIR/Geomys.dsk" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.dsk"
 # --- Build summary ---
 ENABLED=""
 DISABLED=""
-for feat in offscreen statusbar favorites color download; do
+for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache color download; do
     case $feat in
-        offscreen)  val=$GEOMYS_OFFSCREEN ;;
-        statusbar)  val=$GEOMYS_STATUS_BAR ;;
-        favorites)  val=$GEOMYS_FAVORITES ;;
-        color)      val=$GEOMYS_COLOR ;;
-        download)   val=$GEOMYS_DOWNLOAD ;;
+        offscreen)    val=$GEOMYS_OFFSCREEN ;;
+        statusbar)    val=$GEOMYS_STATUS_BAR ;;
+        favorites)    val=$GEOMYS_FAVORITES ;;
+        gopher-plus)  val=$GEOMYS_GOPHER_PLUS ;;
+        glyphs)       val=$GEOMYS_GLYPHS ;;
+        cp437)        val=$GEOMYS_CP437 ;;
+        styles)       val=$GEOMYS_STYLES ;;
+        cache)        val=$GEOMYS_CACHE ;;
+        color)        val=$GEOMYS_COLOR ;;
+        download)     val=$GEOMYS_DOWNLOAD ;;
     esac
     if [ "$val" = "ON" ]; then
         ENABLED="$ENABLED $feat"

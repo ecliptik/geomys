@@ -20,11 +20,15 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - RFC 1436 (Gopher) and RFC 4266 (Gopher URI scheme)
 - All canonical types (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, g, I, T)
 - Non-canonical types (d, h, i, p, r, s)
+- Gopher+ protocol support (`+ADMIN`, `+VIEWS` parsing)
 - Default home page: `gopher://sdf.org` (user-changeable)
 
 **User Interface**
 - Full Macintosh GUI with mouse support
 - Web browser-style experience: address bar, back/forward/refresh/home buttons
+- Page styles: Traditional, Plain, Markdown
+- Font selection: Monaco 9, Geneva 9, Chicago 12
+- Hand cursor on navigable items
 - Bottom status bar with connection info
 - Monochrome display
 - Menus: File, Edit, Favorites, Options
@@ -33,7 +37,12 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 **Networking**
 - MacTCP for TCP/IP connectivity
 - Built-in DNS resolver
+- Local page cache (3-page LRU) for instant back/forward
 - Works well within 4MB of RAM
+
+**Character Support**
+- CP437 character set translation (box-drawing, special characters)
+- Unicode glyph rendering
 
 ## Building
 

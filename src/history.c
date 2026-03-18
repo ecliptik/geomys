@@ -18,7 +18,8 @@ history_init(void)
 
 void
 history_push(const char *host, short port, char type,
-    const char *selector, const char *title)
+    const char *selector, const char *title,
+    const char *query)
 {
 	HistoryEntry *e;
 
@@ -43,6 +44,13 @@ history_push(const char *host, short port, char type,
 	e->selector[sizeof(e->selector) - 1] = '\0';
 	strncpy(e->title, title, sizeof(e->title) - 1);
 	e->title[sizeof(e->title) - 1] = '\0';
+
+	if (query) {
+		strncpy(e->query, query, sizeof(e->query) - 1);
+		e->query[sizeof(e->query) - 1] = '\0';
+	} else {
+		e->query[0] = '\0';
+	}
 
 	g_pos = g_count;
 	g_count++;
@@ -98,4 +106,10 @@ history_undo_forward(void)
 {
 	if (g_pos > 0)
 		g_pos--;
+}
+
+short
+history_current_index(void)
+{
+	return g_pos;
 }

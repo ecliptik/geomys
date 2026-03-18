@@ -30,6 +30,12 @@
 #include "history.h"
 #include "settings.h"
 #include "favorites.h"
+#ifdef GEOMYS_OFFSCREEN
+#include "offscreen.h"
+#endif
+#ifdef GEOMYS_CACHE
+#include "cache.h"
+#endif
 
 /* Globals */
 Boolean g_running = true;
@@ -122,6 +128,9 @@ main(void)
 		SetPort(g_window);
 		browser_init(g_window);
 		content_init(g_window);
+#ifdef GEOMYS_OFFSCREEN
+		offscreen_init(g_window);
+#endif
 		SetPort(save);
 	}
 
@@ -130,14 +139,19 @@ main(void)
 	/* Load preferences */
 	prefs_load(&g_prefs);
 
+#ifdef GEOMYS_FAVORITES
 	/* Initialize favorites menu */
 	favorites_init_menu(&g_prefs);
+#endif
 
 	/* Initialize Gopher engine and history */
 	gopher_init(&g_gopher);
 	g_gopher.conn.dns_server = ip2long(g_prefs.dns_server);
 	content_set_page(&g_gopher);
 	history_init();
+#ifdef GEOMYS_CACHE
+	cache_init();
+#endif
 
 	/* Navigate to home page (or show blank if empty) */
 	if (g_prefs.home_url[0])
@@ -246,6 +260,13 @@ main_event_loop(void)
 						    g_gopher.text_len);
 					browser_set_status(uri);
 
+					/* Cache the loaded page */
+#ifdef GEOMYS_CACHE
+					cache_store(
+					    history_current_index(),
+					    &g_gopher);
+#endif
+
 					/* Update nav button states */
 					update_nav_buttons();
 
@@ -257,13 +278,20 @@ main_event_loop(void)
 				}
 			}
 
-			/* Address bar cursor blink */
-			if (!g_suspended) {
+			/* Address bar cursor blink + content cursor update */
+			if (!g_suspended && g_window) {
 				GrafPtr save;
+				Point mouse_pt;
 
 				GetPort(&save);
 				SetPort(g_window);
 				browser_idle();
+
+				/* Update cursor based on mouse position */
+				GetMouse(&mouse_pt);
+				content_cursor_update(g_window,
+				    mouse_pt);
+
 				SetPort(save);
 			}
 			break;
@@ -304,6 +332,12 @@ main_event_loop(void)
 		}
 	}
 
+#ifdef GEOMYS_CACHE
+	cache_cleanup();
+#endif
+#ifdef GEOMYS_OFFSCREEN
+	offscreen_cleanup();
+#endif
 	content_cleanup();
 	browser_cleanup();
 	gopher_cleanup(&g_gopher);
@@ -416,7 +450,8 @@ do_navigate_url_titled(const char *url, const char *title)
 	} else {
 		/* Success — push to history */
 		history_push(host, port, type, selector,
-		    (title && title[0]) ? title : host);
+		    (title && title[0]) ? title : host,
+		    0L);
 		update_nav_buttons();
 	}
 }
@@ -535,13 +570,25 @@ do_search_dialog(const char *title, const char *host,
 		browser_activate(true);
 
 		if (query[0]) {
+			char search_title[100];
+
 			/* Append query to selector with tab */
 			snprintf(full_sel, sizeof(full_sel),
 			    "%s\t%s", selector, query);
 			g_app_state = APP_STATE_LOADING;
 			content_scroll_to_top();
-			gopher_navigate(&g_gopher, host, port,
-			    GOPHER_DIRECTORY, full_sel);
+
+			if (gopher_navigate(&g_gopher, host, port,
+			    GOPHER_DIRECTORY, full_sel)) {
+				/* Push to history with query preserved */
+				snprintf(search_title,
+				    sizeof(search_title),
+				    "Search: %s", query);
+				history_push(host, port,
+				    GOPHER_SEARCH, selector,
+				    search_title, query);
+				update_nav_buttons();
+			}
 		}
 	} else {
 		DisposeDialog(dlg);
@@ -645,6 +692,48 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	if (!e)
 		return;
 
+#ifdef GEOMYS_CACHE
+	/* Try cache first for instant back/forward */
+	if (cache_retrieve(history_current_index(), &g_gopher)) {
+		GrafPtr save;
+
+		content_scroll_to_top();
+		content_set_page(&g_gopher);
+
+		gopher_build_uri(uri, sizeof(uri), e->host, e->port,
+		    e->type, e->selector);
+		browser_set_url(uri);
+
+		/* Copy host/port/selector/type into gopher state */
+		strncpy(g_gopher.cur_host, e->host,
+		    sizeof(g_gopher.cur_host) - 1);
+		g_gopher.cur_host[sizeof(g_gopher.cur_host) - 1] = '\0';
+		g_gopher.cur_port = e->port;
+		g_gopher.cur_type = e->type;
+		strncpy(g_gopher.cur_selector, e->selector,
+		    sizeof(g_gopher.cur_selector) - 1);
+		g_gopher.cur_selector[sizeof(g_gopher.cur_selector) - 1] = '\0';
+
+		browser_set_status("Done (cached)");
+
+		if (e->title[0])
+			set_wtitlef(g_window, "Geomys - %s", e->title);
+		else
+			set_wtitlef(g_window, "Geomys - %s", e->host);
+
+		update_nav_buttons();
+
+		GetPort(&save);
+		SetPort(g_window);
+		content_update_scroll(g_window);
+		content_draw(g_window);
+		browser_draw_status(g_window);
+		browser_draw(g_window);
+		SetPort(save);
+		return;
+	}
+#endif
+
 	g_app_state = APP_STATE_LOADING;
 	content_scroll_to_top();
 
@@ -664,9 +753,21 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		SetPort(save);
 	}
 
-	/* Navigate without pushing to history */
-	if (!gopher_navigate(&g_gopher, e->host, e->port,
-	    e->type, e->selector)) {
+	/* Navigate without pushing to history.
+	 * For search entries, reconstruct selector\tquery */
+	{
+		char nav_sel[512];
+		const char *sel = e->selector;
+
+		if (e->type == GOPHER_SEARCH && e->query[0]) {
+			snprintf(nav_sel, sizeof(nav_sel),
+			    "%s\t%s", e->selector, e->query);
+			sel = nav_sel;
+		}
+
+		if (!gopher_navigate(&g_gopher, e->host, e->port,
+		    (e->type == GOPHER_SEARCH) ?
+		    GOPHER_DIRECTORY : e->type, sel)) {
 		GrafPtr save;
 
 		/* Undo the history move */
@@ -683,6 +784,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
+		}
 	}
 
 	update_nav_buttons();

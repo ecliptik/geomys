@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] — Polish Pass
+
+### Added
+- Offscreen double buffering for flicker-free rendering (feature-flagged)
+- Font submenu: Monaco 9, Geneva 9, Chicago 12 (Options > Font)
+- Hand cursor on navigable Gopher items
+- CP437 character set translation for box-drawing and special characters
+- Unicode glyph rendering engine (adapted from Flynn)
+- Local page cache: 3-page LRU, instant back/forward navigation
+- Search query preservation in navigation history
+- Gopher+ protocol support: `has_plus` detection, `+ADMIN` and `+VIEWS` parsing
+- Page format styles: Traditional, Plain, Markdown (Options > Page Style)
+- New pocket gopher application icon
+
+### Changed
+- Build system: 10 feature flags with conditional compilation
+- Build presets: minimal, lite, full (default changed from lite to full)
+- Command-line flags for all features (`--flag`/`--no-flag` variants)
+- CP437 auto-enables GLYPHS dependency
+- Dynamic SIZE resource computed from enabled features
+- Cosmetic fixes: grow box drawing, text clipping, navigation button icons
+
+## [0.1.0] — MVP
+
 ### Added
 - Project scaffolding: directory structure (`src/`, `include/`, `resources/`, `scripts/`, `docs/`)
 - Build system: `CMakeLists.txt` with feature flags, `scripts/build.sh` with preset support

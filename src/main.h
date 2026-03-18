@@ -16,6 +16,7 @@
 #define FAVORITES_MENU_ID   131
 #define OPTIONS_MENU_ID     132
 #define FONT_MENU_ID        134
+#define STYLE_MENU_ID       135
 
 /* Apple menu items */
 #define APPLE_MENU_ABOUT    1
@@ -45,11 +46,17 @@
 #define OPT_MENU_HOME       1
 /* separator = 2 */
 #define OPT_MENU_FONT       3   /* hierarchical submenu trigger */
+#define OPT_MENU_STYLE      4   /* hierarchical submenu trigger */
 
 /* Font submenu items */
 #define FONT_MONACO9        1
 #define FONT_GENEVA9        2
 #define FONT_CHICAGO12      3
+
+/* Page Style submenu items */
+#define STYLE_ITEM_TRADITIONAL  1
+#define STYLE_ITEM_PLAIN        2
+#define STYLE_ITEM_MARKDOWN     3
 
 /* Dialog resource IDs */
 #define DLOG_ABOUT_ID       130

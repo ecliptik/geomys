@@ -236,8 +236,8 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 {
 	GopherItem *item;
 	const char *p, *end;
-	const char *fields[4];
-	short field_lens[4];
+	const char *fields[5];
+	short field_lens[5];
 	short field = 0;
 	short copy_len;
 
@@ -251,7 +251,7 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 	item->type = line[0];
 
 	/* Split remaining into tab-separated fields:
-	 * display \t selector \t host \t port */
+	 * display \t selector \t host \t port [\t plus] */
 	p = line + 1;
 	end = line + len;
 
@@ -259,7 +259,7 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 	field_lens[0] = 0;
 	field = 0;
 
-	while (p < end && field < 3) {
+	while (p < end && field < 4) {
 		if (*p == '\t') {
 			field_lens[field] = p - fields[field];
 			field++;
@@ -269,7 +269,7 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 		p++;
 	}
 	/* Last field goes to end of line */
-	if (field < 4)
+	if (field < 5)
 		field_lens[field] = end - fields[field];
 
 	/* Copy display text */
@@ -303,6 +303,16 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 	}
 	if (item->port == 0)
 		item->port = GOPHER_DEFAULT_PORT;
+
+#ifdef GEOMYS_GOPHER_PLUS
+	/* Detect Gopher+ support: 5th tab field starting with '+' */
+	item->has_plus = 0;
+	if (field >= 4) {
+		/* There's a 5th field — check for '+' */
+		if (field_lens[4] > 0 && fields[4][0] == '+')
+			item->has_plus = 1;
+	}
+#endif
 
 	gs->item_count++;
 }

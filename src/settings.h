@@ -5,8 +5,13 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define PREFS_VERSION    1
+#define PREFS_VERSION    2
 #define MAX_FAVORITES    20
+
+/* Page display styles */
+#define STYLE_TRADITIONAL  0  /* Monaco 9, type labels, monospaced */
+#define STYLE_PLAIN        1  /* Geneva 9, underlined links, no labels */
+#define STYLE_MARKDOWN     2  /* Geneva 9/Chicago 12, bullets, bold headers */
 
 typedef struct {
 	char    name[64];
@@ -21,6 +26,8 @@ typedef struct {
 	short           font_size;          /* content font size (9) */
 	short           favorite_count;
 	GopherFavorite  favorites[MAX_FAVORITES];
+	/* --- v2 fields below --- */
+	short           page_style;     /* STYLE_TRADITIONAL/PLAIN/MARKDOWN */
 	/* NOTE: always append new fields here, never insert above */
 } GeomysPrefs;
 

@@ -10,8 +10,8 @@
 /* Scrollbar width (standard Mac) */
 #define SCROLLBAR_WIDTH  16
 
-/* Row height for directory and text display */
-#define ROW_HEIGHT       11
+/* Default row height for directory and text display (recalculated by font) */
+#define ROW_HEIGHT_DEFAULT  11
 
 /* Initialize content area — call after window and browser_init */
 void content_init(WindowPtr win);
@@ -45,5 +45,16 @@ ControlHandle content_get_scrollbar(void);
 
 /* Scroll to top */
 void content_scroll_to_top(void);
+
+/* Update font from prefs — recalculates row height */
+void content_update_font(void);
+
+/* Get current dynamic row height */
+short content_row_height(void);
+
+/* Update cursor based on mouse position over content.
+ * Call from nullEvent handler. Sets hand cursor over
+ * navigable items, arrow cursor otherwise. */
+void content_cursor_update(WindowPtr win, Point local_pt);
 
 #endif /* CONTENT_H */

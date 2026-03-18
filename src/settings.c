@@ -47,6 +47,7 @@ prefs_defaults(GeomysPrefs *prefs)
 	prefs->font_id = 4;    /* Monaco */
 	prefs->font_size = 9;
 	prefs->favorite_count = 0;
+	prefs->page_style = STYLE_TRADITIONAL;
 }
 
 void

@@ -48,6 +48,9 @@ typedef struct {
 	char    selector[256];
 	char    host[64];
 	short   port;
+#ifdef GEOMYS_GOPHER_PLUS
+	char    has_plus;       /* 1 if server supports Gopher+ for this item */
+#endif
 } GopherItem;
 
 typedef struct {

@@ -21,11 +21,13 @@
 #include "settings.h"
 #include "favorites.h"
 #include "gopher.h"
+#include "content.h"
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
 static MenuHandle favorites_menu, options_menu;
 static MenuHandle font_submenu;
+static MenuHandle style_submenu;
 
 /* main.c globals */
 extern GeomysPrefs g_prefs;
@@ -58,11 +60,39 @@ init_menus(void)
 	if (font_submenu)
 		InsertMenu(font_submenu, -1);
 
-	/* Set hierarchical menu marker for Font item in Options */
+	/* Load and insert Page Style hierarchical submenu */
+	style_submenu = GetMenu(STYLE_MENU_ID);
+	if (style_submenu)
+		InsertMenu(style_submenu, -1);
+
+	/* Set hierarchical menu markers for Font and Style in Options */
 	if (options_menu) {
 		SetItemCmd(options_menu, OPT_MENU_FONT, 0x1B);
 		SetItemMark(options_menu, OPT_MENU_FONT,
 		    FONT_MENU_ID);
+		SetItemCmd(options_menu, OPT_MENU_STYLE, 0x1B);
+		SetItemMark(options_menu, OPT_MENU_STYLE,
+		    STYLE_MENU_ID);
+	}
+
+	/* Set initial style checkmark based on prefs */
+	if (style_submenu) {
+		CheckItem(style_submenu, STYLE_ITEM_TRADITIONAL,
+		    g_prefs.page_style == STYLE_TRADITIONAL);
+		CheckItem(style_submenu, STYLE_ITEM_PLAIN,
+		    g_prefs.page_style == STYLE_PLAIN);
+		CheckItem(style_submenu, STYLE_ITEM_MARKDOWN,
+		    g_prefs.page_style == STYLE_MARKDOWN);
+	}
+
+	/* Set initial font checkmark based on prefs */
+	if (font_submenu) {
+		CheckItem(font_submenu, FONT_MONACO9,
+		    g_prefs.font_id == 4 && g_prefs.font_size == 9);
+		CheckItem(font_submenu, FONT_GENEVA9,
+		    g_prefs.font_id == 3 && g_prefs.font_size == 9);
+		CheckItem(font_submenu, FONT_CHICAGO12,
+		    g_prefs.font_id == 0 && g_prefs.font_size == 12);
 	}
 
 	/* Favorites menu — managed by favorites.c */
@@ -171,6 +201,7 @@ handle_menu(long menu_id)
 	case EDIT_MENU_ID:
 		handle_edit_menu(item);
 		break;
+#ifdef GEOMYS_FAVORITES
 	case FAVORITES_MENU_ID:
 		switch (item) {
 		case FAV_MENU_MANAGE:
@@ -217,6 +248,7 @@ handle_menu(long menu_id)
 			break;
 		}
 		break;
+#endif
 	case OPTIONS_MENU_ID:
 		switch (item) {
 		case OPT_MENU_HOME:
@@ -225,7 +257,73 @@ handle_menu(long menu_id)
 		}
 		break;
 	case FONT_MENU_ID:
-		/* Future */
+		switch (item) {
+		case FONT_MONACO9:
+			g_prefs.font_id = 4;   /* Monaco */
+			g_prefs.font_size = 9;
+			break;
+		case FONT_GENEVA9:
+			g_prefs.font_id = 3;   /* Geneva */
+			g_prefs.font_size = 9;
+			break;
+		case FONT_CHICAGO12:
+			g_prefs.font_id = 0;   /* Chicago */
+			g_prefs.font_size = 12;
+			break;
+		}
+		/* Update checkmarks */
+		if (font_submenu) {
+			CheckItem(font_submenu, FONT_MONACO9,
+			    item == FONT_MONACO9);
+			CheckItem(font_submenu, FONT_GENEVA9,
+			    item == FONT_GENEVA9);
+			CheckItem(font_submenu, FONT_CHICAGO12,
+			    item == FONT_CHICAGO12);
+		}
+		/* Save and redraw */
+		prefs_save(&g_prefs);
+		content_update_font();
+		if (g_window) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			content_update_scroll(g_window);
+			content_draw(g_window);
+			SetPort(save);
+		}
+		break;
+	case STYLE_MENU_ID:
+		switch (item) {
+		case STYLE_ITEM_TRADITIONAL:
+			g_prefs.page_style = STYLE_TRADITIONAL;
+			break;
+		case STYLE_ITEM_PLAIN:
+			g_prefs.page_style = STYLE_PLAIN;
+			break;
+		case STYLE_ITEM_MARKDOWN:
+			g_prefs.page_style = STYLE_MARKDOWN;
+			break;
+		}
+		/* Update checkmarks */
+		if (style_submenu) {
+			CheckItem(style_submenu, STYLE_ITEM_TRADITIONAL,
+			    item == STYLE_ITEM_TRADITIONAL);
+			CheckItem(style_submenu, STYLE_ITEM_PLAIN,
+			    item == STYLE_ITEM_PLAIN);
+			CheckItem(style_submenu, STYLE_ITEM_MARKDOWN,
+			    item == STYLE_ITEM_MARKDOWN);
+		}
+		/* Save and redraw */
+		prefs_save(&g_prefs);
+		content_update_font();
+		if (g_window) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			content_update_scroll(g_window);
+			content_draw(g_window);
+			SetPort(save);
+		}
 		break;
 	default:
 		handled = false;

@@ -55,7 +55,8 @@ resource 'MENU' (132, "Options") {
 	{
 		"Home Page\311", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Font", noIcon, noKey, noMark, plain
+		"Font", noIcon, noKey, noMark, plain;
+		"Page Style", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -65,6 +66,15 @@ resource 'MENU' (134, "Font") {
 		"Monaco 9", noIcon, noKey, noMark, plain;
 		"Geneva 9", noIcon, noKey, noMark, plain;
 		"Chicago 12", noIcon, noKey, noMark, plain
+	}
+};
+
+resource 'MENU' (135, "Page Style") {
+	135, textMenuProc, allEnabled, enabled, "Page Style",
+	{
+		"Traditional", noIcon, noKey, noMark, plain;
+		"Plain", noIcon, noKey, noMark, plain;
+		"Markdown", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -394,71 +404,166 @@ resource 'DITL' (128, "Alert") {
 	}
 };
 
+/* Hand cursor for hovering over navigable items */
+data 'CURS' (129) {
+	/* Cursor bitmap (16x16) — pointing hand */
+	$"0600 0900 0900 0900"
+	$"09C0 09B0 6DB8 9248"
+	$"9008 8008 4008 2008"
+	$"2010 1010 0820 0840"
+	/* Mask bitmap (16x16) */
+	$"0600 0F00 0F00 0F00"
+	$"0FC0 0FF0 6FF8 FFF8"
+	$"FFF8 FFF8 7FF8 3FF8"
+	$"3FF0 1FF0 0FE0 0FC0"
+	/* Hotspot */
+	$"0001 0001"
+};
+
 /* Application icon - 32x32 bitmap for About dialog */
-/* Gopher (pocket gopher) silhouette - rounded body with small ears */
+/* Pocket gopher head: round ears, eyes, prominent front teeth, whiskers */
 data 'ICON' (128) {
-	$"00000000 00180000"
-	$"003C0000 007E0000"
-	$"00FF8000 03FFC000"
-	$"07FFE000 0FFFF000"
-	$"1FFFF800 1FFFFC00"
-	$"3FFFFC00 3FFFFE00"
-	$"3FFFFE00 3FFFFE00"
-	$"3FFFFE00 3FFFFE00"
-	$"1FFFFC00 1FFFFC00"
-	$"0FFFF800 07FFF000"
-	$"03FFE000 01FFC000"
-	$"00FF8000 007F0000"
-	$"003E0000 001C0000"
-	$"00000000 00000000"
-	$"00000000 00000000"
-	$"00000000 00000000"
+	$"00000000"  /* row 0 */
+	$"03800380"  /* row 1: ears (two small circles at top) */
+	$"07C007C0"  /* row 2: ears wider */
+	$"07C007C0"  /* row 3: ears */
+	$"03E00F80"  /* row 4: ears meet head */
+	$"01FFFF00"  /* row 5: head top */
+	$"00FFFE00"  /* row 6 */
+	$"007FFC00"  /* row 7: forehead */
+	$"00FFFE00"  /* row 8: brow */
+	$"01FFFF00"  /* row 9 */
+	$"03CFFF80"  /* row 10: eyes (gaps in fill) */
+	$"07C7FFC0"  /* row 11: eyes */
+	$"0FE3FFE0"  /* row 12: cheeks */
+	$"0FF1FFF0"  /* row 13 */
+	$"1FFFFFF8"  /* row 14: wide cheeks */
+	$"1FFFFFF8"  /* row 15 */
+	$"0FFFFFF0"  /* row 16: nose area */
+	$"07FFFFE0"  /* row 17 */
+	$"03FFFFC0"  /* row 18: mouth area */
+	$"01EFEE00"  /* row 19: whiskers (...|.|.|..) */
+	$"00E7CE00"  /* row 20: teeth gap */
+	$"00E3CE00"  /* row 21: front teeth (two rectangles) */
+	$"00E3CE00"  /* row 22: teeth */
+	$"00F7DE00"  /* row 23: chin */
+	$"007FFC00"  /* row 24: jaw */
+	$"003FF800"  /* row 25 */
+	$"001FF000"  /* row 26 */
+	$"000FE000"  /* row 27 */
+	$"0007C000"  /* row 28 */
+	$"00038000"  /* row 29 */
+	$"00000000"  /* row 30 */
+	$"00000000"  /* row 31 */
 };
 
 /* Application icon - 32x32 1-bit + mask */
 data 'ICN#' (128) {
-	/* Icon bitmap */
-	$"00000000 00180000"
-	$"003C0000 007E0000"
-	$"00FF8000 03FFC000"
-	$"07FFE000 0FFFF000"
-	$"1FFFF800 1FFFFC00"
-	$"3FFFFC00 3FFFFE00"
-	$"3FFFFE00 3FFFFE00"
-	$"3FFFFE00 3FFFFE00"
-	$"1FFFFC00 1FFFFC00"
-	$"0FFFF800 07FFF000"
-	$"03FFE000 01FFC000"
-	$"00FF8000 007F0000"
-	$"003E0000 001C0000"
-	$"00000000 00000000"
-	$"00000000 00000000"
-	$"00000000 00000000"
-	/* Mask bitmap */
-	$"00000000 00180000"
-	$"003C0000 007E0000"
-	$"00FF8000 03FFC000"
-	$"07FFE000 0FFFF000"
-	$"1FFFF800 1FFFFC00"
-	$"3FFFFC00 3FFFFE00"
-	$"3FFFFE00 3FFFFE00"
-	$"3FFFFE00 3FFFFE00"
-	$"1FFFFC00 1FFFFC00"
-	$"0FFFF800 07FFF000"
-	$"03FFE000 01FFC000"
-	$"00FF8000 007F0000"
-	$"003E0000 001C0000"
-	$"00000000 00000000"
-	$"00000000 00000000"
-	$"00000000 00000000"
+	/* Icon bitmap (same as ICON) */
+	$"00000000"
+	$"03800380"
+	$"07C007C0"
+	$"07C007C0"
+	$"03E00F80"
+	$"01FFFF00"
+	$"00FFFE00"
+	$"007FFC00"
+	$"00FFFE00"
+	$"01FFFF00"
+	$"03CFFF80"
+	$"07C7FFC0"
+	$"0FE3FFE0"
+	$"0FF1FFF0"
+	$"1FFFFFF8"
+	$"1FFFFFF8"
+	$"0FFFFFF0"
+	$"07FFFFE0"
+	$"03FFFFC0"
+	$"01EFEE00"
+	$"00E7CE00"
+	$"00E3CE00"
+	$"00E3CE00"
+	$"00F7DE00"
+	$"007FFC00"
+	$"003FF800"
+	$"001FF000"
+	$"000FE000"
+	$"0007C000"
+	$"00038000"
+	$"00000000"
+	$"00000000"
+	/* Mask bitmap (silhouette) */
+	$"00000000"
+	$"03800380"
+	$"07C007C0"
+	$"07C007C0"
+	$"03E00F80"
+	$"01FFFF00"
+	$"00FFFE00"
+	$"007FFC00"
+	$"00FFFE00"
+	$"01FFFF00"
+	$"03FFFF80"
+	$"07FFFFC0"
+	$"0FFFFFE0"
+	$"0FFFFFF0"
+	$"1FFFFFF8"
+	$"1FFFFFF8"
+	$"0FFFFFF0"
+	$"07FFFFE0"
+	$"03FFFFC0"
+	$"01FFFF00"
+	$"00FFFE00"
+	$"00FFFE00"
+	$"00FFFE00"
+	$"00FFFE00"
+	$"007FFC00"
+	$"003FF800"
+	$"001FF000"
+	$"000FE000"
+	$"0007C000"
+	$"00038000"
+	$"00000000"
+	$"00000000"
 };
 
 /* Application icon - 16x16 1-bit + mask */
+/* Pocket gopher mini: ears, eyes, teeth */
 data 'ics#' (128) {
-	$"0180 03C0 07E0 0FF0 1FF8 3FFC 3FFC 3FFC"
-	$"3FFC 1FF8 0FF0 07E0 03C0 0180 0000 0000"
-	$"0180 03C0 07E0 0FF0 1FF8 3FFC 3FFC 3FFC"
-	$"3FFC 1FF8 0FF0 07E0 03C0 0180 0000 0000"
+	/* Icon bitmap */
+	$"4100"  /* .#....#. — ears */
+	$"6300"  /* .##...## — ears */
+	$"3E00"  /* ..#####. — head top */
+	$"7F00"  /* .####### — head */
+	$"7700"  /* .###.### — eyes */
+	$"7F00"  /* .####### — cheeks */
+	$"3E00"  /* ..#####. — nose */
+	$"1C00"  /* ...###.. — mouth */
+	$"1400"  /* ...#.#.. — teeth */
+	$"1400"  /* ...#.#.. — teeth */
+	$"1C00"  /* ...###.. — chin */
+	$"0800"  /* ....#... — neck */
+	$"0000"
+	$"0000"
+	$"0000"
+	$"0000"
+	/* Mask bitmap */
+	$"4100"
+	$"6300"
+	$"3E00"
+	$"7F00"
+	$"7F00"
+	$"7F00"
+	$"3E00"
+	$"1C00"
+	$"1C00"
+	$"1C00"
+	$"1C00"
+	$"0800"
+	$"0000"
+	$"0000"
+	$"0000"
+	$"0000"
 };
 
 /* File reference - APPL type, icon 0 */

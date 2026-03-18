@@ -1,7 +1,9 @@
 # Geomys Roadmap
 
-## Phase 1: Project Scaffolding & Build System
-**Status: In Progress**
+## v0.1.0 — MVP
+
+### Phase 1: Project Scaffolding & Build System
+**Status: Complete**
 
 Directory structure, build system, and minimal running app — empty window with menu bar and About dialog.
 
@@ -14,7 +16,8 @@ Directory structure, build system, and minimal running app — empty window with
 - Utility modules adapted from Flynn
 - Initial documentation
 
-## Phase 2: Networking & Gopher Protocol Core
+### Phase 2: Networking & Gopher Protocol Core
+**Status: Complete**
 
 TCP connectivity and RFC 1436 Gopher protocol parser. Connect to a server, parse directory listings, display results.
 
@@ -25,7 +28,8 @@ TCP connectivity and RFC 1436 Gopher protocol parser. Connect to a server, parse
 - Type handler registry for all 18 item types
 - Connection status window
 
-## Phase 3: Browser Chrome & Window Layout
+### Phase 3: Browser Chrome & Window Layout
+**Status: Complete**
 
 Full browser UI — address bar, navigation buttons, status bar, menus wired.
 
@@ -36,7 +40,8 @@ Full browser UI — address bar, navigation buttons, status bar, menus wired.
 - Keyboard/mouse event routing
 - Full menu enable/disable based on state
 
-## Phase 4: Content Display — Directories & Text
+### Phase 4: Content Display — Directories & Text
+**Status: Complete**
 
 Scrollable content area with clickable directory listings and plain text files.
 
@@ -45,7 +50,8 @@ Scrollable content area with clickable directory listings and plain text files.
 - Scroll bar: page up/down, line up/down, thumb drag
 - Efficient drawing: clipped to content area, visible items only
 
-## Phase 5: Full Type Support & Search
+### Phase 5: Full Type Support & Search
+**Status: Complete**
 
 All 18 Gopher types handled. Type 7 (search) fully functional.
 
@@ -57,7 +63,8 @@ All 18 Gopher types handled. Type 7 (search) fully functional.
 - Telnet types (8,T): suggest Flynn
 - Error type (3): inline error display
 
-## Phase 6: Navigation History & Error Handling
+### Phase 6: Navigation History & Error Handling
+**Status: Complete**
 
 Back/forward history, refresh, home page, address bar sync, robust error handling.
 
@@ -68,16 +75,93 @@ Back/forward history, refresh, home page, address bar sync, robust error handlin
 - Error handling: DNS failure, connection refused, timeout, partial content
 - Cmd-. cancels in-progress connections
 
-## Phase 7: Settings, Favorites, Double Buffering & Release
+### Phase 7: Settings, Favorites & Release
+**Status: Complete**
 
-User preferences, favorites, flicker-free rendering, release packaging.
+User preferences, favorites, release packaging.
 
 - Settings: home page, DNS server, font choice (persisted)
 - Favorites: add/edit/delete, dynamic menu, Cmd-D
-- Double buffering via offscreen BitMap (feature-flagged)
-- Edit > Find (Cmd-F), File > Save Page As (Cmd-S)
 - Build presets: minimal, lite, full
 - Release scripts and documentation finalized
+
+---
+
+## v0.2.0 — Polish Pass
+
+### Phase 8: Feature Flags & Cosmetic Fixes
+**Status: Complete**
+
+Modular build system with 10 feature flags, 3 presets, and cosmetic polish.
+
+- 10 CMake feature flags with conditional compilation
+- Build presets: minimal, lite, full (default)
+- Command-line flags (`--flag`/`--no-flag` variants)
+- Dynamic SIZE resource computed from enabled features
+- Cosmetic fixes: grow box drawing, text clipping, navigation button icons
+
+### Phase 9: Offscreen Double Buffering
+**Status: Complete**
+
+Flicker-free rendering via offscreen bitmap.
+
+- Offscreen GrafPort for double-buffered drawing
+- Feature-flagged with `GEOMYS_OFFSCREEN`
+- CopyBits from offscreen buffer to window
+
+### Phase 10: Font Selection & Hand Cursor
+**Status: Complete**
+
+User-selectable fonts and cursor feedback on navigable items.
+
+- Font submenu: Monaco 9, Geneva 9, Chicago 12 (Options > Font)
+- Hand cursor on navigable Gopher items (directories, links)
+- Arrow cursor on non-navigable items
+
+### Phase 11: CP437 & Unicode Glyphs
+**Status: Complete**
+
+Character set translation for proper display of BBS-style content.
+
+- CP437 character set translation (box-drawing, special characters)
+- Unicode glyph rendering engine (adapted from Flynn)
+- Feature-flagged: `GEOMYS_CP437`, `GEOMYS_GLYPHS`
+- CP437 auto-enables GLYPHS dependency
+
+### Phase 12: Local Page Cache
+**Status: Complete**
+
+LRU cache for instant back/forward navigation.
+
+- 3-page LRU cache
+- Instant back/forward from cache (no re-fetch)
+- Feature-flagged with `GEOMYS_CACHE`
+
+### Phase 13: Search Query Preservation
+**Status: Complete**
+
+Search queries preserved in navigation history.
+
+- Type 7 search queries stored with history entries
+- Back/forward to search result pages without re-prompting
+
+### Phase 14: Gopher+ Protocol Support
+**Status: Complete**
+
+Gopher+ awareness and metadata parsing.
+
+- `has_plus` detection on directory items
+- `+ADMIN` and `+VIEWS` attribute parsing
+- Feature-flagged with `GEOMYS_GOPHER_PLUS`
+
+### Phase 15: Page Styles & App Icon
+**Status: Complete**
+
+Visual presentation options and new application icon.
+
+- Page format styles: Traditional, Plain, Markdown (Options > Page Style)
+- Feature-flagged with `GEOMYS_STYLES`
+- New pocket gopher application icon
 
 ---
 
@@ -90,4 +174,3 @@ User preferences, favorites, flicker-free rendering, release packaging.
 - **System 7 enhancements** — Preferences folder, Apple Events, Notification Manager
 - **Themes** — Classic, Platinum, Solarized, Tokyo Night, Green Screen
 - **Keyboard navigation** — Tab through links, Enter to follow
-- **Gopher+ awareness** — Detect and handle `+` modifiers gracefully

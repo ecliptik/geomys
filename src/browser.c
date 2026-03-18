@@ -147,43 +147,65 @@ draw_nav_button(short btn_id, Boolean pressed)
 	}
 }
 
-/* Back arrow: bold left-pointing triangle */
+/* Back arrow: filled left-pointing triangle */
 static void
 draw_back_icon(Rect *r, Boolean dim)
 {
 	short cx, cy;
+	PolyHandle poly;
 
 	cx = (r->left + r->right) / 2;
 	cy = (r->top + r->bottom) / 2;
 
 	if (dim) PenPat(&qd.gray);
-	PenSize(2, 2);
-	MoveTo(cx + 5, cy - 5);
+	PenSize(1, 1);
+
+	/* Filled arrow head */
+	poly = OpenPoly();
+	MoveTo(cx + 4, cy - 5);
 	LineTo(cx - 4, cy);
-	LineTo(cx + 5, cy + 5);
+	LineTo(cx + 4, cy + 5);
+	LineTo(cx + 4, cy - 5);
+	ClosePoly();
+	if (dim)
+		FillPoly(poly, &qd.gray);
+	else
+		PaintPoly(poly);
+	KillPoly(poly);
+
 	PenNormal();
-	if (dim) PenNormal();
 }
 
-/* Forward arrow: bold right-pointing triangle */
+/* Forward arrow: filled right-pointing triangle */
 static void
 draw_forward_icon(Rect *r, Boolean dim)
 {
 	short cx, cy;
+	PolyHandle poly;
 
 	cx = (r->left + r->right) / 2;
 	cy = (r->top + r->bottom) / 2;
 
 	if (dim) PenPat(&qd.gray);
-	PenSize(2, 2);
-	MoveTo(cx - 5, cy - 5);
+	PenSize(1, 1);
+
+	/* Filled arrow head */
+	poly = OpenPoly();
+	MoveTo(cx - 4, cy - 5);
 	LineTo(cx + 4, cy);
-	LineTo(cx - 5, cy + 5);
+	LineTo(cx - 4, cy + 5);
+	LineTo(cx - 4, cy - 5);
+	ClosePoly();
+	if (dim)
+		FillPoly(poly, &qd.gray);
+	else
+		PaintPoly(poly);
+	KillPoly(poly);
+
 	PenNormal();
-	if (dim) PenNormal();
 }
 
-/* Refresh: bold circular arrow */
+/* Refresh: circular arrow with arrowhead */
 static void
 draw_refresh_icon(Rect *r, Boolean dim)
 {
@@ -193,47 +215,59 @@ draw_refresh_icon(Rect *r, Boolean dim)
 	cx = (r->left + r->right) / 2;
 	cy = (r->top + r->bottom) / 2;
 
-	SetRect(&arc_r, cx - 6, cy - 6, cx + 6, cy + 6);
+	SetRect(&arc_r, cx - 5, cy - 5, cx + 5, cy + 5);
 	if (dim) PenPat(&qd.gray);
-	PenSize(2, 2);
+	PenSize(1, 1);
 	FrameArc(&arc_r, 30, 300);
+	/* Arrow head at top-right of arc */
+	MoveTo(cx + 5, cy - 1);
+	LineTo(cx + 5, cy - 5);
+	LineTo(cx + 1, cy - 5);
 	PenNormal();
-	/* Arrow head at top-right */
-	if (dim) PenPat(&qd.gray);
-	MoveTo(cx + 6, cy - 2);
-	LineTo(cx + 6, cy - 7);
-	LineTo(cx + 1, cy - 7);
-	if (dim) PenNormal();
 }
 
-/* Home: bold house shape */
+/* Home: filled house shape */
 static void
 draw_home_icon(Rect *r, Boolean dim)
 {
 	short cx, cy;
+	PolyHandle poly;
+	Rect door_r;
 
 	cx = (r->left + r->right) / 2;
 	cy = (r->top + r->bottom) / 2;
 
 	if (dim) PenPat(&qd.gray);
-	PenSize(2, 2);
-	/* Roof */
+	PenSize(1, 1);
+
+	/* Filled roof triangle */
+	poly = OpenPoly();
 	MoveTo(cx - 7, cy);
 	LineTo(cx, cy - 6);
 	LineTo(cx + 7, cy);
-	/* Walls */
-	MoveTo(cx - 5, cy);
-	LineTo(cx - 5, cy + 6);
-	LineTo(cx + 5, cy + 6);
-	LineTo(cx + 5, cy);
+	LineTo(cx - 7, cy);
+	ClosePoly();
+	if (dim)
+		FillPoly(poly, &qd.gray);
+	else
+		PaintPoly(poly);
+	KillPoly(poly);
+
+	/* Filled walls */
+	{
+		Rect wall_r;
+		SetRect(&wall_r, cx - 5, cy, cx + 5, cy + 6);
+		if (dim)
+			FillRect(&wall_r, &qd.gray);
+		else
+			PaintRect(&wall_r);
+	}
+
+	/* Door cutout (white) */
+	SetRect(&door_r, cx - 2, cy + 2, cx + 2, cy + 6);
+	EraseRect(&door_r);
+
 	PenNormal();
-	/* Door */
-	if (dim) PenPat(&qd.gray);
-	MoveTo(cx - 1, cy + 6);
-	LineTo(cx - 1, cy + 2);
-	LineTo(cx + 1, cy + 2);
-	LineTo(cx + 1, cy + 6);
-	if (dim) PenNormal();
 }
 
 void
@@ -268,14 +302,15 @@ browser_draw_status(WindowPtr win)
 	MoveTo(6, win->portRect.bottom - 4);
 	DrawString(ps);
 
-	/* Always redraw grow box after status bar */
+	/* Always redraw grow box after status bar.
+	 * +1 on right/bottom matches content.c for consistent rendering. */
 	save_clip = NewRgn();
 	GetClip(save_clip);
 	SetRect(&clip_r,
 	    win->portRect.right - SCROLLBAR_WIDTH,
-	    win->portRect.bottom - STATUS_BAR_HEIGHT,
-	    win->portRect.right,
-	    win->portRect.bottom);
+	    win->portRect.bottom - SCROLLBAR_WIDTH,
+	    win->portRect.right + 1,
+	    win->portRect.bottom + 1);
 	ClipRect(&clip_r);
 	DrawGrowIcon(win);
 	SetClip(save_clip);

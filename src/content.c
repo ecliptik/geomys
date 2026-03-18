@@ -16,11 +16,19 @@
 #include "gopher.h"
 #include "gopher_types.h"
 #include "main.h"
+#include "settings.h"
+#ifdef GEOMYS_OFFSCREEN
+#include "offscreen.h"
+#endif
 
 /* Module state */
 static ControlHandle g_scrollbar = 0L;
 static short g_scroll_pos = 0;      /* first visible row */
 static GopherState *g_page = 0L;    /* current page to render */
+static short g_row_height = ROW_HEIGHT_DEFAULT;  /* dynamic row height */
+static short g_font_id = 4;         /* current font (Monaco) */
+static short g_font_size = 9;       /* current font size */
+static CursHandle g_hand_cursor = 0L;  /* hand cursor for links */
 
 /* Scroll bar action proc */
 static pascal void scroll_action(ControlHandle ctl, short part);
@@ -63,7 +71,7 @@ visible_rows(WindowPtr win)
 	Rect r;
 
 	content_get_rect(win, &r);
-	return (r.bottom - r.top) / ROW_HEIGHT;
+	return (r.bottom - r.top) / g_row_height;
 }
 
 void
@@ -86,6 +94,17 @@ content_init(WindowPtr win)
 
 	g_scroll_upp = NewControlActionUPP(scroll_action);
 	g_scroll_pos = 0;
+
+	/* Load hand cursor for hovering over links */
+	g_hand_cursor = GetCursor(129);
+
+	/* Initialize font from prefs */
+	{
+		extern GeomysPrefs g_prefs;
+		g_font_id = g_prefs.font_id;
+		g_font_size = g_prefs.font_size;
+		content_update_font();
+	}
 }
 
 void
@@ -147,8 +166,17 @@ content_draw(WindowPtr win)
 	short len;
 	RgnHandle save_clip;
 	short last_y;
+#ifdef GEOMYS_OFFSCREEN
+	short use_offscreen;
+#endif
 
 	content_get_rect(win, &r);
+
+#ifdef GEOMYS_OFFSCREEN
+	use_offscreen = offscreen_is_ready();
+	if (use_offscreen)
+		offscreen_begin(win);
+#endif
 
 	/* Clip to content area (excluding scrollbar) */
 	save_clip = NewRgn();
@@ -170,20 +198,26 @@ content_draw(WindowPtr win)
 	last_y = r.top;
 
 	if (g_page->page_type == PAGE_DIRECTORY) {
-		TextFont(4);  /* Monaco */
-		TextSize(9);
+		short content_width;
+		short ellipsis_w;
+
+		TextFont(g_font_id);
+		TextSize(g_font_size);
+		content_width = r.right - r.left - 8;  /* 4px margin each side */
+		ellipsis_w = TextWidth("\xC9", 0, 1);   /* cache for truncation */
 
 		if (end_row > g_page->item_count)
 			end_row = g_page->item_count;
 
-		y = r.top + ROW_HEIGHT;
+		y = r.top + g_row_height;
 		for (i = start_row; i < end_row; i++) {
 			GopherItem *item = &g_page->items[i];
 			char line[100];
 			const char *label;
+			short text_width;
 
 			/* Erase this row */
-			SetRect(&erase_r, r.left, y - ROW_HEIGHT,
+			SetRect(&erase_r, r.left, y - g_row_height,
 			    r.right, y);
 			EraseRect(&erase_r);
 
@@ -199,17 +233,34 @@ content_draw(WindowPtr win)
 
 			len = strlen(line);
 			if (len > 255) len = 255;
+
+			/* Truncate with ellipsis if too wide.
+			 * ellipsis_w cached outside loop per Mac expert review. */
+			text_width = TextWidth(line, 0, len);
+			if (text_width > content_width && len > 3) {
+				short max_w = content_width - ellipsis_w;
+				while (len > 3 &&
+				    TextWidth(line, 0, len) > max_w) {
+					len--;
+				}
+				line[len] = '\xC9';  /* Mac Roman ellipsis */
+				len++;
+			}
+
 			ps[0] = len;
 			memcpy(ps + 1, line, len);
 
 			MoveTo(r.left + 4, y);
 			DrawString(ps);
 			last_y = y;
-			y += ROW_HEIGHT;
+			y += g_row_height;
 		}
 	} else if (g_page->page_type == PAGE_TEXT) {
-		TextFont(4);  /* Monaco */
-		TextSize(9);
+		short content_width;
+
+		TextFont(g_font_id);
+		TextSize(g_font_size);
+		content_width = r.right - r.left - 8;
 
 		{
 			const char *p = g_page->text_buf;
@@ -226,7 +277,7 @@ content_draw(WindowPtr win)
 				p++;
 			}
 
-			y = r.top + ROW_HEIGHT;
+			y = r.top + g_row_height;
 			while (p < end_p && line_idx < end_row) {
 				const char *line_start = p;
 				short line_len;
@@ -237,19 +288,30 @@ content_draw(WindowPtr win)
 				if (p < end_p)
 					p++;
 
-				if (line_len > 80)
-					line_len = 80;
-
 				/* Erase this row */
 				SetRect(&erase_r, r.left,
-				    y - ROW_HEIGHT, r.right, y);
+				    y - g_row_height, r.right, y);
 				EraseRect(&erase_r);
+
+				/* Truncate with ellipsis if too wide */
+				if (line_len > 0 &&
+				    TextWidth((Ptr)line_start, 0, line_len) > content_width) {
+					short ellip_w = TextWidth("\xC9", 0, 1);
+					short max_w = content_width - ellip_w;
+					while (line_len > 0 &&
+					    TextWidth((Ptr)line_start, 0, line_len) > max_w)
+						line_len--;
+				}
 
 				MoveTo(r.left + 4, y);
 				DrawText((Ptr)line_start, 0,
 				    line_len);
+
+				/* Draw ellipsis if line was truncated */
+				if (line_len < (p - 1 - line_start))
+					DrawChar('\xC9');
 				last_y = y;
-				y += ROW_HEIGHT;
+				y += g_row_height;
 				line_idx++;
 			}
 		}
@@ -266,7 +328,15 @@ done:
 	SetClip(save_clip);
 	DisposeRgn(save_clip);
 
-	/* Redraw grow box — scroll callbacks erase its area */
+#ifdef GEOMYS_OFFSCREEN
+	/* Blit offscreen content to screen before drawing grow box */
+	if (use_offscreen)
+		offscreen_end(win, &r);
+#endif
+
+	/* Redraw grow box — clip to scrollbar/status bar intersection.
+	 * Use SCROLLBAR_WIDTH for both dimensions so the grow box
+	 * aligns perfectly with the scrollbar track. */
 	{
 		Rect clip_r;
 		RgnHandle gc = NewRgn();
@@ -274,9 +344,9 @@ done:
 		GetClip(gc);
 		SetRect(&clip_r,
 		    win->portRect.right - SCROLLBAR_WIDTH,
-		    win->portRect.bottom - STATUS_BAR_HEIGHT,
-		    win->portRect.right,
-		    win->portRect.bottom);
+		    win->portRect.bottom - SCROLLBAR_WIDTH,
+		    win->portRect.right + 1,
+		    win->portRect.bottom + 1);
 		ClipRect(&clip_r);
 		DrawGrowIcon(win);
 		SetClip(gc);
@@ -299,7 +369,7 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 		return false;
 
 	clicked_row = g_scroll_pos +
-	    (local_pt.v - r.top) / ROW_HEIGHT;
+	    (local_pt.v - r.top) / g_row_height;
 
 	if (clicked_row < 0 || clicked_row >= gs->item_count)
 		return false;
@@ -316,10 +386,10 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 		SetRect(&hilite_r,
 		    r.left,
 		    r.top + (clicked_row - g_scroll_pos)
-		    * ROW_HEIGHT,
+		    * g_row_height,
 		    r.right,
 		    r.top + (clicked_row - g_scroll_pos)
-		    * ROW_HEIGHT + ROW_HEIGHT);
+		    * g_row_height + g_row_height);
 		InvertRect(&hilite_r);
 
 		/* Type 7 (Search) — show query dialog */
@@ -480,4 +550,71 @@ content_scroll_to_top(void)
 	g_scroll_pos = 0;
 	if (g_scrollbar)
 		SetControlValue(g_scrollbar, 0);
+}
+
+void
+content_update_font(void)
+{
+	FontInfo fi;
+	GrafPtr save;
+	extern GeomysPrefs g_prefs;
+
+	g_font_id = g_prefs.font_id;
+	g_font_size = g_prefs.font_size;
+
+	/* Measure row height from font metrics */
+	GetPort(&save);
+	if (g_window) {
+		SetPort(g_window);
+		TextFont(g_font_id);
+		TextSize(g_font_size);
+		GetFontInfo(&fi);
+		g_row_height = fi.ascent + fi.descent + fi.leading;
+		if (g_row_height < 10)
+			g_row_height = 10;
+		SetPort(save);
+	}
+}
+
+short
+content_row_height(void)
+{
+	return g_row_height;
+}
+
+void
+content_cursor_update(WindowPtr win, Point local_pt)
+{
+	Rect r;
+	short row;
+
+	content_get_rect(win, &r);
+
+	/* Only change cursor if mouse is in content area */
+	if (!PtInRect(local_pt, &r)) {
+		InitCursor();
+		return;
+	}
+
+	/* Check if hovering over a navigable item */
+	if (g_page && g_page->page_type == PAGE_DIRECTORY &&
+	    g_page->item_count > 0) {
+		row = g_scroll_pos +
+		    (local_pt.v - r.top) / g_row_height;
+
+		if (row >= 0 && row < g_page->item_count) {
+			GopherItem *item = &g_page->items[row];
+
+			if (item->type != GOPHER_INFO &&
+			    gopher_type_navigable(item->type)) {
+				/* Show hand cursor */
+				if (g_hand_cursor)
+					SetCursor(*g_hand_cursor);
+				return;
+			}
+		}
+	}
+
+	/* Default: arrow cursor */
+	InitCursor();
 }

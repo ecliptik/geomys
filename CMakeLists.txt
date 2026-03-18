@@ -1,14 +1,19 @@
 cmake_minimum_required(VERSION 3.9)
-project(Geomys VERSION 0.1.0)
+project(Geomys VERSION 0.2.0)
 
-# --- Feature flags with defaults ---
-option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     OFF)
+# --- Feature flags with defaults (all ON for full preset) ---
+option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     ON)
 option(GEOMYS_STATUS_BAR   "Enable status bar"                  ON)
-option(GEOMYS_FAVORITES    "Enable favorites system"            OFF)
+option(GEOMYS_FAVORITES    "Enable favorites system"            ON)
 option(GEOMYS_COLOR        "Enable 256-color support"           OFF)
 option(GEOMYS_DOWNLOAD     "Enable file downloads"              OFF)
+option(GEOMYS_GOPHER_PLUS  "Enable Gopher+ protocol"           ON)
+option(GEOMYS_GLYPHS       "Enable Unicode glyph rendering"    ON)
+option(GEOMYS_CP437        "Enable CP437 character set"         ON)
+option(GEOMYS_STYLES       "Enable page format styles"          ON)
+option(GEOMYS_CACHE        "Enable local page caching"          ON)
 
-# --- Source files ---
+# --- Core source files (always compiled) ---
 set(GEOMYS_SOURCES
     src/main.c
     src/menus.c
@@ -17,7 +22,6 @@ set(GEOMYS_SOURCES
     src/content.c
     src/history.c
     src/settings.c
-    src/favorites.c
     src/connection.c
     src/tcp.c
     src/dns.c
@@ -27,10 +31,25 @@ set(GEOMYS_SOURCES
     src/sysutil.c
 )
 
-# Conditional source files for future phases
-#if(GEOMYS_FAVORITES)
-#    list(APPEND GEOMYS_SOURCES src/favorites.c)
-#endif()
+# --- Conditional source files ---
+if(GEOMYS_FAVORITES)
+    list(APPEND GEOMYS_SOURCES src/favorites.c)
+endif()
+if(GEOMYS_OFFSCREEN)
+    list(APPEND GEOMYS_SOURCES src/offscreen.c)
+endif()
+if(GEOMYS_GLYPHS)
+    list(APPEND GEOMYS_SOURCES src/glyphs.c)
+endif()
+if(GEOMYS_CP437)
+    list(APPEND GEOMYS_SOURCES src/cp437.c)
+endif()
+if(GEOMYS_CACHE)
+    list(APPEND GEOMYS_SOURCES src/cache.c)
+endif()
+if(GEOMYS_GOPHER_PLUS)
+    list(APPEND GEOMYS_SOURCES src/gopherplus.c)
+endif()
 
 add_application(Geomys ${GEOMYS_SOURCES} resources/geomys.r)
 
@@ -47,6 +66,11 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_FAVORITES}>:GEOMYS_FAVORITES>
     $<$<BOOL:${GEOMYS_COLOR}>:GEOMYS_COLOR>
     $<$<BOOL:${GEOMYS_DOWNLOAD}>:GEOMYS_DOWNLOAD>
+    $<$<BOOL:${GEOMYS_GOPHER_PLUS}>:GEOMYS_GOPHER_PLUS>
+    $<$<BOOL:${GEOMYS_GLYPHS}>:GEOMYS_GLYPHS>
+    $<$<BOOL:${GEOMYS_CP437}>:GEOMYS_CP437>
+    $<$<BOOL:${GEOMYS_STYLES}>:GEOMYS_STYLES>
+    $<$<BOOL:${GEOMYS_CACHE}>:GEOMYS_CACHE>
 )
 
 # Target 68000 CPU (Mac Plus compatible) and optimize for size
