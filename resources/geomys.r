@@ -102,7 +102,7 @@ resource 'DITL' (130, "About Geomys") {
 
 		/* 3: App name + version */
 		{10, 55, 30, 280},
-		StaticText { disabled, "Geomys 0.1.0" };
+		StaticText { disabled, "Geomys 0.2.0" };
 
 		/* 4: Machine type (set at runtime) */
 		{33, 55, 49, 280},
