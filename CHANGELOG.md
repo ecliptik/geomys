@@ -22,3 +22,27 @@ All notable changes to this project will be documented in this file.
 - Type handler registry for all 18 Gopher types (canonical and non-canonical)
 - Monaco 9 monospaced text rendering for content display
 - Auto-navigate to `gopher://sdf.org` on launch
+- Browser chrome: navigation bar with Back/Forward/Refresh/Home buttons
+- Address bar with TextEdit field, Return to navigate, auto-updates on page load
+- Status bar showing connection state (Ready, Loading, Done — N items)
+- Open URL dialog (Cmd-L / File > Open URL) with pre-filled current URL
+- Window title bar, close box, and resizable grow box
+- Connection progress shown in status bar (removed modal dialog)
+- Vertical scroll bar with line/page/thumb scrolling
+- Content area clips to exclude scrollbar column
+- Per-row erase to reduce scroll flicker
+- Grow box persists after scroll and status bar updates
+- Type 7 (Search) with query dialog, appends query to selector
+- All 18 Gopher types handled with informational messages for unsupported types
+- Error recovery: failed connections preserve previous page content
+- ModalDialog loops for proper EditText interaction in dialogs
+- Navigation history stack (10 entries, URL-only, re-fetch on navigate)
+- Back/Forward buttons and Cmd-[/Cmd-] keyboard shortcuts
+- History undo on failed back/forward navigation
+- User-configurable home page (Options > Home Page, blank page option)
+- Preferences persistence ("Geomys Preferences" file)
+- Favorites system: Add (Cmd-D), Manage, Edit, Delete, Move Up/Down, Go To
+- Top 5 favorites shown in Favorites menu
+- Page titles from clicked item display names in window title bar
+- Delete confirmation with Cancel as default (HIG safe action)
+- Release script (`scripts/release.sh`) for Forgejo and GitHub

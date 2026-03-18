@@ -35,3 +35,23 @@ Created the RFC 1436 protocol parser (`gopher.c`) which splits tab-delimited Gop
 Tested successfully against `gopher://sdf.org` — DNS resolves, TCP connects on port 70, directory listing parses and displays with clickable items rendered in Monaco 9. The connection lifecycle (resolve → connect → send selector+CRLF → receive → parse → display) works end-to-end.
 
 Next: Phase 3 — Browser Chrome & Window Layout (address bar, nav buttons, status bar).
+
+## 2026-03-18 — Phase 3: Browser Chrome
+
+Added the browser UI chrome that transforms the raw window into a proper browser. Navigation bar with Back/Forward/Refresh/Home buttons (20x20 bold QuickDraw icons), address bar (TextEdit field), and status bar at the bottom. Open URL dialog (Cmd-L) with pre-filled current URL. Replaced the modal "Resolving/Connecting" status window with non-blocking status bar updates. Added documentProc window with title bar, close box, and resizable grow box.
+
+## 2026-03-18 — Phase 4: Scrollable Content
+
+Added vertical scroll bar (standard Mac ControlHandle) with line/page/thumb scrolling via ControlActionUPP callback. Content clips to exclude the scrollbar column, fixing the spill issue from Phase 3. Per-row erase reduces flicker compared to full-area EraseRect. Grow box clipped to bottom-right corner and redrawn after scroll and status bar updates.
+
+## 2026-03-18 — Phase 5: Search & Type Handlers
+
+Implemented Type 7 search with query dialog — user clicks a search item, enters a query, results display as a directory listing. Fixed ModalDialog loop for EditText interaction (single call was dismissing on text field clicks). Added informational messages for all non-navigable types: download, image, telnet, RTF, sound, HTML external links. Error recovery now preserves previous page content when a connection fails — new buffers allocated before connection attempt, freed on failure.
+
+## 2026-03-18 — Phase 6: Navigation History
+
+10-entry history stack enables browser-style back/forward. All navigation routes through do_navigate_url for consistent history tracking. Back/Forward nav buttons and Cmd-[/Cmd-] keyboard shortcuts. Button states update after page load completes. Failed back/forward undoes the history position change so the user returns to the page they were on.
+
+## 2026-03-18 — Phase 7: Settings, Favorites & Release
+
+User-configurable home page via Options > Home Page dialog (with blank page option). Preferences persist to "Geomys Preferences" file (Preferences folder on System 7, volume root on System 6). Favorites system with Add (Cmd-D), Manage Favorites dialog (Add/Edit/Delete/Move Up/Move Down/Go To), and top 5 shown in Favorites menu. Page titles extracted from clicked item display names (cleaned of date/size metadata). Release script adapted from Flynn for Forgejo and GitHub. MVP feature-complete.
