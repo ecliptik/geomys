@@ -1,0 +1,31 @@
+build/
+diskimages/
+roms/
+references/
+code-examples/
+*.o
+*.d
+.DS_Store
+GEOMYS.md
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Retro68 toolchain (built from source locally, not committed)
+Retro68/
+Retro68-build/
+
+# Tools - binary artifacts (kept locally, not committed)
+tools/snow/
+tools/floppies/
+tools/blank_100MB_HFS.dsk
+
+# Test artifacts
+/screenshots/
+tests/__pycache__/
+
+# Release and build artifacts
+Geomys_*
+*.bin
+About_Geomys.txt
