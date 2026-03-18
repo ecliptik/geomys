@@ -152,6 +152,42 @@ resource 'DITL' (131, "Open URL") {
 	}
 };
 
+/* Search query dialog */
+resource 'DLOG' (132, "Search") {
+	{90, 80, 185, 420},
+	dBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	132,
+	"Search",
+	noAutoCenter
+};
+
+resource 'DITL' (132, "Search") {
+	{
+		/* 1: Search button */
+		{60, 250, 80, 320},
+		Button { enabled, "Search" };
+
+		/* 2: Cancel button */
+		{60, 165, 80, 235},
+		Button { enabled, "Cancel" };
+
+		/* 3: Label (set at runtime to show search item name) */
+		{15, 15, 31, 320},
+		StaticText { disabled, "Search for:" };
+
+		/* 4: Query field */
+		{35, 15, 51, 320},
+		EditText { enabled, "" };
+
+		/* 5: Default button outline (UserItem) */
+		{56, 246, 84, 324},
+		UserItem { disabled };
+	}
+};
+
 /* Generic alert for ParamText messages */
 resource 'ALRT' (128) {
 	{60, 80, 180, 420},

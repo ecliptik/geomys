@@ -349,7 +349,19 @@ do_navigate_url(const char *url)
 		SetPort(save);
 	}
 
-	gopher_navigate(&g_gopher, host, port, type, selector);
+	if (!gopher_navigate(&g_gopher, host, port, type, selector)) {
+		GrafPtr save;
+
+		/* Navigate failed — old page preserved, force redraw */
+		g_app_state = APP_STATE_IDLE;
+		browser_set_status("Connection failed");
+		GetPort(&save);
+		SetPort(g_window);
+		content_draw(g_window);
+		content_update_scroll(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
+	}
 }
 
 /*
@@ -381,7 +393,10 @@ do_open_url_dialog(void)
 
 	setup_default_button_outline(dlg, 5);
 
-	ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	/* Loop until Connect or Cancel button clicked */
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	} while (item != 1 && item != 2);
 
 	if (item == 1) {
 		char url[300];
@@ -404,6 +419,145 @@ do_open_url_dialog(void)
 	} else {
 		DisposeDialog(dlg);
 	}
+}
+
+/*
+ * Search dialog — shown when clicking a Type 7 item
+ */
+void
+do_search_dialog(const char *title, const char *host,
+    short port, const char *selector)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+	char label[100];
+
+	/* Deactivate address bar so modal dialog gets keystrokes */
+	browser_activate(false);
+
+	dlg = GetNewDialog(DLOG_SEARCH_ID, 0L, (WindowPtr)-1L);
+	if (!dlg) {
+		browser_activate(true);
+		return;
+	}
+
+	/* Set label with search item name */
+	snprintf(label, sizeof(label), "Search %.60s:", title);
+	c2pstr(pstr, label);
+	GetDialogItem(dlg, 3, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	setup_default_button_outline(dlg, 5);
+	SelectDialogItemText(dlg, 4, 0, 0);
+
+	/* Loop until Search or Cancel button clicked */
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	} while (item != 1 && item != 2);
+
+	if (item == 1) {
+		char query[256];
+		char full_sel[512];
+
+		GetDialogItem(dlg, 4, &item_type, &item_h,
+		    &item_rect);
+		GetDialogItemText(item_h, pstr);
+		{
+			short len = pstr[0];
+			if (len >= (short)sizeof(query))
+				len = sizeof(query) - 1;
+			memcpy(query, pstr + 1, len);
+			query[len] = '\0';
+		}
+
+		DisposeDialog(dlg);
+		browser_activate(true);
+
+		if (query[0]) {
+			/* Append query to selector with tab */
+			snprintf(full_sel, sizeof(full_sel),
+			    "%s\t%s", selector, query);
+			g_app_state = APP_STATE_LOADING;
+			content_scroll_to_top();
+			gopher_navigate(&g_gopher, host, port,
+			    GOPHER_DIRECTORY, full_sel);
+		}
+	} else {
+		DisposeDialog(dlg);
+		browser_activate(true);
+	}
+}
+
+/*
+ * Show a message for non-navigable Gopher types
+ */
+void
+do_type_message(char type, const char *display,
+    const char *host, short port)
+{
+	char msg[200];
+	Str255 pmsg;
+
+	(void)host;
+	(void)port;
+
+	switch (type) {
+	case GOPHER_TELNET:
+	case GOPHER_TN3270:
+		snprintf(msg, sizeof(msg),
+		    "\"%.60s\" requires a telnet client. "
+		    "Use Flynn to connect.", display);
+		break;
+	case GOPHER_BINHEX:
+	case GOPHER_DOS:
+	case GOPHER_UUENCODE:
+	case GOPHER_BINARY:
+	case GOPHER_DOC:
+		snprintf(msg, sizeof(msg),
+		    "File downloading is not supported "
+		    "in this version of Geomys.");
+		break;
+	case GOPHER_GIF:
+	case GOPHER_IMAGE:
+	case GOPHER_PNG:
+		snprintf(msg, sizeof(msg),
+		    "Image display is not supported "
+		    "in this version of Geomys.");
+		break;
+	case GOPHER_RTF:
+		snprintf(msg, sizeof(msg),
+		    "RTF document display is not supported "
+		    "in this version of Geomys.");
+		break;
+	case GOPHER_SOUND:
+		snprintf(msg, sizeof(msg),
+		    "Sound playback is not supported "
+		    "in this version of Geomys.");
+		break;
+	case GOPHER_HTML: {
+		/* Show the URL if display starts with "URL:" */
+		const char *url = display;
+		if (strncmp(display, "URL:", 4) == 0)
+			url = display + 4;
+		snprintf(msg, sizeof(msg),
+		    "External link: %.120s\n"
+		    "Copy this URL to a web browser.", url);
+		break;
+	}
+	default:
+		snprintf(msg, sizeof(msg),
+		    "This item type is not supported "
+		    "in this version of Geomys.");
+		break;
+	}
+
+	c2pstr(pmsg, msg);
+	ParamText(pmsg, "\p", "\p", "\p");
+	NoteAlert(128, 0L);
 }
 
 static void

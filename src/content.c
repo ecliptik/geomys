@@ -306,25 +306,51 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 
 	{
 		GopherItem *item = &gs->items[clicked_row];
+		Rect hilite_r;
 
-		if (gopher_type_navigable(item->type)) {
-			Rect hilite_r;
+		/* Info lines are not clickable */
+		if (item->type == GOPHER_INFO)
+			return false;
 
-			/* Inverse highlight feedback */
-			SetRect(&hilite_r,
-			    r.left,
-			    r.top + (clicked_row - g_scroll_pos)
-			    * ROW_HEIGHT,
-			    r.right,
-			    r.top + (clicked_row - g_scroll_pos)
-			    * ROW_HEIGHT + ROW_HEIGHT);
-			InvertRect(&hilite_r);
+		/* Inverse highlight feedback */
+		SetRect(&hilite_r,
+		    r.left,
+		    r.top + (clicked_row - g_scroll_pos)
+		    * ROW_HEIGHT,
+		    r.right,
+		    r.top + (clicked_row - g_scroll_pos)
+		    * ROW_HEIGHT + ROW_HEIGHT);
+		InvertRect(&hilite_r);
 
-			g_app_state = APP_STATE_LOADING;
-			gopher_navigate(gs, item->host, item->port,
-			    item->type, item->selector);
+		/* Type 7 (Search) — show query dialog */
+		if (item->type == GOPHER_SEARCH) {
+			do_search_dialog(item->display,
+			    item->host, item->port,
+			    item->selector);
+			/* Redraw to remove highlight */
+			content_draw(win);
 			return true;
 		}
+
+		/* Navigable types — fetch the page */
+		if (gopher_type_navigable(item->type)) {
+			g_app_state = APP_STATE_LOADING;
+			if (!gopher_navigate(gs, item->host,
+			    item->port, item->type,
+			    item->selector)) {
+				/* Failed — redraw to clean up */
+				g_app_state = APP_STATE_IDLE;
+				InvalRect(&win->portRect);
+			}
+			return true;
+		}
+
+		/* Non-navigable types — show info message */
+		do_type_message(item->type, item->display,
+		    item->host, item->port);
+		/* Redraw to remove highlight */
+		content_draw(win);
+		return true;
 	}
 
 	return false;

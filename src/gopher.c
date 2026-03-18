@@ -73,12 +73,53 @@ gopher_navigate(GopherState *gs, const char *host, short port,
     char type, const char *selector)
 {
 	Boolean ok;
+	GopherItem *new_items = 0L;
+	char *new_text = 0L;
+	short new_page_type;
 
 	/* Close any existing connection */
 	if (gs->conn.state != CONN_STATE_IDLE)
 		conn_close(&gs->conn);
 
+	/* Allocate new page buffers BEFORE clearing old page.
+	 * If connection fails, old page content is preserved. */
+	if (type == GOPHER_DIRECTORY || type == GOPHER_SEARCH ||
+	    type == '\0') {
+		new_page_type = PAGE_DIRECTORY;
+		new_items = (GopherItem *)NewPtr(
+		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
+		if (!new_items)
+			return false;
+	} else if (type == GOPHER_TEXT) {
+		new_page_type = PAGE_TEXT;
+		new_text = NewPtr(GOPHER_TEXT_BUFSIZ);
+		if (!new_text)
+			return false;
+	} else {
+		new_page_type = PAGE_DIRECTORY;
+		new_items = (GopherItem *)NewPtr(
+		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
+		if (!new_items)
+			return false;
+	}
+
+	/* Try to connect before committing to new page */
+	ok = conn_connect(&gs->conn, host, port, 0L);
+	if (!ok) {
+		/* Connection failed — free new buffers, keep old page */
+		if (new_items)
+			DisposePtr((Ptr)new_items);
+		if (new_text)
+			DisposePtr(new_text);
+		return false;
+	}
+
+	/* Connection succeeded — now clear old page and switch */
 	gopher_clear_page(gs);
+
+	gs->page_type = new_page_type;
+	gs->items = new_items;
+	gs->text_buf = new_text;
 
 	/* Save current request info */
 	strncpy(gs->cur_host, host, sizeof(gs->cur_host) - 1);
@@ -88,42 +129,6 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	strncpy(gs->cur_selector, selector,
 	    sizeof(gs->cur_selector) - 1);
 	gs->cur_selector[sizeof(gs->cur_selector) - 1] = '\0';
-
-	/* Allocate page buffers based on type */
-	if (type == GOPHER_DIRECTORY || type == GOPHER_SEARCH ||
-	    type == '\0') {
-		gs->page_type = PAGE_DIRECTORY;
-		gs->items = (GopherItem *)NewPtr(
-		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
-		if (!gs->items) {
-			gs->page_type = PAGE_ERROR;
-			return false;
-		}
-	} else if (type == GOPHER_TEXT) {
-		gs->page_type = PAGE_TEXT;
-		gs->text_buf = NewPtr(GOPHER_TEXT_BUFSIZ);
-		if (!gs->text_buf) {
-			gs->page_type = PAGE_ERROR;
-			return false;
-		}
-	} else {
-		/* For now, treat unknown types as directory */
-		gs->page_type = PAGE_DIRECTORY;
-		gs->items = (GopherItem *)NewPtr(
-		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
-		if (!gs->items) {
-			gs->page_type = PAGE_ERROR;
-			return false;
-		}
-	}
-
-	/* Connect — pass NULL for status_win to suppress modal dialog.
-	 * Status updates go through the browser status bar instead. */
-	ok = conn_connect(&gs->conn, host, port, 0L);
-	if (!ok) {
-		gs->page_type = PAGE_ERROR;
-		return false;
-	}
 
 	/* Send selector */
 	conn_send_selector(&gs->conn, selector);
