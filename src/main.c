@@ -27,6 +27,7 @@
 #include "gopher_types.h"
 #include "browser.h"
 #include "content.h"
+#include "history.h"
 
 /* Globals */
 Boolean g_running = true;
@@ -46,6 +47,8 @@ static void handle_update(EventRecord *event);
 static void handle_activate(EventRecord *event);
 /* do_navigate_url and do_open_url_dialog declared in main.h */
 static void handle_nav_button(short btn_id);
+static void update_nav_buttons(void);
+static void navigate_history_entry(const HistoryEntry *e, short direction);
 
 /*
  * Apple Events handlers for System 7 compatibility.
@@ -121,14 +124,11 @@ main(void)
 
 	update_menus();
 
-	/* Initialize Gopher engine and navigate to home page */
+	/* Initialize Gopher engine and history */
 	gopher_init(&g_gopher);
 	content_set_page(&g_gopher);
-	browser_set_status("Connecting to sdf.org\311");
-	browser_set_url(DEFAULT_HOME_URL);
-	g_app_state = APP_STATE_LOADING;
-	gopher_navigate(&g_gopher, DEFAULT_HOME_HOST,
-	    GOPHER_DEFAULT_PORT, GOPHER_DIRECTORY, "");
+	history_init();
+	do_navigate_url(DEFAULT_HOME_URL);
 
 	main_event_loop();
 	return 0;
@@ -217,6 +217,9 @@ main_event_loop(void)
 						    g_gopher.text_len);
 					browser_set_status(uri);
 
+					/* Update nav button states */
+					update_nav_buttons();
+
 					GetPort(&save);
 					SetPort(g_window);
 					browser_draw_status(g_window);
@@ -293,6 +296,19 @@ handle_key_down(EventRecord *event)
 	key = event->message & charCodeMask;
 
 	if (event->modifiers & cmdKey) {
+		/* Cmd-[ = back, Cmd-] = forward */
+		if (key == '[') {
+			if (history_can_back())
+				navigate_history_entry(
+				    history_back(), -1);
+			return;
+		}
+		if (key == ']') {
+			if (history_can_forward())
+				navigate_history_entry(
+				    history_forward(), 1);
+			return;
+		}
 		update_menus();
 		handle_menu(MenuKey(key));
 		return;
@@ -361,6 +377,10 @@ do_navigate_url(const char *url)
 		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
+	} else {
+		/* Success — push to history */
+		history_push(host, port, type, selector, host);
+		update_nav_buttons();
 	}
 }
 
@@ -561,17 +581,87 @@ do_type_message(char type, const char *display,
 }
 
 static void
+update_nav_buttons(void)
+{
+	GrafPtr save;
+
+	browser_set_button_state(NAV_BTN_BACK,
+	    history_can_back() ? BTN_ENABLED : BTN_DISABLED);
+	browser_set_button_state(NAV_BTN_FORWARD,
+	    history_can_forward() ? BTN_ENABLED : BTN_DISABLED);
+
+	GetPort(&save);
+	SetPort(g_window);
+	browser_draw(g_window);
+	SetPort(save);
+}
+
+/*
+ * Navigate to a history entry.
+ * direction: -1 = came from back, +1 = came from forward
+ */
+static void
+navigate_history_entry(const HistoryEntry *e, short direction)
+{
+	char uri[300];
+
+	if (!e)
+		return;
+
+	g_app_state = APP_STATE_LOADING;
+	content_scroll_to_top();
+
+	snprintf(uri, sizeof(uri), "Loading %.50s\311", e->host);
+	browser_set_status(uri);
+
+	gopher_build_uri(uri, sizeof(uri), e->host, e->port,
+	    e->type, e->selector);
+	browser_set_url(uri);
+
+	{
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(g_window);
+		browser_draw(g_window);
+		SetPort(save);
+	}
+
+	/* Navigate without pushing to history */
+	if (!gopher_navigate(&g_gopher, e->host, e->port,
+	    e->type, e->selector)) {
+		GrafPtr save;
+
+		/* Undo the history move */
+		if (direction < 0)
+			history_undo_back();
+		else
+			history_undo_forward();
+
+		g_app_state = APP_STATE_IDLE;
+		browser_set_status("Connection failed");
+		GetPort(&save);
+		SetPort(g_window);
+		content_draw(g_window);
+		content_update_scroll(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
+	}
+
+	update_nav_buttons();
+}
+
+static void
 handle_nav_button(short btn_id)
 {
 	switch (btn_id) {
 	case NAV_BTN_BACK:
-		/* Phase 6 */
+		navigate_history_entry(history_back(), -1);
 		break;
 	case NAV_BTN_FORWARD:
-		/* Phase 6 */
+		navigate_history_entry(history_forward(), 1);
 		break;
 	case NAV_BTN_REFRESH: {
-		/* Re-fetch current page */
 		char url[300];
 
 		gopher_build_uri(url, sizeof(url),

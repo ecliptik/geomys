@@ -332,16 +332,15 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 			return true;
 		}
 
-		/* Navigable types — fetch the page */
+		/* Navigable types — build URI and navigate
+		 * through do_navigate_url for history tracking */
 		if (gopher_type_navigable(item->type)) {
-			g_app_state = APP_STATE_LOADING;
-			if (!gopher_navigate(gs, item->host,
-			    item->port, item->type,
-			    item->selector)) {
-				/* Failed — redraw to clean up */
-				g_app_state = APP_STATE_IDLE;
-				InvalRect(&win->portRect);
-			}
+			char uri[300];
+
+			gopher_build_uri(uri, sizeof(uri),
+			    item->host, item->port,
+			    item->type, item->selector);
+			do_navigate_url(uri);
 			return true;
 		}
 
