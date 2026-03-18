@@ -72,9 +72,7 @@ Boolean
 gopher_navigate(GopherState *gs, const char *host, short port,
     char type, const char *selector)
 {
-	WindowPtr status_win;
 	Boolean ok;
-	char status_msg[80];
 
 	/* Close any existing connection */
 	if (gs->conn.state != CONN_STATE_IDLE)
@@ -119,14 +117,10 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		}
 	}
 
-	/* Show status window and connect */
-	snprintf(status_msg, sizeof(status_msg),
-	    "Loading %.50s\311", host);
-	status_win = conn_status_show(status_msg);
-
-	ok = conn_connect(&gs->conn, host, port, status_win);
+	/* Connect — pass NULL for status_win to suppress modal dialog.
+	 * Status updates go through the browser status bar instead. */
+	ok = conn_connect(&gs->conn, host, port, 0L);
 	if (!ok) {
-		conn_status_close(status_win);
 		gs->page_type = PAGE_ERROR;
 		return false;
 	}
@@ -135,8 +129,6 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	conn_send_selector(&gs->conn, selector);
 	gs->selector_sent = true;
 	gs->receiving = true;
-
-	conn_status_close(status_win);
 	return true;
 }
 

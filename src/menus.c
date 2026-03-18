@@ -132,7 +132,7 @@ handle_file_menu(short item)
 {
 	switch (item) {
 	case FILE_MENU_OPEN_URL:
-		/* Open URL dialog — Phase 3 */
+		do_open_url_dialog();
 		break;
 	case FILE_MENU_CLOSE:
 		g_running = false;

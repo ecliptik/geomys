@@ -53,6 +53,7 @@
 
 /* Dialog resource IDs */
 #define DLOG_ABOUT_ID       130
+#define DLOG_OPEN_URL_ID    131
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -65,6 +66,10 @@
 /* Application state */
 #define APP_STATE_IDLE      0
 #define APP_STATE_LOADING   1
+
+/* Functions callable from menus */
+void do_open_url_dialog(void);
+void do_navigate_url(const char *url);
 
 /* Globals (defined in main.c) */
 extern Boolean g_running;

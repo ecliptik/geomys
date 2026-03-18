@@ -13,6 +13,7 @@ set(GEOMYS_SOURCES
     src/main.c
     src/menus.c
     src/dialogs.c
+    src/browser.c
     src/connection.c
     src/tcp.c
     src/dns.c

@@ -25,3 +25,13 @@ Key decisions:
 - **License:** ISC (same as Flynn)
 
 Next: Phase 2 — Networking & Gopher Protocol Core (TCP, DNS, RFC 1436 parser).
+
+## 2026-03-18 — Phase 2: Networking & Gopher Protocol Core
+
+Added TCP/IP networking and the Gopher protocol engine. The MacTCP wrapper (`tcp.c`/`tcp.h`) and DNS resolver (`dns.c`/`dns.h`) were copied verbatim from Flynn. The connection state machine (`connection.c`) was adapted from Flynn's telnet connection logic — stripped out protocol/username fields and telnet-specific handling, added Gopher state tracking with default port 70.
+
+Created the RFC 1436 protocol parser (`gopher.c`) which splits tab-delimited Gopher directory lines into GopherItem structs (type, display text, selector, host, port). Added a URI parser for RFC 4266 `gopher://` URLs. The type handler registry (`gopher_types.c`) maps all 18 item types (canonical: 0,1,2,3,4,5,6,7,8,9,g,I,T and non-canonical: d,h,i,p,r,s) to handler functions.
+
+Tested successfully against `gopher://sdf.org` — DNS resolves, TCP connects on port 70, directory listing parses and displays with clickable items rendered in Monaco 9. The connection lifecycle (resolve → connect → send selector+CRLF → receive → parse → display) works end-to-end.
+
+Next: Phase 3 — Browser Chrome & Window Layout (address bar, nav buttons, status bar).

@@ -116,6 +116,42 @@ resource 'DITL' (130, "About Geomys") {
 	}
 };
 
+/* Open URL dialog */
+resource 'DLOG' (131, "Open URL") {
+	{80, 60, 175, 440},
+	dBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	131,
+	"Open URL",
+	noAutoCenter
+};
+
+resource 'DITL' (131, "Open URL") {
+	{
+		/* 1: Connect button */
+		{60, 300, 80, 370},
+		Button { enabled, "Connect" };
+
+		/* 2: Cancel button */
+		{60, 215, 80, 285},
+		Button { enabled, "Cancel" };
+
+		/* 3: URL label */
+		{15, 15, 31, 75},
+		StaticText { disabled, "URL:" };
+
+		/* 4: URL field */
+		{15, 80, 31, 365},
+		EditText { enabled, "gopher://sdf.org" };
+
+		/* 5: Default button outline (UserItem) */
+		{56, 296, 84, 374},
+		UserItem { disabled };
+	}
+};
+
 /* Generic alert for ParamText messages */
 resource 'ALRT' (128) {
 	{60, 80, 180, 420},
