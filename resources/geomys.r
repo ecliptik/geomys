@@ -188,6 +188,179 @@ resource 'DITL' (132, "Search") {
 	}
 };
 
+/* Home Page dialog */
+resource 'DLOG' (133, "Home Page") {
+	{80, 80, 195, 420},
+	dBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	133,
+	"Home Page",
+	noAutoCenter
+};
+
+resource 'DITL' (133, "Home Page") {
+	{
+		/* 1: OK button */
+		{80, 250, 100, 320},
+		Button { enabled, "OK" };
+
+		/* 2: Cancel button */
+		{80, 160, 100, 230},
+		Button { enabled, "Cancel" };
+
+		/* 3: URL label */
+		{15, 15, 31, 100},
+		StaticText { disabled, "Home Page:" };
+
+		/* 4: URL field */
+		{15, 105, 31, 325},
+		EditText { enabled, "gopher://sdf.org" };
+
+		/* 5: Use Blank checkbox */
+		{45, 15, 61, 200},
+		CheckBox { enabled, "Use Blank Page" };
+
+		/* 6: Default button outline (UserItem) */
+		{76, 246, 104, 324},
+		UserItem { disabled };
+	}
+};
+
+/* Favorites manager dialog */
+resource 'DLOG' (134, "Favorites") {
+	{40, 60, 300, 430},
+	dBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	134,
+	"Favorites",
+	noAutoCenter
+};
+
+resource 'DITL' (134, "Favorites") {
+	{
+		/* 1: Done button */
+		{228, 280, 248, 350},
+		Button { enabled, "Done" };
+
+		/* 2: Add button */
+		{15, 280, 35, 350},
+		Button { enabled, "Add" };
+
+		/* 3: Edit button */
+		{45, 280, 65, 350},
+		Button { enabled, "Edit" };
+
+		/* 4: Label */
+		{5, 15, 21, 120},
+		StaticText { disabled, "Favorites" };
+
+		/* 5: List area (UserItem — enabled for click detection) */
+		{25, 15, 218, 265},
+		UserItem { enabled };
+
+		/* 6: Default button outline (UserItem) */
+		{224, 276, 252, 354},
+		UserItem { disabled };
+
+		/* 7: Delete button */
+		{75, 280, 95, 350},
+		Button { enabled, "Delete" };
+
+		/* 8: Move Up button */
+		{115, 280, 135, 350},
+		Button { enabled, "Move Up" };
+
+		/* 9: Move Down button */
+		{145, 280, 165, 350},
+		Button { enabled, "Move Dn" };
+
+		/* 10: Go To button */
+		{195, 280, 215, 350},
+		Button { enabled, "Go To" };
+	}
+};
+
+/* Edit/Add Favorite dialog */
+resource 'DLOG' (135, "Edit Favorite") {
+	{90, 90, 210, 420},
+	dBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	135,
+	"Edit Favorite",
+	noAutoCenter
+};
+
+resource 'DITL' (135, "Edit Favorite") {
+	{
+		/* 1: OK button */
+		{85, 245, 105, 315},
+		Button { enabled, "OK" };
+
+		/* 2: Cancel button */
+		{85, 155, 105, 225},
+		Button { enabled, "Cancel" };
+
+		/* 3: Name label */
+		{15, 15, 31, 70},
+		StaticText { disabled, "Name:" };
+
+		/* 4: Name field */
+		{15, 75, 31, 315},
+		EditText { enabled, "" };
+
+		/* 5: URL label */
+		{45, 15, 61, 70},
+		StaticText { disabled, "URL:" };
+
+		/* 6: URL field */
+		{45, 75, 61, 315},
+		EditText { enabled, "" };
+
+		/* 7: Default button outline (UserItem) */
+		{81, 241, 109, 319},
+		UserItem { disabled };
+	}
+};
+
+/* Delete confirmation alert — Cancel is default (item 1) per HIG */
+resource 'ALRT' (129) {
+	{60, 80, 180, 420},
+	129,
+	{
+		OK, visible, sound1,
+		OK, visible, sound1,
+		OK, visible, sound1,
+		OK, visible, sound1
+	},
+	noAutoCenter
+};
+
+resource 'DITL' (129, "Delete Confirm") {
+	{
+		/* 1: Cancel button (default — safe action) */
+		{85, 250, 105, 320},
+		Button { enabled, "Cancel" };
+
+		/* 2: Delete button (destructive) */
+		{85, 140, 105, 210},
+		Button { enabled, "Delete" };
+
+		/* 3: Text */
+		{15, 75, 70, 325},
+		StaticText { disabled, "^0" };
+
+		/* 4: Default button outline (UserItem) */
+		{81, 246, 109, 324},
+		UserItem { disabled };
+	}
+};
+
 /* Generic alert for ParamText messages */
 resource 'ALRT' (128) {
 	{60, 80, 180, 420},

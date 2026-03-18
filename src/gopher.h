@@ -76,6 +76,7 @@ typedef struct {
 	short       cur_port;
 	char        cur_selector[256];
 	char        cur_type;
+	char        cur_title[80];  /* display name of current page */
 } GopherState;
 
 /* Initialize gopher state — call once at startup */

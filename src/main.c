@@ -28,6 +28,8 @@
 #include "browser.h"
 #include "content.h"
 #include "history.h"
+#include "settings.h"
+#include "favorites.h"
 
 /* Globals */
 Boolean g_running = true;
@@ -35,6 +37,7 @@ Boolean g_suspended = false;
 WindowPtr g_window = 0L;
 short g_app_state = APP_STATE_IDLE;
 GopherState g_gopher;
+GeomysPrefs g_prefs;
 
 /* Forward declarations */
 static void init_toolbox(void);
@@ -124,11 +127,23 @@ main(void)
 
 	update_menus();
 
+	/* Load preferences */
+	prefs_load(&g_prefs);
+
+	/* Initialize favorites menu */
+	favorites_init_menu(&g_prefs);
+
 	/* Initialize Gopher engine and history */
 	gopher_init(&g_gopher);
+	g_gopher.conn.dns_server = ip2long(g_prefs.dns_server);
 	content_set_page(&g_gopher);
 	history_init();
-	do_navigate_url(DEFAULT_HOME_URL);
+
+	/* Navigate to home page (or show blank if empty) */
+	if (g_prefs.home_url[0])
+		do_navigate_url(g_prefs.home_url);
+	else
+		browser_set_status("Ready");
 
 	main_event_loop();
 	return 0;
@@ -194,9 +209,23 @@ main_event_loop(void)
 					GrafPtr save;
 
 					g_app_state = APP_STATE_IDLE;
-					set_wtitlef(g_window,
-					    "Geomys - %s",
-					    g_gopher.cur_host);
+
+					{
+						const HistoryEntry *he;
+
+						he = history_current();
+						if (he && he->title[0])
+							set_wtitlef(
+							    g_window,
+							    "Geomys - %s",
+							    he->title);
+						else
+							set_wtitlef(
+							    g_window,
+							    "Geomys - %s",
+							    g_gopher
+							    .cur_host);
+					}
 
 					/* Update address bar and status */
 					gopher_build_uri(uri, sizeof(uri),
@@ -335,11 +364,18 @@ handle_key_down(EventRecord *event)
 	}
 }
 
-/*
- * Navigate to a gopher:// URL string
- */
 void
 do_navigate_url(const char *url)
+{
+	do_navigate_url_titled(url, 0L);
+}
+
+/*
+ * Navigate to a gopher:// URL string with optional page title.
+ * If title is NULL, uses the hostname.
+ */
+void
+do_navigate_url_titled(const char *url, const char *title)
 {
 	char host[64];
 	short port;
@@ -379,7 +415,8 @@ do_navigate_url(const char *url)
 		SetPort(save);
 	} else {
 		/* Success — push to history */
-		history_push(host, port, type, selector, host);
+		history_push(host, port, type, selector,
+		    (title && title[0]) ? title : host);
 		update_nav_buttons();
 	}
 }
@@ -651,6 +688,71 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	update_nav_buttons();
 }
 
+/*
+ * Home Page dialog (Options > Home Page)
+ */
+void
+do_home_page_dialog(void)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+	Boolean use_blank;
+
+	dlg = GetNewDialog(DLOG_HOME_PAGE_ID, 0L, (WindowPtr)-1L);
+	if (!dlg)
+		return;
+
+	/* Pre-fill URL */
+	c2pstr(pstr, g_prefs.home_url);
+	GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	/* Set blank checkbox */
+	use_blank = (g_prefs.home_url[0] == '\0');
+	GetDialogItem(dlg, 5, &item_type, &item_h, &item_rect);
+	SetControlValue((ControlHandle)item_h, use_blank ? 1 : 0);
+
+	setup_default_button_outline(dlg, 6);
+
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+
+		/* Toggle blank checkbox */
+		if (item == 5) {
+			GetDialogItem(dlg, 5, &item_type, &item_h,
+			    &item_rect);
+			use_blank = !GetControlValue(
+			    (ControlHandle)item_h);
+			SetControlValue((ControlHandle)item_h,
+			    use_blank ? 1 : 0);
+		}
+	} while (item != 1 && item != 2);
+
+	if (item == 1) {
+		if (use_blank) {
+			g_prefs.home_url[0] = '\0';
+		} else {
+			short len;
+
+			GetDialogItem(dlg, 4, &item_type, &item_h,
+			    &item_rect);
+			GetDialogItemText(item_h, pstr);
+			len = pstr[0];
+			if (len >= (short)sizeof(g_prefs.home_url))
+				len = sizeof(g_prefs.home_url) - 1;
+			memcpy(g_prefs.home_url, pstr + 1, len);
+			g_prefs.home_url[len] = '\0';
+		}
+		prefs_save(&g_prefs);
+	}
+
+	DisposeDialog(dlg);
+}
+
 static void
 handle_nav_button(short btn_id)
 {
@@ -671,7 +773,8 @@ handle_nav_button(short btn_id)
 		break;
 	}
 	case NAV_BTN_HOME:
-		do_navigate_url(DEFAULT_HOME_URL);
+		if (g_prefs.home_url[0])
+			do_navigate_url(g_prefs.home_url);
 		break;
 	}
 }

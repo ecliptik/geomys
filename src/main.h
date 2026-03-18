@@ -55,6 +55,9 @@
 #define DLOG_ABOUT_ID       130
 #define DLOG_OPEN_URL_ID    131
 #define DLOG_SEARCH_ID      132
+#define DLOG_HOME_PAGE_ID   133
+#define DLOG_FAVORITES_ID   134
+#define DLOG_EDIT_FAV_ID    135
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -70,11 +73,13 @@
 
 /* Functions callable from menus and content click handlers */
 void do_open_url_dialog(void);
-void do_navigate_url(const char *url);
+void do_navigate_url_titled(const char *url, const char *title);
+void do_navigate_url(const char *url);  /* title = NULL */
 void do_search_dialog(const char *title, const char *host,
     short port, const char *selector);
 void do_type_message(char type, const char *display,
     const char *host, short port);
+void do_home_page_dialog(void);
 
 /* Globals (defined in main.c) */
 extern Boolean g_running;

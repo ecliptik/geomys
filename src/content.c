@@ -336,11 +336,37 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 		 * through do_navigate_url for history tracking */
 		if (gopher_type_navigable(item->type)) {
 			char uri[300];
+			char clean_name[80];
+			const char *d;
+			short ni;
 
 			gopher_build_uri(uri, sizeof(uri),
 			    item->host, item->port,
 			    item->type, item->selector);
-			do_navigate_url(uri);
+
+			/* Extract clean name from display text:
+			 * trim at first run of 2+ spaces or tab
+			 * (Gopher servers pad with spaces before
+			 * dates/sizes) */
+			d = item->display;
+			ni = 0;
+			while (*d && ni < 78) {
+				if (*d == '\t')
+					break;
+				if (*d == ' ' && *(d + 1) == ' ')
+					break;
+				clean_name[ni++] = *d;
+				d++;
+			}
+			/* Trim trailing spaces */
+			while (ni > 0 &&
+			    clean_name[ni - 1] == ' ')
+				ni--;
+			clean_name[ni] = '\0';
+
+			do_navigate_url_titled(uri,
+			    clean_name[0] ? clean_name :
+			    item->host);
 			return true;
 		}
 

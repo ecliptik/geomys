@@ -18,13 +18,17 @@
 #include "menus.h"
 #include "dialogs.h"
 #include "macutil.h"
+#include "settings.h"
+#include "favorites.h"
+#include "gopher.h"
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
 static MenuHandle favorites_menu, options_menu;
 static MenuHandle font_submenu;
 
-/* main.c globals accessed via main.h */
+/* main.c globals */
+extern GeomysPrefs g_prefs;
 
 void
 init_menus(void)
@@ -61,11 +65,7 @@ init_menus(void)
 		    FONT_MENU_ID);
 	}
 
-	/* Disable Favorites menu items for now (Phase 7) */
-	if (favorites_menu) {
-		DisableItem(favorites_menu, FAV_MENU_MANAGE);
-		DisableItem(favorites_menu, FAV_MENU_ADD);
-	}
+	/* Favorites menu — managed by favorites.c */
 
 	DrawMenuBar();
 }
@@ -172,13 +172,60 @@ handle_menu(long menu_id)
 		handle_edit_menu(item);
 		break;
 	case FAVORITES_MENU_ID:
-		/* Phase 7 */
+		switch (item) {
+		case FAV_MENU_MANAGE:
+			favorites_manage(&g_prefs);
+			break;
+		case FAV_MENU_ADD: {
+			char url[300];
+			char name[80];
+			Str255 wtitle;
+			extern GopherState g_gopher;
+
+			gopher_build_uri(url, sizeof(url),
+			    g_gopher.cur_host, g_gopher.cur_port,
+			    g_gopher.cur_type,
+			    g_gopher.cur_selector);
+
+			/* Get name from window title
+			 * (strip "Geomys - " prefix) */
+			GetWTitle(g_window, wtitle);
+			{
+				short len = wtitle[0];
+				char *p;
+
+				if (len >= (short)sizeof(name))
+					len = sizeof(name) - 1;
+				memcpy(name, wtitle + 1, len);
+				name[len] = '\0';
+				p = strstr(name, " - ");
+				if (p)
+					memmove(name, p + 3,
+					    strlen(p + 3) + 1);
+			}
+
+			/* Fallback to URL if name is empty */
+			if (!name[0])
+				strncpy(name, url,
+				    sizeof(name) - 1);
+
+			favorites_add(&g_prefs, name, url);
+			break;
+		}
+		default:
+			favorites_menu_click(&g_prefs, item);
+			break;
+		}
 		break;
 	case OPTIONS_MENU_ID:
-		/* Phase 7 */
+		switch (item) {
+		case OPT_MENU_HOME:
+			do_home_page_dialog();
+			break;
+		}
 		break;
 	case FONT_MENU_ID:
-		/* Phase 7 */
+		/* Future */
 		break;
 	default:
 		handled = false;
