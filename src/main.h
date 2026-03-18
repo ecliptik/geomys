@@ -59,8 +59,8 @@
 #define SCREEN_HEIGHT       342
 
 /* Default Gopher home page */
+#define DEFAULT_HOME_HOST   "sdf.org"
 #define DEFAULT_HOME_URL    "gopher://sdf.org"
-#define GOPHER_DEFAULT_PORT 70
 
 /* Application state */
 #define APP_STATE_IDLE      0

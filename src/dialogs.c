@@ -18,6 +18,80 @@
 #include "macutil.h"
 #include "sysutil.h"
 
+/* ---- Status window UI ---- */
+
+/* Status window dimensions (centered on 512x342 screen) */
+#define STATUS_WIN_W   320
+#define STATUS_WIN_H    40
+
+WindowPtr
+conn_status_show(const char *msg)
+{
+	WindowPtr w;
+	Rect r;
+	Str255 title;
+	GrafPtr save;
+	Str255 ps;
+	short len;
+
+	SetRect(&r,
+	    (512 - STATUS_WIN_W) / 2,
+	    (342 - STATUS_WIN_H) / 2 + 20,
+	    (512 + STATUS_WIN_W) / 2,
+	    (342 + STATUS_WIN_H) / 2 + 20);
+	title[0] = 0;
+	w = NewWindow(0L, &r, title, true, dBoxProc,
+	    (WindowPtr)-1L, false, 0L);
+	if (w) {
+		Rect clip_r;
+
+		GetPort(&save);
+		SetPort(w);
+		TextFont(0);   /* Chicago */
+		TextSize(12);
+		SetRect(&clip_r, 0, 0, STATUS_WIN_W, STATUS_WIN_H);
+		ClipRect(&clip_r);
+		len = strlen(msg);
+		if (len > 255) len = 255;
+		ps[0] = len;
+		memcpy(ps + 1, msg, len);
+		MoveTo(10, 26);
+		DrawString(ps);
+		SetPort(save);
+	}
+	return w;
+}
+
+void
+conn_status_update(WindowPtr w, const char *msg)
+{
+	GrafPtr save;
+	Rect r;
+	Str255 ps;
+	short len;
+
+	if (!w) return;
+	GetPort(&save);
+	SetPort(w);
+	SetRect(&r, 0, 0, STATUS_WIN_W, STATUS_WIN_H);
+	ClipRect(&r);
+	EraseRect(&r);
+	len = strlen(msg);
+	if (len > 255) len = 255;
+	ps[0] = len;
+	memcpy(ps + 1, msg, len);
+	MoveTo(10, 26);
+	DrawString(ps);
+	SetPort(save);
+}
+
+void
+conn_status_close(WindowPtr w)
+{
+	if (w)
+		DisposeWindow(w);
+}
+
 /* ---- Default button outline ---- */
 
 /* Draw a 3-pixel rounded rect outline around the default button (item 1) */

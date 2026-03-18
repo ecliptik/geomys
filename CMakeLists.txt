@@ -13,6 +13,11 @@ set(GEOMYS_SOURCES
     src/main.c
     src/menus.c
     src/dialogs.c
+    src/connection.c
+    src/tcp.c
+    src/dns.c
+    src/gopher.c
+    src/gopher_types.c
     src/macutil.c
     src/sysutil.c
 )
