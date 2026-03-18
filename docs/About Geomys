@@ -1,0 +1,107 @@
+=====================================================
+                     Geomys
+       A Gopher Browser for Macintosh
+                   Version 0.1.0
+=====================================================
+
+Browse Gopherspace from your classic Macintosh.
+
+
+About Geomys
+-----------
+
+Geomys is a Gopher protocol browser for the Apple
+Macintosh Plus and later models running System 6.0.8
+or later. It connects to Gopher servers over TCP/IP
+using MacTCP, providing a graphical browser interface
+for navigating Gopherspace.
+
+Geomys implements RFC 1436 (The Internet Gopher
+Protocol) and RFC 4266 (The gopher URI Scheme).
+It supports all canonical and non-canonical Gopher
+item types, including directories, text files,
+search queries, and informational messages.
+
+The browser features a web-style interface with an
+address bar, back/forward/refresh/home navigation
+buttons, and a status bar — all designed to follow
+the Apple Human Interface Guidelines.
+
+
+System Requirements
+-------------------
+
+  - Macintosh Plus or later (68000 CPU)
+  - System 6.0.8 or later
+  - MacTCP 2.1 (configured with a valid TCP/IP
+    connection)
+  - 4 MB RAM recommended
+  - Network connection (Ethernet or compatible)
+
+
+Getting Started
+---------------
+
+1. Make sure MacTCP is installed and configured in
+   your Control Panel. You will need a working TCP/IP
+   connection to your network.
+
+2. Double-click the Geomys application to launch it.
+
+3. Geomys opens to its home page (default:
+   gopher://sdf.org). You can change the home page
+   in Options > Home Page.
+
+4. Click on directory items to navigate. Click on
+   text items to read them. Use the address bar to
+   enter a Gopher URL directly.
+
+5. Use the Back and Forward buttons (or Cmd-[ and
+   Cmd-]) to navigate through your browsing history.
+
+6. To quit, choose Quit from the File menu or press
+   Command-Q.
+
+
+Credits
+-------
+
+Geomys was created by Micheal Waltz with assistance
+from Claude Code, an AI by Anthropic.
+
+Geomys is cross-compiled on Linux using Retro68, the
+68k Macintosh cross-compilation toolchain by
+Wolfgang Thaller.
+
+This project incorporates code from two open-source
+classic Macintosh applications by joshua stein:
+
+  wallops - IRC client for classic Macintosh
+  MacTCP wrapper, DNS resolution, and utility
+  functions are used directly from this project.
+
+  subtext - BBS server for classic Macintosh
+  Additional networking and utility code.
+
+Both projects are released under the ISC license.
+
+Geomys is a sibling project to Flynn, a Telnet and
+Finger client for classic Macintosh. Both share
+infrastructure and design patterns.
+
+
+License
+-------
+
+Geomys is released under the ISC license.
+Copyright (c) 2026 Micheal Waltz.
+See the LICENSE file for details.
+
+
+Contact
+-------
+
+  https://www.ecliptik.com
+  https://github.com/ecliptik/geomys
+
+=====================================================
