@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include "browser.h"
+#include "content.h"
 #include "main.h"
 
 /* Module state */
@@ -238,9 +239,10 @@ draw_home_icon(Rect *r, Boolean dim)
 void
 browser_draw_status(WindowPtr win)
 {
-	Rect bar_r;
+	Rect bar_r, clip_r;
 	Str255 ps;
 	short len;
+	RgnHandle save_clip;
 
 	SetRect(&bar_r, 0, win->portRect.bottom - STATUS_BAR_HEIGHT,
 	    win->portRect.right, win->portRect.bottom);
@@ -249,9 +251,11 @@ browser_draw_status(WindowPtr win)
 	MoveTo(0, bar_r.top);
 	LineTo(win->portRect.right, bar_r.top);
 
-	/* Clear and draw status text */
+	/* Clear status bar text area (exclude grow box corner) */
 	bar_r.top += 1;
-	EraseRect(&bar_r);
+	SetRect(&clip_r, bar_r.left, bar_r.top,
+	    win->portRect.right - SCROLLBAR_WIDTH, bar_r.bottom);
+	EraseRect(&clip_r);
 
 	TextFont(3);  /* Geneva */
 	TextSize(9);
@@ -263,6 +267,19 @@ browser_draw_status(WindowPtr win)
 
 	MoveTo(6, win->portRect.bottom - 4);
 	DrawString(ps);
+
+	/* Always redraw grow box after status bar */
+	save_clip = NewRgn();
+	GetClip(save_clip);
+	SetRect(&clip_r,
+	    win->portRect.right - SCROLLBAR_WIDTH,
+	    win->portRect.bottom - STATUS_BAR_HEIGHT,
+	    win->portRect.right,
+	    win->portRect.bottom);
+	ClipRect(&clip_r);
+	DrawGrowIcon(win);
+	SetClip(save_clip);
+	DisposeRgn(save_clip);
 }
 
 void

@@ -26,6 +26,7 @@
 #include "gopher.h"
 #include "gopher_types.h"
 #include "browser.h"
+#include "content.h"
 
 /* Globals */
 Boolean g_running = true;
@@ -43,7 +44,6 @@ static void handle_mouse_down(EventRecord *event);
 static void handle_key_down(EventRecord *event);
 static void handle_update(EventRecord *event);
 static void handle_activate(EventRecord *event);
-static void draw_page(void);
 /* do_navigate_url and do_open_url_dialog declared in main.h */
 static void handle_nav_button(short btn_id);
 
@@ -109,12 +109,13 @@ main(void)
 	init_menus();
 	create_window();
 
-	/* Initialize browser chrome */
+	/* Initialize browser chrome and content area */
 	{
 		GrafPtr save;
 		GetPort(&save);
 		SetPort(g_window);
 		browser_init(g_window);
+		content_init(g_window);
 		SetPort(save);
 	}
 
@@ -122,6 +123,7 @@ main(void)
 
 	/* Initialize Gopher engine and navigate to home page */
 	gopher_init(&g_gopher);
+	content_set_page(&g_gopher);
 	browser_set_status("Connecting to sdf.org\311");
 	browser_set_url(DEFAULT_HOME_URL);
 	g_app_state = APP_STATE_LOADING;
@@ -182,7 +184,9 @@ main_event_loop(void)
 
 					GetPort(&save);
 					SetPort(g_window);
-					draw_page();
+					content_draw(g_window);
+					content_update_scroll(
+					    g_window);
 					SetPort(save);
 				}
 				if (!g_gopher.receiving) {
@@ -268,6 +272,7 @@ main_event_loop(void)
 		}
 	}
 
+	content_cleanup();
 	browser_cleanup();
 	gopher_cleanup(&g_gopher);
 
@@ -331,6 +336,7 @@ do_navigate_url(const char *url)
 		return;
 
 	g_app_state = APP_STATE_LOADING;
+	content_scroll_to_top();
 
 	snprintf(uri, sizeof(uri), "Loading %.50s\311", host);
 	browser_set_status(uri);
@@ -426,90 +432,6 @@ handle_nav_button(short btn_id)
 	}
 }
 
-/*
- * draw_page - render current Gopher page content in the content area.
- */
-static void
-draw_page(void)
-{
-	Rect r;
-	short i, y;
-	Str255 ps;
-	short len;
-	RgnHandle save_clip;
-
-	browser_get_content_rect(g_window, &r);
-
-	/* Clip to content area */
-	save_clip = NewRgn();
-	GetClip(save_clip);
-	ClipRect(&r);
-	EraseRect(&r);
-
-	if (g_gopher.page_type == PAGE_DIRECTORY) {
-		TextFont(4);  /* Monaco — monospaced for alignment */
-		TextSize(9);
-
-		y = r.top + 11;
-		for (i = 0; i < g_gopher.item_count; i++) {
-			GopherItem *item = &g_gopher.items[i];
-			char line[100];
-			const char *label;
-
-			if (y > r.bottom - 4)
-				break;
-
-			label = gopher_type_label(item->type);
-
-			if (item->type == GOPHER_INFO)
-				snprintf(line, sizeof(line),
-				    "      %s", item->display);
-			else
-				snprintf(line, sizeof(line),
-				    " %s  %s", label, item->display);
-
-			len = strlen(line);
-			if (len > 255) len = 255;
-			ps[0] = len;
-			memcpy(ps + 1, line, len);
-
-			MoveTo(r.left + 4, y);
-			DrawString(ps);
-			y += 11;
-		}
-	} else if (g_gopher.page_type == PAGE_TEXT) {
-		TextFont(4);  /* Monaco */
-		TextSize(9);
-
-		{
-			const char *p = g_gopher.text_buf;
-			const char *end = p + g_gopher.text_len;
-
-			y = r.top + 11;
-			while (p < end && y < r.bottom - 4) {
-				const char *line_start = p;
-				short line_len;
-
-				while (p < end && *p != '\r')
-					p++;
-				line_len = p - line_start;
-				if (p < end)
-					p++;
-
-				if (line_len > 80)
-					line_len = 80;
-
-				MoveTo(r.left + 4, y);
-				DrawText((Ptr)line_start, 0, line_len);
-				y += 11;
-			}
-		}
-	}
-
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
-}
-
 static void
 handle_mouse_down(EventRecord *event)
 {
@@ -544,16 +466,15 @@ handle_mouse_down(EventRecord *event)
 		new_size = GrowWindow(win, event->where,
 		    &limit_rect);
 		if (new_size != 0) {
+			GrafPtr save;
+
 			SizeWindow(win, LoWord(new_size),
 			    HiWord(new_size), true);
-			{
-				GrafPtr save;
-
-				GetPort(&save);
-				SetPort(win);
-				InvalRect(&win->portRect);
-				SetPort(save);
-			}
+			GetPort(&save);
+			SetPort(win);
+			content_resize(win);
+			InvalRect(&win->portRect);
+			SetPort(save);
 		}
 		break;
 	}
@@ -576,57 +497,24 @@ handle_mouse_down(EventRecord *event)
 				/* Nav button clicked */
 				handle_nav_button(click_result);
 			} else if (click_result == -1) {
-				/* Content area click */
-				Rect content_r;
+				/* Check scroll bar first */
+				ControlHandle hit_ctl;
+				short ctl_part;
 
-				browser_get_content_rect(win,
-				    &content_r);
+				ctl_part = FindControl(local_pt,
+				    win, &hit_ctl);
 
-				if (PtInRect(local_pt, &content_r) &&
-				    g_gopher.page_type ==
-				    PAGE_DIRECTORY &&
-				    g_gopher.item_count > 0) {
-					short clicked_item;
-
-					clicked_item = (local_pt.v -
-					    content_r.top) / 11;
-					if (clicked_item >= 0 &&
-					    clicked_item <
-					    g_gopher.item_count) {
-						GopherItem *item =
-						    &g_gopher.items[
-						    clicked_item];
-						if (gopher_type_navigable(
-						    item->type)) {
-							Rect h_r;
-
-							SetRect(&h_r,
-							    content_r
-							    .left,
-							    content_r
-							    .top +
-							    clicked_item
-							    * 11,
-							    content_r
-							    .right,
-							    content_r
-							    .top +
-							    clicked_item
-							    * 11 + 11);
-							InvertRect(
-							    &h_r);
-
-							g_app_state =
-							    APP_STATE_LOADING;
-							gopher_navigate(
-							    &g_gopher,
-							    item->host,
-							    item->port,
-							    item->type,
-							    item
-							    ->selector);
-						}
-					}
+				if (ctl_part &&
+				    hit_ctl ==
+				    content_get_scrollbar()) {
+					content_scroll_click(
+					    win, local_pt,
+					    ctl_part);
+				} else {
+					/* Content area click */
+					content_click(win,
+					    local_pt,
+					    &g_gopher);
 				}
 			}
 			/* -2 = address bar, -3 = disabled btn — handled */
@@ -651,8 +539,27 @@ handle_update(EventRecord *event)
 
 	if (win == g_window) {
 		browser_draw(win);
-		draw_page();
-		DrawGrowIcon(win);
+		content_draw(win);
+		content_update_scroll(win);
+		DrawControls(win);
+
+		/* Draw grow icon clipped to bottom-right corner */
+		{
+			Rect clip_r;
+			RgnHandle save_clip;
+
+			save_clip = NewRgn();
+			GetClip(save_clip);
+			SetRect(&clip_r,
+			    win->portRect.right - SCROLLBAR_WIDTH,
+			    win->portRect.bottom - STATUS_BAR_HEIGHT,
+			    win->portRect.right,
+			    win->portRect.bottom);
+			ClipRect(&clip_r);
+			DrawGrowIcon(win);
+			SetClip(save_clip);
+			DisposeRgn(save_clip);
+		}
 	} else {
 		EraseRect(&win->portRect);
 	}

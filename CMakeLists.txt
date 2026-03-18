@@ -14,6 +14,7 @@ set(GEOMYS_SOURCES
     src/menus.c
     src/dialogs.c
     src/browser.c
+    src/content.c
     src/connection.c
     src/tcp.c
     src/dns.c
