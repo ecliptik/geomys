@@ -27,7 +27,8 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Full Macintosh GUI with mouse support
 - Web browser-style experience: address bar, back/forward/refresh/home buttons
 - Page styles: Traditional, Plain, Markdown
-- Font selection: Monaco 9, Geneva 9, Chicago 12
+- Show Details toggle: show/hide server metadata (dates, sizes) in directory listings
+- Font selection: Chicago 12, Monaco 9/12, Courier 10, Geneva 9/10
 - Hand cursor on navigable items
 - Bottom status bar with connection info
 - Monochrome display

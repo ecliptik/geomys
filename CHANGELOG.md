@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Default font changed from Monaco 9 to Chicago 12
+- Chicago 12 moved to top of Font submenu
+- Address bar: matches nav button height, stops before scrollbar, uses Monaco 12
+- Directory metadata (dates, sizes) drawn right-aligned; metadata truncated with ellipsis when too wide (item names never truncated)
+
+### Added
+- Options > Show Details: toggle to show/hide server metadata columns in directory listings
+
 ## [0.2.1] — Performance & Polish
 
 ### Changed
