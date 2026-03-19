@@ -1,6 +1,6 @@
 # Geomys
 
-A Gopher protocol browser for classic 68000 Macintosh systems, targeting the Macintosh Plus. Implements RFC 1436 (Gopher) and RFC 4266 (Gopher URI scheme) with a full Macintosh GUI for System 6. Cross-compiled on Linux using [Retro68](https://github.com/autc04/Retro68).
+A [Gopher protocol](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh systems, targeting the Macintosh Plus. Implements [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) (Gopher) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) (Gopher URI scheme) with a full Macintosh GUI for System 6. Cross-compiled on Linux using [Retro68](https://github.com/autc04/Retro68).
 
 This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
@@ -17,10 +17,10 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 ## Features
 
 **Gopher Protocol**
-- RFC 1436 (Gopher) and RFC 4266 (Gopher URI scheme)
+- [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) (Gopher) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) (Gopher URI scheme)
 - All canonical types (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, g, I, T)
 - Non-canonical types (d, h, i, p, r, s)
-- Gopher+ protocol support (`+ADMIN`, `+VIEWS` parsing)
+- [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol support (`+ADMIN`, `+VIEWS` parsing)
 - Default home page: `gopher://sdf.org` (user-changeable)
 
 **User Interface**
