@@ -89,10 +89,16 @@ init_menus(void)
 	if (font_submenu) {
 		CheckItem(font_submenu, FONT_MONACO9,
 		    g_prefs.font_id == 4 && g_prefs.font_size == 9);
-		CheckItem(font_submenu, FONT_GENEVA9,
-		    g_prefs.font_id == 3 && g_prefs.font_size == 9);
+		CheckItem(font_submenu, FONT_MONACO12,
+		    g_prefs.font_id == 4 && g_prefs.font_size == 12);
+		CheckItem(font_submenu, FONT_COURIER10,
+		    g_prefs.font_id == 22 && g_prefs.font_size == 10);
 		CheckItem(font_submenu, FONT_CHICAGO12,
 		    g_prefs.font_id == 0 && g_prefs.font_size == 12);
+		CheckItem(font_submenu, FONT_GENEVA9,
+		    g_prefs.font_id == 3 && g_prefs.font_size == 9);
+		CheckItem(font_submenu, FONT_GENEVA10,
+		    g_prefs.font_id == 3 && g_prefs.font_size == 10);
 	}
 
 	/* Favorites menu — managed by favorites.c */
@@ -262,23 +268,41 @@ handle_menu(long menu_id)
 			g_prefs.font_id = 4;   /* Monaco */
 			g_prefs.font_size = 9;
 			break;
-		case FONT_GENEVA9:
-			g_prefs.font_id = 3;   /* Geneva */
-			g_prefs.font_size = 9;
+		case FONT_MONACO12:
+			g_prefs.font_id = 4;   /* Monaco */
+			g_prefs.font_size = 12;
+			break;
+		case FONT_COURIER10:
+			g_prefs.font_id = 22;  /* Courier */
+			g_prefs.font_size = 10;
 			break;
 		case FONT_CHICAGO12:
 			g_prefs.font_id = 0;   /* Chicago */
 			g_prefs.font_size = 12;
+			break;
+		case FONT_GENEVA9:
+			g_prefs.font_id = 3;   /* Geneva */
+			g_prefs.font_size = 9;
+			break;
+		case FONT_GENEVA10:
+			g_prefs.font_id = 3;   /* Geneva */
+			g_prefs.font_size = 10;
 			break;
 		}
 		/* Update checkmarks */
 		if (font_submenu) {
 			CheckItem(font_submenu, FONT_MONACO9,
 			    item == FONT_MONACO9);
-			CheckItem(font_submenu, FONT_GENEVA9,
-			    item == FONT_GENEVA9);
+			CheckItem(font_submenu, FONT_MONACO12,
+			    item == FONT_MONACO12);
+			CheckItem(font_submenu, FONT_COURIER10,
+			    item == FONT_COURIER10);
 			CheckItem(font_submenu, FONT_CHICAGO12,
 			    item == FONT_CHICAGO12);
+			CheckItem(font_submenu, FONT_GENEVA9,
+			    item == FONT_GENEVA9);
+			CheckItem(font_submenu, FONT_GENEVA10,
+			    item == FONT_GENEVA10);
 		}
 		/* Save and redraw */
 		prefs_save(&g_prefs);

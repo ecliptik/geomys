@@ -1007,18 +1007,26 @@ handle_update(EventRecord *event)
 		content_update_scroll(win);
 		DrawControls(win);
 
-		/* Draw grow icon clipped to bottom-right corner */
+		/* Draw grow box: erase area, then clip to the
+		 * full 16x16 grow box and draw. */
 		{
 			Rect clip_r;
 			RgnHandle save_clip;
+
+			SetRect(&clip_r,
+			    win->portRect.right - SCROLLBAR_WIDTH,
+			    win->portRect.bottom - SCROLLBAR_WIDTH,
+			    win->portRect.right,
+			    win->portRect.bottom);
+			EraseRect(&clip_r);
 
 			save_clip = NewRgn();
 			GetClip(save_clip);
 			SetRect(&clip_r,
 			    win->portRect.right - SCROLLBAR_WIDTH,
-			    win->portRect.bottom - STATUS_BAR_HEIGHT,
-			    win->portRect.right,
-			    win->portRect.bottom);
+			    win->portRect.bottom - SCROLLBAR_WIDTH,
+			    win->portRect.right + 1,
+			    win->portRect.bottom + 1);
 			ClipRect(&clip_r);
 			DrawGrowIcon(win);
 			SetClip(save_clip);

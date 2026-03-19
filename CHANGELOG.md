@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] — Performance & Polish
+
+### Changed
+- Scroll performance: line scroll uses ScrollRect to shift pixels, redraws only 1-2 rows (~15x faster)
+- Hover performance: targeted row redraws instead of full page redraw (~12x faster)
+- Page styles now functional: Traditional (type labels), Plain (underlined links), Markdown (bullet prefixes)
+- CP437 character set translation integrated into text page rendering with fast ASCII bypass
+- Gopher+ items show `+` suffix on type labels in Traditional style
+- Grow box clip rect aligned consistently between update and content draw
+- Cursor update skips redundant redraws when hover row unchanged
+
+### Fixed
+- Preferences document icon: corrected FREF local icon ID byte order (was `0100`, now `0001`)
+
 ## [0.2.0] — Polish Pass
 
 ### Added

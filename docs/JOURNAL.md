@@ -55,3 +55,21 @@ Implemented Type 7 search with query dialog — user clicks a search item, enter
 ## 2026-03-18 — Phase 7: Settings, Favorites & Release
 
 User-configurable home page via Options > Home Page dialog (with blank page option). Preferences persist to "Geomys Preferences" file (Preferences folder on System 7, volume root on System 6). Favorites system with Add (Cmd-D), Manage Favorites dialog (Add/Edit/Delete/Move Up/Move Down/Go To), and top 5 shown in Favorites menu. Page titles extracted from clicked item display names (cleaned of date/size metadata). Release script adapted from Flynn for Forgejo and GitHub. MVP feature-complete.
+
+## 2026-03-18 — v0.2.1: Performance & Polish
+
+Addressed all 8 remaining polish items from the v0.2.0 TODO list. Key architectural change: extracted `content_draw_row()` from the directory rendering loop, enabling targeted single-row redraws for both scroll and hover operations.
+
+**Scroll performance:** Line scroll (arrow buttons) now uses `ScrollRect` to shift existing pixels, then draws only the 1-2 newly revealed rows. ~15x faster than full page redraw. Page scroll and thumb drag still use full redraw (acceptable since they replace the entire viewport).
+
+**Hover performance:** Mouse hover now redraws only the 2 affected rows (old highlight removed, new highlight added) instead of the full page. ~12x faster. Early exit added when hover row hasn't changed.
+
+**Page styles functional:** `content_draw_row()` includes style branching for all 3 modes. Traditional shows type labels (`TXT`, `DIR`), Plain shows underlined links without labels, Markdown shows bullet prefixes (`¥` in Mac Roman) for navigable items and `?` for search.
+
+**CP437 integration:** Text page rendering now translates CP437 high bytes to Mac Roman equivalents. Fast path scans for bytes > 0x7F and skips translation for ASCII-clean lines (zero overhead). Glyph-type characters use `copy_char` fallback (single char substitution, no bitmap rendering — too slow on 68000).
+
+**Gopher+ indicator:** Items with `has_plus` show `+` suffix on type labels in Traditional style (e.g., `TXT+`, `DIR+`).
+
+**Prefs icon fix:** Found byte order bug in FREF resource — local icon ID was `$0100` instead of `$0001` (compared against Flynn's correct implementation). Desktop rebuild required after install.
+
+**Grow box alignment:** Standardized clip rect in `handle_update()` to match `content_draw()` — both use `SCROLLBAR_WIDTH` with +1 on right/bottom edges.

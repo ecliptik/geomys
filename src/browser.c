@@ -281,9 +281,12 @@ browser_draw_status(WindowPtr win)
 	SetRect(&bar_r, 0, win->portRect.bottom - STATUS_BAR_HEIGHT,
 	    win->portRect.right, win->portRect.bottom);
 
-	/* Separator line above status bar */
+	/* Separator line above status bar.
+	 * Stop before scrollbar column (like Flynn) so the
+	 * line doesn't extend into the grow box area. */
 	MoveTo(0, bar_r.top);
-	LineTo(win->portRect.right, bar_r.top);
+	LineTo(win->portRect.right - SCROLLBAR_WIDTH - 1,
+	    bar_r.top);
 
 	/* Clear status bar text area (exclude grow box corner) */
 	bar_r.top += 1;
@@ -302,10 +305,16 @@ browser_draw_status(WindowPtr win)
 	MoveTo(6, win->portRect.bottom - 4);
 	DrawString(ps);
 
-	/* Always redraw grow box after status bar.
-	 * +1 on right/bottom matches content.c for consistent rendering. */
+	/* Redraw grow box after status bar.
+	 * Erase first, then clip to full grow box and draw. */
 	save_clip = NewRgn();
 	GetClip(save_clip);
+	SetRect(&clip_r,
+	    win->portRect.right - SCROLLBAR_WIDTH,
+	    win->portRect.bottom - SCROLLBAR_WIDTH,
+	    win->portRect.right,
+	    win->portRect.bottom);
+	EraseRect(&clip_r);
 	SetRect(&clip_r,
 	    win->portRect.right - SCROLLBAR_WIDTH,
 	    win->portRect.bottom - SCROLLBAR_WIDTH,

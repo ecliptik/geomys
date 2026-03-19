@@ -64,8 +64,11 @@ resource 'MENU' (134, "Font") {
 	134, textMenuProc, allEnabled, enabled, "Font",
 	{
 		"Monaco 9", noIcon, noKey, noMark, plain;
+		"Monaco 12", noIcon, noKey, noMark, plain;
+		"Courier 10", noIcon, noKey, noMark, plain;
+		"Chicago 12", noIcon, noKey, noMark, plain;
 		"Geneva 9", noIcon, noKey, noMark, plain;
-		"Chicago 12", noIcon, noKey, noMark, plain
+		"Geneva 10", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -102,7 +105,7 @@ resource 'DITL' (130, "About Geomys") {
 
 		/* 3: App name + version */
 		{10, 55, 30, 280},
-		StaticText { disabled, "Geomys 0.2.0" };
+		StaticText { disabled, "Geomys 0.2.1" };
 
 		/* 4: Machine type (set at runtime) */
 		{33, 55, 49, 280},
@@ -639,7 +642,7 @@ data 'FREF' (128) {
 
 /* File reference - pref type, local icon 1 */
 data 'FREF' (129) {
-	$"7072 6566 0100 00"                                  /* pref... */
+	$"7072 6566 0001 00"                                  /* pref... */
 };
 
 /* Bundle - associates creator 'GEOM' with icons and file refs */

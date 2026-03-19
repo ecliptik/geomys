@@ -165,6 +165,63 @@ Visual presentation options and new application icon.
 
 ---
 
+## v0.2.1 — Performance & Polish
+
+### Phase 1: Scroll + Hover Performance
+**Status: Complete**
+
+Extracted `content_draw_row()` from directory rendering loop. Line scroll uses `ScrollRect` + targeted row redraw. Hover redraws only 2 affected rows.
+
+- `content_draw_row()` static helper: self-contained single-row drawing
+- Line scroll: `ScrollRect` pixel shift + 1-2 row redraws (~15x faster)
+- Hover: targeted 2-row redraws instead of full page (~12x faster)
+- Page/thumb scroll unchanged (full redraw acceptable)
+
+### Phase 2: Grow Box + Hand Cursor
+**Status: Complete**
+
+Grow box clip rect consistency and cursor update optimization.
+
+- Grow box clip in `handle_update()` aligned with `content_draw()` (both use `SCROLLBAR_WIDTH` + 1)
+- Cursor early-exit: skip redraws when hover row unchanged
+
+### Phase 3: Page Styles
+**Status: Complete**
+
+Style branching in `content_draw_row()` for all 3 page styles.
+
+- Traditional: type labels (`TXT`, `DIR`, etc.), monospaced alignment
+- Plain: no type labels, underlines always shown on navigable items
+- Markdown: bullet (`\xA5`) prefix for navigable items, `?` for search
+
+### Phase 4: CP437/Glyph Integration
+**Status: Complete**
+
+CP437 translation in text page rendering with fast ASCII bypass.
+
+- Fast path: scan for bytes > 0x7F, skip translation for ASCII-clean lines
+- Slow path: character-by-character translation through `cp437_table[]`
+- Glyph-type entries use `copy_char` fallback (no bitmap rendering on 68000)
+- Feature-flagged with `GEOMYS_CP437`
+
+### Phase 5: Gopher+ UI Indicator
+**Status: Complete**
+
+`+` suffix on type labels for Gopher+ items in Traditional style.
+
+- Items with `has_plus` show `TXT+`, `DIR+`, etc.
+- Feature-flagged with `GEOMYS_GOPHER_PLUS`
+
+### Phase 6: Prefs Document Icon
+**Status: Complete**
+
+Fixed FREF local icon ID byte order for preferences document icon.
+
+- FREF (129) corrected from `$"0100"` to `$"0001"` (matching Flynn)
+- Desktop rebuild (Cmd-Option at startup) required for icon to appear
+
+---
+
 ## Future Features (Post-MVP)
 
 - **256-color support** — Color QuickDraw on System 7, automatic detection
