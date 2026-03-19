@@ -332,10 +332,13 @@ content_draw_row(WindowPtr win, short row_index)
 		len = strlen(line);
 		if (len > 255) len = 255;
 
+		/* Measure name width once — reused for
+		 * truncation check and metadata positioning */
+		text_width = TextWidth(line, 0, len);
+
 		/* Truncate name with ellipsis only if it
 		 * alone exceeds content width */
-		if (TextWidth(line, 0, len) > content_width
-		    && len > 3) {
+		if (text_width > content_width && len > 3) {
 			short max_w = content_width - ellipsis_w;
 
 			while (len > 3 &&
@@ -343,6 +346,7 @@ content_draw_row(WindowPtr win, short row_index)
 				len--;
 			line[len] = '\xC9';
 			len++;
+			text_width = TextWidth(line, 0, len);
 		}
 
 		/* Draw name (left-aligned) */
@@ -356,7 +360,7 @@ content_draw_row(WindowPtr win, short row_index)
 		if (split_pos > 0 && g_prefs.show_details) {
 			const char *rp = disp + split_pos;
 			short right_len, right_w;
-			short left_w, right_avail;
+			short right_avail;
 			char right_buf[100];
 
 			/* Skip padding spaces */
@@ -367,10 +371,8 @@ content_draw_row(WindowPtr win, short row_index)
 			if (right_len > 0 && right_len < 100) {
 				right_w = TextWidth(rp, 0,
 				    right_len);
-				left_w = TextWidth(line, 0,
-				    len);
 				right_avail = content_width -
-				    left_w - 4;
+				    text_width - 4;
 
 				/* Truncate metadata from right
 				 * with ellipsis if needed */
@@ -418,24 +420,11 @@ content_draw_row(WindowPtr win, short row_index)
 			show_underline = 1;
 
 		if (show_underline) {
-			/* Underline spans left part only */
-			short left_len = len;
-			short li;
-
-			for (li = 0; li < left_len - 1; li++) {
-				if (line[li] == ' ' &&
-				    line[li + 1] == ' ' &&
-				    li > 0) {
-					left_len = li;
-					break;
-				}
-			}
-			ps[0] = left_len;
-			memcpy(ps + 1, line, left_len);
-
+			/* line now contains only prefix + name
+			 * (no metadata), so underline it all */
 			MoveTo(r.left + 4, y - 1);
 			LineTo(r.left + 4 + TextWidth(
-			    line, 0, left_len), y - 1);
+			    line, 0, len), y - 1);
 		}
 	}
 
