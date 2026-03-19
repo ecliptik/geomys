@@ -101,6 +101,11 @@ init_menus(void)
 		    g_prefs.font_id == 3 && g_prefs.font_size == 10);
 	}
 
+	/* Set initial Show Details checkmark */
+	if (options_menu)
+		CheckItem(options_menu, OPT_MENU_DETAILS,
+		    g_prefs.show_details != 0);
+
 	/* Favorites menu — managed by favorites.c */
 
 	DrawMenuBar();
@@ -259,6 +264,22 @@ handle_menu(long menu_id)
 		switch (item) {
 		case OPT_MENU_HOME:
 			do_home_page_dialog();
+			break;
+		case OPT_MENU_DETAILS:
+			g_prefs.show_details =
+			    !g_prefs.show_details;
+			if (options_menu)
+				CheckItem(options_menu,
+				    OPT_MENU_DETAILS,
+				    g_prefs.show_details != 0);
+			prefs_save(&g_prefs);
+			if (g_window) {
+				GrafPtr save;
+				GetPort(&save);
+				SetPort(g_window);
+				content_draw(g_window);
+				SetPort(save);
+			}
 			break;
 		}
 		break;

@@ -48,6 +48,7 @@ prefs_defaults(GeomysPrefs *prefs)
 	prefs->font_size = 12;
 	prefs->favorite_count = 0;
 	prefs->page_style = STYLE_TRADITIONAL;
+	prefs->show_details = 1;
 }
 
 void

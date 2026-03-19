@@ -257,64 +257,154 @@ content_draw_row(WindowPtr win, short row_index)
 	item = &g_page->items[row_index];
 	label = gopher_type_label(item->type);
 
-	/* Format line based on page style */
-	switch (g_prefs.page_style) {
-	case STYLE_PLAIN:
-		snprintf(line, sizeof(line),
-		    "  %s", item->display);
-		break;
-	case STYLE_MARKDOWN:
-		if (item->type == GOPHER_INFO)
-			snprintf(line, sizeof(line),
-			    "  %s", item->display);
-		else if (item->type == GOPHER_SEARCH)
-			snprintf(line, sizeof(line),
-			    " ?  %s", item->display);
-		else if (gopher_type_navigable(item->type))
-			snprintf(line, sizeof(line),
-			    " \xA5  %s", item->display);
-		else
-			snprintf(line, sizeof(line),
-			    "    %s", item->display);
-		break;
-	default: /* STYLE_TRADITIONAL */
-		if (item->type == GOPHER_INFO)
-			snprintf(line, sizeof(line),
-			    "      %s", item->display);
-		else {
-#ifdef GEOMYS_GOPHER_PLUS
-			if (item->has_plus)
-				snprintf(line, sizeof(line),
-				    " %s+ %s", label,
-				    item->display);
-			else
-#endif
-				snprintf(line, sizeof(line),
-				    " %s  %s", label,
-				    item->display);
+	/* Find split point in display text: first run of
+	 * 2+ spaces separates name from metadata */
+	{
+		const char *disp = item->display;
+		short dlen = strlen(disp);
+		short split_pos = -1;
+		short name_len;
+		short li;
+
+		/* Only split non-info items — info lines are
+		 * plain text that may have natural double
+		 * spaces (e.g. after periods) */
+		if (item->type != GOPHER_INFO) {
+			for (li = 1; li < dlen - 1; li++) {
+				if (disp[li] == ' ' &&
+				    disp[li + 1] == ' ') {
+					split_pos = li;
+					break;
+				}
+			}
 		}
-		break;
+
+		/* Determine name portion length */
+		name_len = (split_pos > 0) ? split_pos : dlen;
+
+		/* Format line with style prefix using name
+		 * portion only */
+		switch (g_prefs.page_style) {
+		case STYLE_PLAIN:
+			snprintf(line, sizeof(line),
+			    "  %.*s", name_len, disp);
+			break;
+		case STYLE_MARKDOWN:
+			if (item->type == GOPHER_INFO)
+				snprintf(line, sizeof(line),
+				    "  %.*s", name_len, disp);
+			else if (item->type == GOPHER_SEARCH)
+				snprintf(line, sizeof(line),
+				    " ?  %.*s",
+				    name_len, disp);
+			else if (gopher_type_navigable(
+			    item->type))
+				snprintf(line, sizeof(line),
+				    " \xA5  %.*s",
+				    name_len, disp);
+			else
+				snprintf(line, sizeof(line),
+				    "    %.*s",
+				    name_len, disp);
+			break;
+		default: /* STYLE_TRADITIONAL */
+			if (item->type == GOPHER_INFO)
+				snprintf(line, sizeof(line),
+				    "      %.*s",
+				    name_len, disp);
+			else {
+#ifdef GEOMYS_GOPHER_PLUS
+				if (item->has_plus)
+					snprintf(line,
+					    sizeof(line),
+					    " %s+ %.*s", label,
+					    name_len, disp);
+				else
+#endif
+					snprintf(line,
+					    sizeof(line),
+					    " %s  %.*s", label,
+					    name_len, disp);
+			}
+			break;
+		}
+
+		len = strlen(line);
+		if (len > 255) len = 255;
+
+		/* Truncate name with ellipsis only if it
+		 * alone exceeds content width */
+		if (TextWidth(line, 0, len) > content_width
+		    && len > 3) {
+			short max_w = content_width - ellipsis_w;
+
+			while (len > 3 &&
+			    TextWidth(line, 0, len) > max_w)
+				len--;
+			line[len] = '\xC9';
+			len++;
+		}
+
+		/* Draw name (left-aligned) */
+		ps[0] = len;
+		memcpy(ps + 1, line, len);
+		MoveTo(r.left + 4, y - 2);
+		DrawString(ps);
+
+		/* Draw metadata right-aligned when Show
+		 * Details is on and metadata exists */
+		if (split_pos > 0 && g_prefs.show_details) {
+			const char *rp = disp + split_pos;
+			short right_len, right_w;
+			short left_w, right_avail;
+			char right_buf[100];
+
+			/* Skip padding spaces */
+			while (*rp == ' ' && rp < disp + dlen)
+				rp++;
+			right_len = dlen - (rp - disp);
+
+			if (right_len > 0 && right_len < 100) {
+				right_w = TextWidth(rp, 0,
+				    right_len);
+				left_w = TextWidth(line, 0,
+				    len);
+				right_avail = content_width -
+				    left_w - 4;
+
+				/* Truncate metadata from right
+				 * with ellipsis if needed */
+				if (right_w > right_avail &&
+				    right_len > 1) {
+					short mw = right_avail
+					    - ellipsis_w;
+					memcpy(right_buf, rp,
+					    right_len);
+					while (right_len > 1 &&
+					    TextWidth(right_buf,
+					    0, right_len) > mw)
+						right_len--;
+					right_buf[right_len] =
+					    '\xC9';
+					right_len++;
+					right_w = TextWidth(
+					    right_buf, 0,
+					    right_len);
+					rp = right_buf;
+				}
+
+				/* Right-align metadata */
+				if (right_avail > ellipsis_w) {
+					ps[0] = right_len;
+					memcpy(ps + 1, rp,
+					    right_len);
+					MoveTo(r.right - 4 -
+					    right_w, y - 2);
+					DrawString(ps);
+				}
+			}
+		}
 	}
-
-	len = strlen(line);
-	if (len > 255) len = 255;
-
-	text_width = TextWidth(line, 0, len);
-	if (text_width > content_width && len > 3) {
-		short max_w = content_width - ellipsis_w;
-
-		while (len > 3 &&
-		    TextWidth(line, 0, len) > max_w)
-			len--;
-		line[len] = '\xC9';
-		len++;
-	}
-
-	ps[0] = len;
-	memcpy(ps + 1, line, len);
-
-	MoveTo(r.left + 4, y - 2);
-	DrawString(ps);
 
 	/* Underline for hover, or always for navigable
 	 * items in Plain style */
@@ -328,10 +418,24 @@ content_draw_row(WindowPtr win, short row_index)
 			show_underline = 1;
 
 		if (show_underline) {
-			short tw = StringWidth(ps);
+			/* Underline spans left part only */
+			short left_len = len;
+			short li;
+
+			for (li = 0; li < left_len - 1; li++) {
+				if (line[li] == ' ' &&
+				    line[li + 1] == ' ' &&
+				    li > 0) {
+					left_len = li;
+					break;
+				}
+			}
+			ps[0] = left_len;
+			memcpy(ps + 1, line, left_len);
 
 			MoveTo(r.left + 4, y - 1);
-			LineTo(r.left + 4 + tw, y - 1);
+			LineTo(r.left + 4 + TextWidth(
+			    line, 0, left_len), y - 1);
 		}
 	}
 

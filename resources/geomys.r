@@ -56,7 +56,9 @@ resource 'MENU' (132, "Options") {
 		"Home Page\311", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Font", noIcon, noKey, noMark, plain;
-		"Page Style", noIcon, noKey, noMark, plain
+		"Page Style", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Show Details", noIcon, noKey, noMark, plain
 	}
 };
 

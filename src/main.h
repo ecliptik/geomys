@@ -47,6 +47,8 @@
 /* separator = 2 */
 #define OPT_MENU_FONT       3   /* hierarchical submenu trigger */
 #define OPT_MENU_STYLE      4   /* hierarchical submenu trigger */
+/* separator = 5 */
+#define OPT_MENU_DETAILS    6   /* "Show Details" toggle */
 
 /* Font submenu items */
 #define FONT_CHICAGO12      1

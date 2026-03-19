@@ -5,7 +5,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define PREFS_VERSION    2
+#define PREFS_VERSION    3
 #define MAX_FAVORITES    20
 
 /* Page display styles */
@@ -28,6 +28,7 @@ typedef struct {
 	GopherFavorite  favorites[MAX_FAVORITES];
 	/* --- v2 fields below --- */
 	short           page_style;     /* STYLE_TRADITIONAL/PLAIN/MARKDOWN */
+	short           show_details;   /* 1 = show metadata columns, 0 = names only */
 	/* NOTE: always append new fields here, never insert above */
 } GeomysPrefs;
 
