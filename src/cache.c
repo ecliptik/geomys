@@ -170,13 +170,16 @@ cache_retrieve(short history_idx, GopherState *gs)
 
 	if (slot->page_type == PAGE_DIRECTORY && slot->items) {
 		long size = (long)slot->item_count * sizeof(GopherItem);
+		long buf_size = (long)GOPHER_MAX_ITEMS * sizeof(GopherItem);
 
 		if (!gs->items) {
-			gs->items = (GopherItem *)NewPtr(
-			    (long)GOPHER_MAX_ITEMS * sizeof(GopherItem));
+			gs->items = (GopherItem *)NewPtr(buf_size);
 			if (!gs->items)
 				return false;
 		}
+		/* Clear entire buffer first to prevent stale items
+		 * from previous page bleeding through on scroll */
+		memset(gs->items, 0, buf_size);
 		memcpy(gs->items, slot->items, size);
 		gs->item_count = slot->item_count;
 		return true;

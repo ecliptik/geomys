@@ -118,6 +118,10 @@ main(void)
 {
 	init_toolbox();
 	init_apple_events();
+
+	/* Load preferences before menus so checkmarks are correct */
+	prefs_load(&g_prefs);
+
 	init_menus();
 	create_window();
 
@@ -135,9 +139,6 @@ main(void)
 	}
 
 	update_menus();
-
-	/* Load preferences */
-	prefs_load(&g_prefs);
 
 #ifdef GEOMYS_FAVORITES
 	/* Initialize favorites menu */
@@ -448,7 +449,12 @@ do_navigate_url_titled(const char *url, const char *title)
 		browser_draw_status(g_window);
 		SetPort(save);
 	} else {
-		/* Success — push to history */
+		/* Success — push to history.
+		 * Invalidate forward cache entries first since
+		 * history_push clears forward history. */
+#ifdef GEOMYS_CACHE
+		cache_invalidate_from(history_current_index() + 1);
+#endif
 		history_push(host, port, type, selector,
 		    (title && title[0]) ? title : host,
 		    0L);
@@ -580,6 +586,11 @@ do_search_dialog(const char *title, const char *host,
 
 			if (gopher_navigate(&g_gopher, host, port,
 			    GOPHER_DIRECTORY, full_sel)) {
+				/* Invalidate forward cache before push */
+#ifdef GEOMYS_CACHE
+				cache_invalidate_from(
+				    history_current_index() + 1);
+#endif
 				/* Push to history with query preserved */
 				snprintf(search_title,
 				    sizeof(search_title),
@@ -868,6 +879,10 @@ handle_nav_button(short btn_id)
 	case NAV_BTN_REFRESH: {
 		char url[300];
 
+#ifdef GEOMYS_CACHE
+		/* Invalidate cached copy so we re-fetch from server */
+		cache_invalidate(history_current_index());
+#endif
 		gopher_build_uri(url, sizeof(url),
 		    g_gopher.cur_host, g_gopher.cur_port,
 		    g_gopher.cur_type, g_gopher.cur_selector);

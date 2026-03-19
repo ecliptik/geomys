@@ -29,6 +29,8 @@ static short g_row_height = ROW_HEIGHT_DEFAULT;  /* dynamic row height */
 static short g_font_id = 4;         /* current font (Monaco) */
 static short g_font_size = 9;       /* current font size */
 static CursHandle g_hand_cursor = 0L;  /* hand cursor for links */
+static short g_scrolling = 0;          /* 1 during scroll action — skip offscreen */
+static short g_hover_row = -1;         /* currently highlighted row, -1 = none */
 
 /* Scroll bar action proc */
 static pascal void scroll_action(ControlHandle ctl, short part);
@@ -122,6 +124,7 @@ content_set_page(GopherState *gs)
 {
 	g_page = gs;
 	g_scroll_pos = 0;
+	g_hover_row = -1;
 }
 
 void
@@ -173,7 +176,7 @@ content_draw(WindowPtr win)
 	content_get_rect(win, &r);
 
 #ifdef GEOMYS_OFFSCREEN
-	use_offscreen = offscreen_is_ready();
+	use_offscreen = offscreen_is_ready() && !g_scrolling;
 	if (use_offscreen)
 		offscreen_begin(win);
 #endif
@@ -250,8 +253,17 @@ content_draw(WindowPtr win)
 			ps[0] = len;
 			memcpy(ps + 1, line, len);
 
-			MoveTo(r.left + 4, y);
+			MoveTo(r.left + 4, y - 2);
 			DrawString(ps);
+
+			/* Draw underline for hovered navigable items.
+			 * Manual line 1px below text, within row bounds. */
+			if (i == g_hover_row) {
+				short tw = StringWidth(ps);
+				MoveTo(r.left + 4, y - 1);
+				LineTo(r.left + 4 + tw, y - 1);
+			}
+
 			last_y = y;
 			y += g_row_height;
 		}
@@ -303,7 +315,7 @@ content_draw(WindowPtr win)
 						line_len--;
 				}
 
-				MoveTo(r.left + 4, y);
+				MoveTo(r.left + 4, y - 2);
 				DrawText((Ptr)line_start, 0,
 				    line_len);
 
@@ -454,14 +466,21 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 void
 content_scroll_click(WindowPtr win, Point local_pt, short part)
 {
-	(void)win;
-
 	if (!g_scrollbar)
 		return;
 
 	if (part == inThumb) {
+		GrafPtr save;
+
 		TrackControl(g_scrollbar, local_pt, 0L);
 		g_scroll_pos = GetControlValue(g_scrollbar);
+		g_hover_row = -1;
+
+		/* Redraw after thumb release */
+		GetPort(&save);
+		SetPort(win);
+		content_draw(win);
+		SetPort(save);
 	} else {
 		TrackControl(g_scrollbar, local_pt, g_scroll_upp);
 	}
@@ -504,12 +523,15 @@ scroll_action(ControlHandle ctl, short part)
 		GrafPtr save;
 
 		g_scroll_pos = new_pos;
+		g_hover_row = -1;  /* clear hover on scroll */
 		SetControlValue(ctl, new_pos);
 
 		win = (*ctl)->contrlOwner;
 		GetPort(&save);
 		SetPort(win);
+		g_scrolling = 1;  /* skip offscreen during scroll for speed */
 		content_draw(win);
+		g_scrolling = 0;
 		SetPort(save);
 	}
 }
@@ -587,11 +609,16 @@ content_cursor_update(WindowPtr win, Point local_pt)
 {
 	Rect r;
 	short row;
+	short new_hover = -1;
 
 	content_get_rect(win, &r);
 
 	/* Only change cursor if mouse is in content area */
 	if (!PtInRect(local_pt, &r)) {
+		if (g_hover_row >= 0) {
+			g_hover_row = -1;
+			content_draw(win);  /* remove underline */
+		}
 		InitCursor();
 		return;
 	}
@@ -607,14 +634,19 @@ content_cursor_update(WindowPtr win, Point local_pt)
 
 			if (item->type != GOPHER_INFO &&
 			    gopher_type_navigable(item->type)) {
-				/* Show hand cursor */
+				new_hover = row;
 				if (g_hand_cursor)
 					SetCursor(*g_hand_cursor);
-				return;
 			}
 		}
 	}
 
-	/* Default: arrow cursor */
-	InitCursor();
+	/* Update hover highlight — redraw affected rows */
+	if (new_hover != g_hover_row) {
+		g_hover_row = new_hover;
+		content_draw(win);
+	}
+
+	if (new_hover < 0)
+		InitCursor();
 }

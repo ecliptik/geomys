@@ -147,7 +147,7 @@ draw_nav_button(short btn_id, Boolean pressed)
 	}
 }
 
-/* Back arrow: filled left-pointing triangle */
+/* Back arrow: filled left-pointing triangle with frame for clean edges */
 static void
 draw_back_icon(Rect *r, Boolean dim)
 {
@@ -160,10 +160,9 @@ draw_back_icon(Rect *r, Boolean dim)
 	if (dim) PenPat(&qd.gray);
 	PenSize(1, 1);
 
-	/* Filled arrow head */
 	poly = OpenPoly();
 	MoveTo(cx + 4, cy - 5);
-	LineTo(cx - 4, cy);
+	LineTo(cx - 3, cy);
 	LineTo(cx + 4, cy + 5);
 	LineTo(cx + 4, cy - 5);
 	ClosePoly();
@@ -171,12 +170,13 @@ draw_back_icon(Rect *r, Boolean dim)
 		FillPoly(poly, &qd.gray);
 	else
 		PaintPoly(poly);
+	FramePoly(poly);
 	KillPoly(poly);
 
 	PenNormal();
 }
 
-/* Forward arrow: filled right-pointing triangle */
+/* Forward arrow: filled right-pointing triangle with frame for clean edges */
 static void
 draw_forward_icon(Rect *r, Boolean dim)
 {
@@ -189,10 +189,9 @@ draw_forward_icon(Rect *r, Boolean dim)
 	if (dim) PenPat(&qd.gray);
 	PenSize(1, 1);
 
-	/* Filled arrow head */
 	poly = OpenPoly();
 	MoveTo(cx - 4, cy - 5);
-	LineTo(cx + 4, cy);
+	LineTo(cx + 3, cy);
 	LineTo(cx - 4, cy + 5);
 	LineTo(cx - 4, cy - 5);
 	ClosePoly();
@@ -200,6 +199,7 @@ draw_forward_icon(Rect *r, Boolean dim)
 		FillPoly(poly, &qd.gray);
 	else
 		PaintPoly(poly);
+	FramePoly(poly);
 	KillPoly(poly);
 
 	PenNormal();

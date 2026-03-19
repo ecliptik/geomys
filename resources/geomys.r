@@ -405,170 +405,241 @@ resource 'DITL' (128, "Alert") {
 };
 
 /* Hand cursor for hovering over navigable items */
+/* Classic pointing hand — open palm with index finger up */
 data 'CURS' (129) {
-	/* Cursor bitmap (16x16) — pointing hand */
-	$"0600 0900 0900 0900"
-	$"09C0 09B0 6DB8 9248"
-	$"9008 8008 4008 2008"
-	$"2010 1010 0820 0840"
+	/* Cursor bitmap (16x16) */
+	$"1800 2400 2400 2400"
+	$"2400 27C0 2DB0 3938"
+	$"3828 2028 2028 1028"
+	$"1010 0810 0410 0410"
 	/* Mask bitmap (16x16) */
-	$"0600 0F00 0F00 0F00"
-	$"0FC0 0FF0 6FF8 FFF8"
-	$"FFF8 FFF8 7FF8 3FF8"
-	$"3FF0 1FF0 0FE0 0FC0"
-	/* Hotspot */
-	$"0001 0001"
+	$"1800 3C00 3C00 3C00"
+	$"3C00 3FC0 3FF0 3FF8"
+	$"3FF8 3FF8 3FF8 1FF8"
+	$"1FF0 0FF0 07F0 07F0"
+	/* Hotspot (tip of finger) */
+	$"0000 0004"
 };
 
 /* Application icon - 32x32 bitmap for About dialog */
-/* Pocket gopher head: round ears, eyes, prominent front teeth, whiskers */
+/* Compact Mac with Gopher directory listing on screen (Flynn style) */
 data 'ICON' (128) {
-	$"00000000"  /* row 0 */
-	$"03800380"  /* row 1: ears (two small circles at top) */
-	$"07C007C0"  /* row 2: ears wider */
-	$"07C007C0"  /* row 3: ears */
-	$"03E00F80"  /* row 4: ears meet head */
-	$"01FFFF00"  /* row 5: head top */
-	$"00FFFE00"  /* row 6 */
-	$"007FFC00"  /* row 7: forehead */
-	$"00FFFE00"  /* row 8: brow */
-	$"01FFFF00"  /* row 9 */
-	$"03CFFF80"  /* row 10: eyes (gaps in fill) */
-	$"07C7FFC0"  /* row 11: eyes */
-	$"0FE3FFE0"  /* row 12: cheeks */
-	$"0FF1FFF0"  /* row 13 */
-	$"1FFFFFF8"  /* row 14: wide cheeks */
-	$"1FFFFFF8"  /* row 15 */
-	$"0FFFFFF0"  /* row 16: nose area */
-	$"07FFFFE0"  /* row 17 */
-	$"03FFFFC0"  /* row 18: mouth area */
-	$"01EFEE00"  /* row 19: whiskers (...|.|.|..) */
-	$"00E7CE00"  /* row 20: teeth gap */
-	$"00E3CE00"  /* row 21: front teeth (two rectangles) */
-	$"00E3CE00"  /* row 22: teeth */
-	$"00F7DE00"  /* row 23: chin */
-	$"007FFC00"  /* row 24: jaw */
-	$"003FF800"  /* row 25 */
-	$"001FF000"  /* row 26 */
-	$"000FE000"  /* row 27 */
-	$"0007C000"  /* row 28 */
-	$"00038000"  /* row 29 */
-	$"00000000"  /* row 30 */
-	$"00000000"  /* row 31 */
+	$"00000000 03FFFF00"  /* row 0-1: top bezel */
+	$"07FFFF80 0FFFFFC0"  /* row 2-3: bezel */
+	$"0E0001C0 0C0000C0"  /* row 4-5: screen top */
+	$"0CBFC0C0 0C0000C0"  /* row 6-7: bullet+line, blank */
+	$"0CB7E0C0 0C0000C0"  /* row 8-9: bullet+line, blank */
+	$"0CBF00C0 0C0000C0"  /* row 10-11: bullet+line (short), blank */
+	$"0CBFE0C0 0C0000C0"  /* row 12-13: bullet+line, blank */
+	$"0CB780C0 0E0001C0"  /* row 14-15: bullet+line (short), screen bottom */
+	$"0FFFFFC0 0C0000C0"  /* row 16-17: bezel line, base */
+	$"0C0000C0 0C0000C0"  /* row 18-19: base */
+	$"0C007EC0 0C0000C0"  /* row 20-21: floppy slot */
+	$"0C0000C0 0FFFFFC0"  /* row 22-23: base bottom */
+	$"07FFFF80 03FFFF00"  /* row 24-25: feet */
+	$"00000000 00000000"  /* row 26-27 */
+	$"00000000 00000000"  /* row 28-29 */
+	$"00000000 00000000"  /* row 30-31 */
 };
 
 /* Application icon - 32x32 1-bit + mask */
 data 'ICN#' (128) {
 	/* Icon bitmap (same as ICON) */
-	$"00000000"
-	$"03800380"
-	$"07C007C0"
-	$"07C007C0"
-	$"03E00F80"
-	$"01FFFF00"
-	$"00FFFE00"
-	$"007FFC00"
-	$"00FFFE00"
-	$"01FFFF00"
-	$"03CFFF80"
-	$"07C7FFC0"
-	$"0FE3FFE0"
-	$"0FF1FFF0"
-	$"1FFFFFF8"
-	$"1FFFFFF8"
-	$"0FFFFFF0"
-	$"07FFFFE0"
-	$"03FFFFC0"
-	$"01EFEE00"
-	$"00E7CE00"
-	$"00E3CE00"
-	$"00E3CE00"
-	$"00F7DE00"
-	$"007FFC00"
-	$"003FF800"
-	$"001FF000"
-	$"000FE000"
-	$"0007C000"
-	$"00038000"
-	$"00000000"
-	$"00000000"
-	/* Mask bitmap (silhouette) */
-	$"00000000"
-	$"03800380"
-	$"07C007C0"
-	$"07C007C0"
-	$"03E00F80"
-	$"01FFFF00"
-	$"00FFFE00"
-	$"007FFC00"
-	$"00FFFE00"
-	$"01FFFF00"
-	$"03FFFF80"
-	$"07FFFFC0"
-	$"0FFFFFE0"
-	$"0FFFFFF0"
-	$"1FFFFFF8"
-	$"1FFFFFF8"
-	$"0FFFFFF0"
-	$"07FFFFE0"
-	$"03FFFFC0"
-	$"01FFFF00"
-	$"00FFFE00"
-	$"00FFFE00"
-	$"00FFFE00"
-	$"00FFFE00"
-	$"007FFC00"
-	$"003FF800"
-	$"001FF000"
-	$"000FE000"
-	$"0007C000"
-	$"00038000"
-	$"00000000"
-	$"00000000"
+	$"00000000 03FFFF00"
+	$"07FFFF80 0FFFFFC0"
+	$"0E0001C0 0C0000C0"
+	$"0CBFC0C0 0C0000C0"
+	$"0CB7E0C0 0C0000C0"
+	$"0CBF00C0 0C0000C0"
+	$"0CBFE0C0 0C0000C0"
+	$"0CB780C0 0E0001C0"
+	$"0FFFFFC0 0C0000C0"
+	$"0C0000C0 0C0000C0"
+	$"0C007EC0 0C0000C0"
+	$"0C0000C0 0FFFFFC0"
+	$"07FFFF80 03FFFF00"
+	$"00000000 00000000"
+	$"00000000 00000000"
+	$"00000000 00000000"
+	/* Mask bitmap */
+	$"00000000 03FFFF00"
+	$"07FFFF80 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"0FFFFFC0 0FFFFFC0"
+	$"07FFFF80 03FFFF00"
+	$"00000000 00000000"
+	$"00000000 00000000"
+	$"00000000 00000000"
 };
 
 /* Application icon - 16x16 1-bit + mask */
-/* Pocket gopher mini: ears, eyes, teeth */
+/* Compact Mac mini with directory listing on screen */
 data 'ics#' (128) {
 	/* Icon bitmap */
-	$"4100"  /* .#....#. — ears */
-	$"6300"  /* .##...## — ears */
-	$"3E00"  /* ..#####. — head top */
-	$"7F00"  /* .####### — head */
-	$"7700"  /* .###.### — eyes */
-	$"7F00"  /* .####### — cheeks */
-	$"3E00"  /* ..#####. — nose */
-	$"1C00"  /* ...###.. — mouth */
-	$"1400"  /* ...#.#.. — teeth */
-	$"1400"  /* ...#.#.. — teeth */
-	$"1C00"  /* ...###.. — chin */
-	$"0800"  /* ....#... — neck */
-	$"0000"
-	$"0000"
-	$"0000"
-	$"0000"
+	$"1FF0"  /* row 0:  ...#########.... — top bezel */
+	$"3FF8"  /* row 1:  ..###########... — bezel */
+	$"6008"  /* row 2:  .##.........#... — screen top */
+	$"6F88"  /* row 3:  .##.#####...#... — bullet+line */
+	$"6D88"  /* row 4:  .##.##.##...#... — bullet+line */
+	$"6F08"  /* row 5:  .##.####....#... — bullet+line short */
+	$"6DE8"  /* row 6:  .##.##.####.#... — bullet+line */
+	$"6008"  /* row 7:  .##.........#... — screen bottom */
+	$"7FF8"  /* row 8:  .###########.... — bezel line */
+	$"6008"  /* row 9:  .##.........#... — base */
+	$"63C8"  /* row 10: .##...####..#... — floppy */
+	$"6008"  /* row 11: .##.........#... — base */
+	$"7FF8"  /* row 12: .###########.... — base bottom */
+	$"3FF0"  /* row 13: ..#########..... — feet */
+	$"0000"  /* row 14 */
+	$"0000"  /* row 15 */
 	/* Mask bitmap */
-	$"4100"
-	$"6300"
-	$"3E00"
-	$"7F00"
-	$"7F00"
-	$"7F00"
-	$"3E00"
-	$"1C00"
-	$"1C00"
-	$"1C00"
-	$"1C00"
-	$"0800"
-	$"0000"
-	$"0000"
+	$"1FF0"
+	$"3FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"7FF8"
+	$"3FF0"
 	$"0000"
 	$"0000"
 };
 
-/* File reference - APPL type, icon 0 */
+/* Preferences document icon - 32x32 1-bit + mask */
+/* Directory listing on paper (hierarchy document) */
+data 'ICN#' (129) {
+	/* Icon bitmap */
+	$"1FFFF800" $"10000C00"
+	$"10000A00" $"10000900"
+	$"10000F00" $"10000100"
+	$"10000100" $"13F80100"
+	$"10000100" $"10000100"
+	$"11BF0100" $"10000100"
+	$"11BFC100" $"10000100"
+	$"11BC0100" $"10000100"
+	$"11BFE100" $"10000100"
+	$"11BF8100" $"10000100"
+	$"11BE0100" $"10000100"
+	$"11BFF100" $"10000100"
+	$"11BF0100" $"10000100"
+	$"11BFC100" $"10000100"
+	$"10000100" $"1FFFF100"
+	$"00000000" $"00000000"
+	/* Mask bitmap */
+	$"1FFFF800" $"1FFFFC00"
+	$"1FFFFE00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"1FFFFF00" $"1FFFFF00"
+	$"00000000" $"00000000"
+};
+
+/* Preferences document icon - 16x16 1-bit + mask */
+data 'ics#' (129) {
+	/* Icon bitmap */
+	$"7FE0"  /* top */
+	$"4030"  /* dog-ear */
+	$"4028"
+	$"403C"  /* fold */
+	$"4004"
+	$"5E04"  /* title line */
+	$"4004"
+	$"4D84"  /* items */
+	$"4DE4"
+	$"4D04"
+	$"4DF4"
+	$"4D84"
+	$"4DC4"
+	$"4004"
+	$"7FFC"  /* bottom */
+	$"0000"
+	/* Mask bitmap */
+	$"7FE0"
+	$"7FF0"
+	$"7FF8"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"7FFC"
+	$"0000"
+};
+
+/* Preferences document ICON for About dialog */
+data 'ICON' (129) {
+	$"1FFFF800"
+	$"10000C00"
+	$"10000A00"
+	$"10000900"
+	$"10000F00"
+	$"10000100"
+	$"10000100"
+	$"13F80100"
+	$"10000100"
+	$"10000100"
+	$"11BF0100"
+	$"10000100"
+	$"11BFC100"
+	$"10000100"
+	$"11BC0100"
+	$"10000100"
+	$"11BFE100"
+	$"10000100"
+	$"11BF8100"
+	$"10000100"
+	$"11BE0100"
+	$"10000100"
+	$"11BFF100"
+	$"10000100"
+	$"11BF0100"
+	$"10000100"
+	$"11BFC100"
+	$"10000100"
+	$"10000100"
+	$"1FFFF100"
+	$"00000000"
+	$"00000000"
+};
+
+/* File reference - APPL type, local icon 0 */
 data 'FREF' (128) {
 	$"4150 504C 0000 00"                                  /* APPL... */
+};
+
+/* File reference - pref type, local icon 1 */
+data 'FREF' (129) {
+	$"7072 6566 0100 00"                                  /* pref... */
 };
 
 /* Bundle - associates creator 'GEOM' with icons and file refs */
@@ -577,11 +648,13 @@ data 'BNDL' (128) {
 	$"0000"                                               /* owner ID */
 	$"0001"                                               /* 2 types */
 	$"4652 4546"                                          /* FREF */
-	$"0000"                                               /* 1 entry */
+	$"0001"                                               /* 2 entries */
 	$"0000 0080"                                          /* local 0 -> res 128 (APPL) */
+	$"0001 0081"                                          /* local 1 -> res 129 (pref) */
 	$"4943 4E23"                                          /* ICN# */
-	$"0000"                                               /* 1 entry */
+	$"0001"                                               /* 2 entries */
 	$"0000 0080"                                          /* local 0 -> res 128 (app icon) */
+	$"0001 0081"                                          /* local 1 -> res 129 (prefs icon) */
 };
 
 /* Application signature string */
