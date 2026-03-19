@@ -44,8 +44,8 @@ prefs_defaults(GeomysPrefs *prefs)
 	strncpy(prefs->dns_server, "1.1.1.1",
 	    sizeof(prefs->dns_server) - 1);
 	prefs->dns_server[sizeof(prefs->dns_server) - 1] = '\0';
-	prefs->font_id = 4;    /* Monaco */
-	prefs->font_size = 9;
+	prefs->font_id = 0;    /* Chicago */
+	prefs->font_size = 12;
 	prefs->favorite_count = 0;
 	prefs->page_style = STYLE_TRADITIONAL;
 }

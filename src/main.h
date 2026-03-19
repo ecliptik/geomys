@@ -49,10 +49,10 @@
 #define OPT_MENU_STYLE      4   /* hierarchical submenu trigger */
 
 /* Font submenu items */
-#define FONT_MONACO9        1
-#define FONT_MONACO12       2
-#define FONT_COURIER10      3
-#define FONT_CHICAGO12      4
+#define FONT_CHICAGO12      1
+#define FONT_MONACO9        2
+#define FONT_MONACO12       3
+#define FONT_COURIER10      4
 #define FONT_GENEVA9        5
 #define FONT_GENEVA10       6
 

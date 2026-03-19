@@ -22,8 +22,8 @@ typedef struct {
 	short           version;
 	char            home_url[256];      /* home page URL, empty = blank */
 	char            dns_server[16];     /* DNS server IP */
-	short           font_id;            /* content font ID (4=Monaco) */
-	short           font_size;          /* content font size (9) */
+	short           font_id;            /* content font ID (0=Chicago) */
+	short           font_size;          /* content font size (12) */
 	short           favorite_count;
 	GopherFavorite  favorites[MAX_FAVORITES];
 	/* --- v2 fields below --- */
