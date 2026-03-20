@@ -51,6 +51,7 @@ history_push(const char *host, short port, char type,
 	} else {
 		e->query[0] = '\0';
 	}
+	e->scroll_pos = 0;
 
 	g_pos = g_count;
 	g_count++;
@@ -112,4 +113,17 @@ short
 history_current_index(void)
 {
 	return g_pos;
+}
+
+void
+history_set_scroll(short scroll_pos)
+{
+	if (g_pos >= 0 && g_pos < g_count)
+		g_history[g_pos].scroll_pos = scroll_pos;
+}
+
+short
+history_get_scroll(const HistoryEntry *e)
+{
+	return e->scroll_pos;
 }

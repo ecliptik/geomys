@@ -44,6 +44,7 @@ WindowPtr g_window = 0L;
 short g_app_state = APP_STATE_IDLE;
 GopherState g_gopher;
 GeomysPrefs g_prefs;
+static short g_pending_scroll = -1;  /* deferred scroll restore, -1 = none */
 
 /* Forward declarations */
 static void init_toolbox(void);
@@ -273,6 +274,17 @@ main_event_loop(void)
 
 					GetPort(&save);
 					SetPort(g_window);
+
+					/* Restore deferred scroll position */
+					if (g_pending_scroll >= 0) {
+						content_update_scroll(
+						    g_window);
+						content_set_scroll_pos(
+						    g_pending_scroll);
+						g_pending_scroll = -1;
+					}
+
+					content_draw(g_window);
 					browser_draw_status(g_window);
 					browser_draw(g_window);
 					SetPort(save);
@@ -364,15 +376,21 @@ handle_key_down(EventRecord *event)
 	if (event->modifiers & cmdKey) {
 		/* Cmd-[ = back, Cmd-] = forward */
 		if (key == '[') {
-			if (history_can_back())
+			if (history_can_back()) {
+				history_set_scroll(
+				    content_get_scroll_pos());
 				navigate_history_entry(
 				    history_back(), -1);
+			}
 			return;
 		}
 		if (key == ']') {
-			if (history_can_forward())
+			if (history_can_forward()) {
+				history_set_scroll(
+				    content_get_scroll_pos());
 				navigate_history_entry(
 				    history_forward(), 1);
+			}
 			return;
 		}
 
@@ -425,6 +443,9 @@ do_navigate_url_titled(const char *url, const char *title)
 	    &port, &type, selector, sizeof(selector)))
 		return;
 
+	/* Save scroll position before resetting */
+	history_set_scroll(content_get_scroll_pos());
+
 	g_app_state = APP_STATE_LOADING;
 	content_scroll_to_top();
 
@@ -453,7 +474,8 @@ do_navigate_url_titled(const char *url, const char *title)
 		SetPort(save);
 	} else {
 		/* Success — push to history.
-		 * Invalidate forward cache entries first since
+		 * Scroll was saved before content_scroll_to_top.
+		 * Invalidate forward cache entries since
 		 * history_push clears forward history. */
 #ifdef GEOMYS_CACHE
 		cache_invalidate_from(history_current_index() + 1);
@@ -584,12 +606,16 @@ do_search_dialog(const char *title, const char *host,
 			/* Append query to selector with tab */
 			snprintf(full_sel, sizeof(full_sel),
 			    "%s\t%s", selector, query);
+
+			/* Save scroll before resetting */
+			history_set_scroll(
+			    content_get_scroll_pos());
+
 			g_app_state = APP_STATE_LOADING;
 			content_scroll_to_top();
 
 			if (gopher_navigate(&g_gopher, host, port,
 			    GOPHER_DIRECTORY, full_sel)) {
-				/* Invalidate forward cache before push */
 #ifdef GEOMYS_CACHE
 				cache_invalidate_from(
 				    history_current_index() + 1);
@@ -718,7 +744,6 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 			conn_close(&g_gopher.conn);
 		g_app_state = APP_STATE_IDLE;
 
-		content_scroll_to_top();
 		content_set_page(&g_gopher);
 
 		gopher_build_uri(uri, sizeof(uri), e->host, e->port,
@@ -747,6 +772,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		GetPort(&save);
 		SetPort(g_window);
 		content_update_scroll(g_window);
+		content_set_scroll_pos(e->scroll_pos);
 		content_draw(g_window);
 		browser_draw_status(g_window);
 		browser_draw(g_window);
@@ -756,6 +782,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 #endif
 
 	g_app_state = APP_STATE_LOADING;
+	g_pending_scroll = e->scroll_pos;
 	content_scroll_to_top();
 
 	snprintf(uri, sizeof(uri), "Loading %.50s\311", e->host);
@@ -798,6 +825,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 			history_undo_forward();
 
 		g_app_state = APP_STATE_IDLE;
+		g_pending_scroll = -1;
 		browser_set_status("Connection failed");
 		GetPort(&save);
 		SetPort(g_window);
@@ -881,9 +909,11 @@ handle_nav_button(short btn_id)
 {
 	switch (btn_id) {
 	case NAV_BTN_BACK:
+		history_set_scroll(content_get_scroll_pos());
 		navigate_history_entry(history_back(), -1);
 		break;
 	case NAV_BTN_FORWARD:
+		history_set_scroll(content_get_scroll_pos());
 		navigate_history_entry(history_forward(), 1);
 		break;
 	case NAV_BTN_REFRESH: {

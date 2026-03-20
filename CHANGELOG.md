@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Address bar clipboard support (Cut/Copy/Paste via Edit menu)
 - Edit menu fully wired: context-aware enable/disable based on focus and selection
 - Double-click word selection and shift-click to extend
+- Scroll position preserved when navigating back/forward through page history (instant on cache hit, deferred restore on network re-fetch)
 
 ## [0.2.1] — Performance & Polish
 

@@ -64,6 +64,12 @@ ControlHandle content_get_scrollbar(void);
 /* Scroll to top */
 void content_scroll_to_top(void);
 
+/* Get current scroll position (first visible row) */
+short content_get_scroll_pos(void);
+
+/* Set scroll position — clamps, updates scrollbar, redraws */
+void content_set_scroll_pos(short pos);
+
 /* Update font from prefs — recalculates row height */
 void content_update_font(void);
 

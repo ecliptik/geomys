@@ -16,6 +16,7 @@ typedef struct {
 	char    type;
 	char    title[80];
 	char    query[256];  /* search query for type-7 entries */
+	short   scroll_pos;  /* saved scroll position for restore */
 } HistoryEntry;
 
 /* Initialize history — call once at startup */
@@ -50,5 +51,11 @@ void history_undo_forward(void);
 
 /* Get current position index (for cache coordination) */
 short history_current_index(void);
+
+/* Save scroll position for current entry */
+void history_set_scroll(short scroll_pos);
+
+/* Get scroll position from a history entry */
+short history_get_scroll(const HistoryEntry *e);
 
 #endif /* HISTORY_H */

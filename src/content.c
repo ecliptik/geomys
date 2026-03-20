@@ -1532,6 +1532,30 @@ content_scroll_to_top(void)
 		SetControlValue(g_scrollbar, 0);
 }
 
+short
+content_get_scroll_pos(void)
+{
+	return g_scroll_pos;
+}
+
+void
+content_set_scroll_pos(short pos)
+{
+	short max_val;
+
+	if (!g_scrollbar)
+		return;
+
+	max_val = GetControlMaximum(g_scrollbar);
+	if (pos < 0)
+		pos = 0;
+	if (pos > max_val)
+		pos = max_val;
+
+	g_scroll_pos = pos;
+	SetControlValue(g_scrollbar, pos);
+}
+
 void
 content_update_font(void)
 {

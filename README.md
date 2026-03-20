@@ -39,7 +39,7 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 **Networking**
 - MacTCP for TCP/IP connectivity
 - Built-in DNS resolver
-- Local page cache (3-page LRU) for instant back/forward
+- Local page cache (3-page LRU) for instant back/forward with scroll position preservation
 - Works well within 4MB of RAM
 
 **Character Support**
