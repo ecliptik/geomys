@@ -708,6 +708,13 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	if (cache_retrieve(history_current_index(), &g_gopher)) {
 		GrafPtr save;
 
+		/* Cancel any in-progress loading — the active
+		 * connection would otherwise append data to the
+		 * restored cached page */
+		if (g_gopher.conn.state != CONN_STATE_IDLE)
+			conn_close(&g_gopher.conn);
+		g_app_state = APP_STATE_IDLE;
+
 		content_scroll_to_top();
 		content_set_page(&g_gopher);
 

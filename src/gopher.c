@@ -137,6 +137,12 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	/* Connection succeeded — now clear old page and switch */
 	gopher_clear_page(gs);
 
+	/* Zero new items buffer to prevent stale data if
+	 * item_count is ever inconsistent */
+	if (new_items)
+		memset(new_items, 0,
+		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
+
 	gs->page_type = new_page_type;
 	gs->items = new_items;
 	gs->text_buf = new_text;

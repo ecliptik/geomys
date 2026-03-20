@@ -207,6 +207,10 @@ cache_retrieve(short history_idx, GopherState *gs)
 		memset(gs->items, 0, buf_size);
 		memcpy(gs->items, slot->items, size);
 		gs->item_count = slot->item_count;
+
+		/* Reset text fields — directory page has no text */
+		gs->text_len = 0;
+		gs->text_line_count = 0;
 		return true;
 	}
 
@@ -219,6 +223,9 @@ cache_retrieve(short history_idx, GopherState *gs)
 		memcpy(gs->text_buf, slot->text_buf,
 		    slot->text_len);
 		gs->text_len = slot->text_len;
+
+		/* Reset directory fields — text page has no items */
+		gs->item_count = 0;
 
 		/* Restore line index */
 		if (slot->text_lines &&
