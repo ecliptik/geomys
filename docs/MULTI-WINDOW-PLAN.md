@@ -1,6 +1,6 @@
 # Multi-Window Implementation Plan for Geomys
 
-**Status:** Planning
+**Status:** Implemented (merged to main)
 **Target:** Geomys v0.3.0
 **Constraint:** 68000 CPU, 4 MiB RAM (Mac Plus), System 6.0.8, MacTCP
 **Reference:** Flynn's `session.c/session.h` multi-session pattern
