@@ -23,6 +23,8 @@ typedef struct {
 	short       item_count;
 	char        *text_buf;      /* copied text buffer (NewPtr) */
 	long        text_len;
+	long        *text_lines;    /* copied line index (NewPtr) */
+	short       text_line_count;
 	long        access_time;    /* tick count for LRU */
 } CacheSlot;
 
@@ -40,10 +42,15 @@ free_slot(CacheSlot *slot)
 		DisposePtr(slot->text_buf);
 		slot->text_buf = 0L;
 	}
+	if (slot->text_lines) {
+		DisposePtr((Ptr)slot->text_lines);
+		slot->text_lines = 0L;
+	}
 	slot->history_idx = -1;
 	slot->page_type = PAGE_NONE;
 	slot->item_count = 0;
 	slot->text_len = 0;
+	slot->text_line_count = 0;
 }
 
 /* Find slot for a history index, or -1 */
@@ -86,9 +93,11 @@ cache_init(void)
 		g_cache[i].history_idx = -1;
 		g_cache[i].items = 0L;
 		g_cache[i].text_buf = 0L;
+		g_cache[i].text_lines = 0L;
 		g_cache[i].page_type = PAGE_NONE;
 		g_cache[i].item_count = 0;
 		g_cache[i].text_len = 0;
+		g_cache[i].text_line_count = 0;
 		g_cache[i].access_time = 0;
 	}
 	g_tick = 0;
@@ -150,6 +159,22 @@ cache_store(short history_idx, const GopherState *gs)
 			free_slot(slot);
 			return;
 		}
+
+		/* Store line index */
+		if (gs->text_lines && gs->text_line_count > 0) {
+			long lsize = (long)gs->text_line_count
+			    * sizeof(long);
+
+			slot->text_lines = (long *)NewPtr(lsize);
+			if (slot->text_lines) {
+				memcpy(slot->text_lines,
+				    gs->text_lines, lsize);
+				slot->text_line_count =
+				    gs->text_line_count;
+			}
+			/* Non-fatal if line index alloc fails —
+			 * it will be rebuilt on restore */
+		}
 	}
 }
 
@@ -194,6 +219,54 @@ cache_retrieve(short history_idx, GopherState *gs)
 		memcpy(gs->text_buf, slot->text_buf,
 		    slot->text_len);
 		gs->text_len = slot->text_len;
+
+		/* Restore line index */
+		if (slot->text_lines &&
+		    slot->text_line_count > 0) {
+			if (!gs->text_lines) {
+				gs->text_lines = (long *)NewPtr(
+				    (long)GOPHER_MAX_TEXT_LINES
+				    * sizeof(long));
+			}
+			if (gs->text_lines) {
+				long lsize =
+				    (long)slot->text_line_count
+				    * sizeof(long);
+				memcpy(gs->text_lines,
+				    slot->text_lines, lsize);
+				gs->text_line_count =
+				    slot->text_line_count;
+			}
+		}
+
+		/* Rebuild line index if not cached or
+		 * allocation failed during store */
+		if (gs->text_line_count == 0 &&
+		    gs->text_len > 0) {
+			if (!gs->text_lines) {
+				gs->text_lines = (long *)NewPtr(
+				    (long)GOPHER_MAX_TEXT_LINES
+				    * sizeof(long));
+			}
+			if (gs->text_lines) {
+				long ti;
+
+				gs->text_lines[0] = 0;
+				gs->text_line_count = 1;
+				for (ti = 0; ti < gs->text_len;
+				    ti++) {
+					if (gs->text_buf[ti] ==
+					    '\r' &&
+					    gs->text_line_count <
+					    GOPHER_MAX_TEXT_LINES) {
+						gs->text_lines[
+						    gs->text_line_count]
+						    = ti + 1;
+						gs->text_line_count++;
+					}
+				}
+			}
+		}
 		return true;
 	}
 

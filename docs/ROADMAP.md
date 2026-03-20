@@ -222,6 +222,21 @@ Fixed FREF local icon ID byte order for preferences document icon.
 
 ---
 
+## Unreleased
+
+### Text Page Scroll Optimization
+**Status: Complete**
+
+Extended ScrollRect fast-path scrolling from directory listings to text pages. Line index for O(1) row access, optimized row counting.
+
+- `text_lines[]` line index in GopherState: byte offsets built incrementally during receive, max 3000 lines
+- `content_draw_text_row()`: single-row text drawing with O(1) offset lookup (analogous to `content_draw_row()`)
+- ScrollRect fast path extended to PAGE_TEXT: line scroll redraws 1-2 rows (~15x faster)
+- `count_rows()` for text: O(1) return of `text_line_count` instead of O(N) byte scan
+- Line index cached/restored in `cache.c`
+
+---
+
 ## Future Features (Post-MVP)
 
 - **256-color support** — Color QuickDraw on System 7, automatic detection

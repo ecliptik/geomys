@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Chicago 12 moved to top of Font submenu
 - Address bar: matches nav button height, stops before scrollbar, uses Monaco 12
 - Directory metadata (dates, sizes) drawn right-aligned; metadata truncated with ellipsis when too wide (item names never truncated)
+- Text page scroll: line scroll now uses ScrollRect with line index for O(1) row lookup (~15x faster); `count_rows()` optimized from O(N) byte scan to O(1)
 
 ### Added
 - Options > Show Details: toggle to show/hide server metadata columns in directory listings

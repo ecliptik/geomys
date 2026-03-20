@@ -44,6 +44,10 @@ gopher_cleanup(GopherState *gs)
 		DisposePtr(gs->text_buf);
 		gs->text_buf = 0L;
 	}
+	if (gs->text_lines) {
+		DisposePtr((Ptr)gs->text_lines);
+		gs->text_lines = 0L;
+	}
 }
 
 /*
@@ -64,6 +68,12 @@ gopher_clear_page(GopherState *gs)
 	}
 	gs->text_len = 0;
 
+	if (gs->text_lines) {
+		DisposePtr((Ptr)gs->text_lines);
+		gs->text_lines = 0L;
+	}
+	gs->text_line_count = 0;
+
 	gs->page_type = PAGE_NONE;
 	gs->line_len = 0;
 }
@@ -75,6 +85,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	Boolean ok;
 	GopherItem *new_items = 0L;
 	char *new_text = 0L;
+	long *new_lines = 0L;
 	short new_page_type;
 
 	/* Close any existing connection */
@@ -95,6 +106,13 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		new_text = NewPtr(GOPHER_TEXT_BUFSIZ);
 		if (!new_text)
 			return false;
+		new_lines = (long *)NewPtr(
+		    (long)GOPHER_MAX_TEXT_LINES * sizeof(long));
+		if (!new_lines) {
+			DisposePtr(new_text);
+			return false;
+		}
+		new_lines[0] = 0;  /* first line starts at offset 0 */
 	} else {
 		new_page_type = PAGE_DIRECTORY;
 		new_items = (GopherItem *)NewPtr(
@@ -111,6 +129,8 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 			DisposePtr((Ptr)new_items);
 		if (new_text)
 			DisposePtr(new_text);
+		if (new_lines)
+			DisposePtr((Ptr)new_lines);
 		return false;
 	}
 
@@ -120,6 +140,8 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	gs->page_type = new_page_type;
 	gs->items = new_items;
 	gs->text_buf = new_text;
+	gs->text_lines = new_lines;
+	gs->text_line_count = new_lines ? 1 : 0;  /* line 0 at offset 0 */
 
 	/* Save current request info */
 	strncpy(gs->cur_host, host, sizeof(gs->cur_host) - 1);
@@ -185,9 +207,18 @@ gopher_process_data(GopherState *gs)
 		for (i = 0; i < len; i++) {
 			if (gs->text_len < GOPHER_TEXT_BUFSIZ - 1) {
 				/* Convert LF to CR for Mac line endings */
-				if (buf[i] == '\n')
+				if (buf[i] == '\n') {
 					gs->text_buf[gs->text_len++] = '\r';
-				else if (buf[i] != '\r')
+					/* Record start of next line */
+					if (gs->text_lines &&
+					    gs->text_line_count <
+					    GOPHER_MAX_TEXT_LINES) {
+						gs->text_lines[
+						    gs->text_line_count] =
+						    gs->text_len;
+						gs->text_line_count++;
+					}
+				} else if (buf[i] != '\r')
 					gs->text_buf[gs->text_len++] =
 					    buf[i];
 			}

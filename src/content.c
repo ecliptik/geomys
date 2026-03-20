@@ -48,25 +48,8 @@ count_rows(void)
 		return 0;
 	if (g_page->page_type == PAGE_DIRECTORY)
 		return g_page->item_count;
-	if (g_page->page_type == PAGE_TEXT) {
-		/* Count lines in text buffer */
-		const char *p = g_page->text_buf;
-		const char *end;
-		short count = 0;
-
-		if (!p)
-			return 0;
-		end = p + g_page->text_len;
-		while (p < end) {
-			if (*p == '\r')
-				count++;
-			p++;
-		}
-		if (g_page->text_len > 0 &&
-		    g_page->text_buf[g_page->text_len - 1] != '\r')
-			count++;  /* last line without trailing CR */
-		return count;
-	}
+	if (g_page->page_type == PAGE_TEXT)
+		return g_page->text_line_count;
 	return 0;
 }
 
@@ -432,11 +415,129 @@ content_draw_row(WindowPtr win, short row_index)
 	DisposeRgn(save_clip);
 }
 
+/* Draw a single text row by index.
+ * Self-contained — sets clip, font, erases, draws.
+ * Uses text_lines[] for O(1) offset lookup. */
+static void
+content_draw_text_row(WindowPtr win, short line_index)
+{
+	Rect r, erase_r;
+	short y, content_width;
+	const char *line_start;
+	short line_len, orig_len;
+	RgnHandle save_clip;
+
+	if (!g_page || g_page->page_type != PAGE_TEXT)
+		return;
+	if (!g_page->text_buf || !g_page->text_lines)
+		return;
+	if (line_index < 0 ||
+	    line_index >= g_page->text_line_count)
+		return;
+
+	content_get_rect(win, &r);
+
+	/* Skip if not visible */
+	if (line_index < g_scroll_pos ||
+	    line_index > g_scroll_pos + visible_rows(win))
+		return;
+
+	save_clip = NewRgn();
+	GetClip(save_clip);
+	ClipRect(&r);
+
+	y = r.top + (line_index - g_scroll_pos + 1)
+	    * g_row_height;
+
+	/* Erase this row */
+	SetRect(&erase_r, r.left, y - g_row_height,
+	    r.right, y);
+	EraseRect(&erase_r);
+
+	TextFont(g_font_id);
+	TextSize(g_font_size);
+	content_width = r.right - r.left - 8;
+
+	/* Get line start and length from index */
+	line_start = g_page->text_buf +
+	    g_page->text_lines[line_index];
+	if (line_index + 1 < g_page->text_line_count) {
+		/* Line ends at \r before next line start */
+		line_len = (short)(g_page->text_lines[
+		    line_index + 1] -
+		    g_page->text_lines[line_index] - 1);
+	} else {
+		/* Last line — ends at text_len */
+		line_len = (short)(g_page->text_len -
+		    g_page->text_lines[line_index]);
+		/* Strip trailing \r if present */
+		if (line_len > 0 &&
+		    line_start[line_len - 1] == '\r')
+			line_len--;
+	}
+	if (line_len < 0)
+		line_len = 0;
+	orig_len = line_len;
+
+#ifdef GEOMYS_CP437
+	if (cp437_has_high(line_start, line_len)) {
+		char xlated[256];
+		short xlen;
+
+		xlen = line_len;
+		if (xlen > 255) xlen = 255;
+		xlen = cp437_translate(xlated,
+		    line_start, xlen);
+
+		if (xlen > 0 &&
+		    TextWidth(xlated, 0, xlen) >
+		    content_width) {
+			short ew = TextWidth("\xC9", 0, 1);
+			short mw = content_width - ew;
+
+			while (xlen > 0 &&
+			    TextWidth(xlated, 0, xlen) > mw)
+				xlen--;
+		}
+
+		MoveTo(r.left + 4, y - 2);
+		DrawText(xlated, 0, xlen);
+		if (xlen < orig_len)
+			DrawChar('\xC9');
+	} else
+#endif
+	{
+		/* Truncate with ellipsis if too wide */
+		if (line_len > 0 &&
+		    TextWidth((Ptr)line_start, 0, line_len) >
+		    content_width) {
+			short ellip_w =
+			    TextWidth("\xC9", 0, 1);
+			short max_w = content_width - ellip_w;
+
+			while (line_len > 0 &&
+			    TextWidth((Ptr)line_start, 0,
+			    line_len) > max_w)
+				line_len--;
+		}
+
+		MoveTo(r.left + 4, y - 2);
+		DrawText((Ptr)line_start, 0, line_len);
+
+		/* Draw ellipsis if line was truncated */
+		if (line_len < orig_len)
+			DrawChar('\xC9');
+	}
+
+	SetClip(save_clip);
+	DisposeRgn(save_clip);
+}
+
 void
 content_draw(WindowPtr win)
 {
 	Rect r, erase_r;
-	short i, y, start_row, end_row;
+	short i, start_row, end_row;
 	RgnHandle save_clip;
 	short last_y;
 #ifdef GEOMYS_OFFSCREEN
@@ -481,102 +582,21 @@ content_draw(WindowPtr win)
 			last_y = r.top + (end_row - start_row)
 			    * g_row_height;
 	} else if (g_page->page_type == PAGE_TEXT) {
-		short content_width;
+		short text_end;
 
-		TextFont(g_font_id);
-		TextSize(g_font_size);
-		content_width = r.right - r.left - 8;
+		if (!g_page->text_buf || !g_page->text_lines)
+			goto done;
 
-		{
-			const char *p = g_page->text_buf;
-			const char *end_p;
-			short line_idx = 0;
+		text_end = g_page->text_line_count;
+		if (end_row > text_end)
+			end_row = text_end;
 
-			if (!p) goto done;
-			end_p = p + g_page->text_len;
+		for (i = start_row; i < end_row; i++)
+			content_draw_text_row(win, i);
 
-			/* Skip to start_row */
-			while (p < end_p && line_idx < start_row) {
-				if (*p == '\r')
-					line_idx++;
-				p++;
-			}
-
-			y = r.top + g_row_height;
-			while (p < end_p && line_idx < end_row) {
-				const char *line_start = p;
-				short line_len;
-
-				while (p < end_p && *p != '\r')
-					p++;
-				line_len = p - line_start;
-				if (p < end_p)
-					p++;
-
-				/* Erase this row */
-				SetRect(&erase_r, r.left,
-				    y - g_row_height, r.right, y);
-				EraseRect(&erase_r);
-
-#ifdef GEOMYS_CP437
-				if (cp437_has_high(line_start,
-				    line_len)) {
-					char xlated[256];
-					short xlen;
-
-					xlen = line_len;
-					if (xlen > 255) xlen = 255;
-					xlen = cp437_translate(
-					    xlated,
-					    line_start, xlen);
-
-					if (xlen > 0 &&
-					    TextWidth(xlated, 0,
-					    xlen) >
-					    content_width) {
-						short ew =
-						    TextWidth(
-						    "\xC9", 0, 1);
-						short mw =
-						    content_width -
-						    ew;
-						while (xlen > 0 &&
-						    TextWidth(
-						    xlated, 0,
-						    xlen) > mw)
-							xlen--;
-					}
-
-					MoveTo(r.left + 4, y - 2);
-					DrawText(xlated, 0, xlen);
-					if (xlen < line_len)
-						DrawChar('\xC9');
-				} else
-#endif
-				{
-				/* Truncate with ellipsis if too wide */
-				if (line_len > 0 &&
-				    TextWidth((Ptr)line_start, 0, line_len) > content_width) {
-					short ellip_w = TextWidth("\xC9", 0, 1);
-					short max_w = content_width - ellip_w;
-					while (line_len > 0 &&
-					    TextWidth((Ptr)line_start, 0, line_len) > max_w)
-						line_len--;
-				}
-
-				MoveTo(r.left + 4, y - 2);
-				DrawText((Ptr)line_start, 0,
-				    line_len);
-
-				/* Draw ellipsis if line was truncated */
-				if (line_len < (p - 1 - line_start))
-					DrawChar('\xC9');
-				}
-				last_y = y;
-				y += g_row_height;
-				line_idx++;
-			}
-		}
+		if (end_row > start_row)
+			last_y = r.top + (end_row - start_row)
+			    * g_row_height;
 	}
 
 	/* Erase empty area below last row */
@@ -788,7 +808,8 @@ scroll_action(ControlHandle ctl, short part)
 	SetPort(win);
 
 	if ((delta == 1 || delta == -1) &&
-	    g_page && g_page->page_type == PAGE_DIRECTORY) {
+	    g_page && (g_page->page_type == PAGE_DIRECTORY ||
+	    g_page->page_type == PAGE_TEXT)) {
 		/* Line scroll — use ScrollRect for speed */
 		Rect cr;
 		RgnHandle update_rgn = NewRgn();
@@ -799,13 +820,26 @@ scroll_action(ControlHandle ctl, short part)
 		    update_rgn);
 		DisposeRgn(update_rgn);
 
-		if (delta > 0) {
-			content_draw_row(win,
-			    g_scroll_pos + vis - 1);
-			content_draw_row(win,
-			    g_scroll_pos + vis);
+		if (g_page->page_type == PAGE_DIRECTORY) {
+			if (delta > 0) {
+				content_draw_row(win,
+				    g_scroll_pos + vis - 1);
+				content_draw_row(win,
+				    g_scroll_pos + vis);
+			} else {
+				content_draw_row(win,
+				    g_scroll_pos);
+			}
 		} else {
-			content_draw_row(win, g_scroll_pos);
+			if (delta > 0) {
+				content_draw_text_row(win,
+				    g_scroll_pos + vis - 1);
+				content_draw_text_row(win,
+				    g_scroll_pos + vis);
+			} else {
+				content_draw_text_row(win,
+				    g_scroll_pos);
+			}
 		}
 	} else {
 		/* Page/thumb scroll — full redraw */

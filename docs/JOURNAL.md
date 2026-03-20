@@ -56,6 +56,18 @@ Implemented Type 7 search with query dialog — user clicks a search item, enter
 
 User-configurable home page via Options > Home Page dialog (with blank page option). Preferences persist to "Geomys Preferences" file (Preferences folder on System 7, volume root on System 6). Favorites system with Add (Cmd-D), Manage Favorites dialog (Add/Edit/Delete/Move Up/Move Down/Go To), and top 5 shown in Favorites menu. Page titles extracted from clicked item display names (cleaned of date/size metadata). Release script adapted from Flynn for Forgejo and GitHub. MVP feature-complete.
 
+## 2026-03-19 — Text Page Scroll Optimization
+
+Extended the v0.2.1 scroll performance work to text pages. Previously, only directory listings benefited from `ScrollRect` fast-path scrolling — text pages still did a full redraw on every line scroll.
+
+**Line index:** Added `text_lines[]` and `text_line_count` to `GopherState` — a pre-built index of byte offsets for each line start, constructed incrementally as data arrives in `gopher_process_data()`. Max 3000 lines (~12KB allocation). Cached and restored alongside page data in `cache.c`.
+
+**`content_draw_text_row()`:** New static function in `content.c`, analogous to `content_draw_row()` for directories. Uses `text_lines[line_index]` for O(1) byte offset lookup instead of scanning from the buffer start. Handles visibility checks, clip region, row erase, font setup, CP437 translation, and ellipsis truncation.
+
+**ScrollRect for text:** Extended the `scroll_action()` fast path from `PAGE_DIRECTORY` to include `PAGE_TEXT`. Line scroll now shifts pixels with `ScrollRect` and redraws only 1-2 newly revealed rows via `content_draw_text_row()`. ~15x faster than full page redraw.
+
+**`count_rows()` optimization:** Replaced the O(N) byte scan in the `PAGE_TEXT` branch with a direct return of `text_line_count` — eliminates scanning up to 32KB on every scroll update.
+
 ## 2026-03-18 — v0.2.1: Performance & Polish
 
 Addressed all 8 remaining polish items from the v0.2.0 TODO list. Key architectural change: extracted `content_draw_row()` from the directory rendering loop, enabling targeted single-row redraws for both scroll and hover operations.

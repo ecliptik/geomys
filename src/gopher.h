@@ -13,6 +13,9 @@
 /* Text buffer size for type-0 content */
 #define GOPHER_TEXT_BUFSIZ  (32L * 1024L)
 
+/* Maximum text lines for line index (O(1) scroll lookup) */
+#define GOPHER_MAX_TEXT_LINES  3000
+
 /* Gopher item types (RFC 1436 canonical) */
 #define GOPHER_TEXT         '0'
 #define GOPHER_DIRECTORY    '1'
@@ -64,6 +67,8 @@ typedef struct {
 	/* Text content */
 	char        *text_buf;      /* NewPtr-allocated, GOPHER_TEXT_BUFSIZ */
 	long        text_len;
+	long        *text_lines;    /* byte offsets of each line start */
+	short       text_line_count;
 
 	/* Connection */
 	Connection  conn;
