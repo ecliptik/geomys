@@ -17,6 +17,7 @@ GEOMYS_GLYPHS=ON
 GEOMYS_CP437=ON
 GEOMYS_STYLES=ON
 GEOMYS_CACHE=ON
+GEOMYS_CLIPBOARD=ON
 
 PRESET=""
 
@@ -34,6 +35,7 @@ apply_preset() {
             GEOMYS_CP437=OFF
             GEOMYS_STYLES=OFF
             GEOMYS_CACHE=OFF
+            GEOMYS_CLIPBOARD=OFF
             ;;
         lite|macplus)
             GEOMYS_OFFSCREEN=ON
@@ -46,6 +48,7 @@ apply_preset() {
             GEOMYS_CP437=ON
             GEOMYS_STYLES=OFF
             GEOMYS_CACHE=OFF
+            GEOMYS_CLIPBOARD=ON
             ;;
         full|default)
             GEOMYS_OFFSCREEN=ON
@@ -58,6 +61,7 @@ apply_preset() {
             GEOMYS_CP437=ON
             GEOMYS_STYLES=ON
             GEOMYS_CACHE=ON
+            GEOMYS_CLIPBOARD=ON
             ;;
         *)
             echo "Error: unknown preset '$1' (valid: minimal, lite, full; macplus is alias for lite)"
@@ -108,6 +112,8 @@ while [[ $# -gt 0 ]]; do
         --no-styles)     GEOMYS_STYLES=OFF;          shift ;;
         --cache)         GEOMYS_CACHE=ON;            shift ;;
         --no-cache)      GEOMYS_CACHE=OFF;           shift ;;
+        --clipboard)     GEOMYS_CLIPBOARD=ON;        shift ;;
+        --no-clipboard)  GEOMYS_CLIPBOARD=OFF;       shift ;;
         *)
             MAKE_ARGS+=("$1")
             shift
@@ -201,7 +207,8 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_GLYPHS="$GEOMYS_GLYPHS" \
     -DGEOMYS_CP437="$GEOMYS_CP437" \
     -DGEOMYS_STYLES="$GEOMYS_STYLES" \
-    -DGEOMYS_CACHE="$GEOMYS_CACHE"
+    -DGEOMYS_CACHE="$GEOMYS_CACHE" \
+    -DGEOMYS_CLIPBOARD="$GEOMYS_CLIPBOARD"
 make "${MAKE_ARGS[@]}"
 
 # Fix creator code in MacBinary header (Retro68 sets '????' instead of 'GEOM')
@@ -264,7 +271,7 @@ cp "$BUILD_DIR/Geomys.dsk" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.dsk"
 # --- Build summary ---
 ENABLED=""
 DISABLED=""
-for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache color download; do
+for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache clipboard color download; do
     case $feat in
         offscreen)    val=$GEOMYS_OFFSCREEN ;;
         statusbar)    val=$GEOMYS_STATUS_BAR ;;
@@ -274,6 +281,7 @@ for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache 
         cp437)        val=$GEOMYS_CP437 ;;
         styles)       val=$GEOMYS_STYLES ;;
         cache)        val=$GEOMYS_CACHE ;;
+        clipboard)    val=$GEOMYS_CLIPBOARD ;;
         color)        val=$GEOMYS_COLOR ;;
         download)     val=$GEOMYS_DOWNLOAD ;;
     esac

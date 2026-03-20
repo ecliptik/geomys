@@ -12,6 +12,7 @@ option(GEOMYS_GLYPHS       "Enable Unicode glyph rendering"    ON)
 option(GEOMYS_CP437        "Enable CP437 character set"         ON)
 option(GEOMYS_STYLES       "Enable page format styles"          ON)
 option(GEOMYS_CACHE        "Enable local page caching"          ON)
+option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
 
 # --- Core source files (always compiled) ---
 set(GEOMYS_SOURCES
@@ -50,6 +51,9 @@ endif()
 if(GEOMYS_GOPHER_PLUS)
     list(APPEND GEOMYS_SOURCES src/gopherplus.c)
 endif()
+if(GEOMYS_CLIPBOARD)
+    list(APPEND GEOMYS_SOURCES src/clipboard.c)
+endif()
 
 add_application(Geomys ${GEOMYS_SOURCES} resources/geomys.r)
 
@@ -71,6 +75,7 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_CP437}>:GEOMYS_CP437>
     $<$<BOOL:${GEOMYS_STYLES}>:GEOMYS_STYLES>
     $<$<BOOL:${GEOMYS_CACHE}>:GEOMYS_CACHE>
+    $<$<BOOL:${GEOMYS_CLIPBOARD}>:GEOMYS_CLIPBOARD>
 )
 
 # Target 68000 CPU (Mac Plus compatible) and optimize for size

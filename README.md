@@ -29,6 +29,7 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Page styles: Traditional, Plain, Markdown
 - Show Details toggle: show/hide server metadata (dates, sizes) in directory listings
 - Font selection: Chicago 12, Monaco 9/12, Courier 10, Geneva 9/10
+- Text selection and copy: highlight text in content area or address bar, copy to clipboard (Cmd-C)
 - Hand cursor on navigable items
 - Bottom status bar with connection info
 - Monochrome display

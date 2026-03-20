@@ -235,6 +235,20 @@ Extended ScrollRect fast-path scrolling from directory listings to text pages. L
 - `count_rows()` for text: O(1) return of `text_line_count` instead of O(N) byte scan
 - Line index cached/restored in `cache.c`
 
+### Text Selection & Copy
+**Status: Complete**
+
+Clipboard support for content area and address bar. Edit menu wired to focus context.
+
+- Feature flag `GEOMYS_CLIPBOARD` with `clipboard.c`/`clipboard.h` module
+- Focus tracking between address bar and content area
+- Address bar: Cut/Copy/Paste via TEHandle and Scrap Manager (`TECut`, `TECopy`, `TEPaste`)
+- Content area selection: click-drag, double-click word select, shift-click extend
+- Selection state per row with inverse highlight rendering
+- Copy selected text to system clipboard via `ZeroScrap`/`PutScrap`
+- Edit menu enable/disable based on active focus and selection state
+- I-beam cursor in content area, clear selection on page navigation and deactivate
+
 ---
 
 ## Future Features (Post-MVP)

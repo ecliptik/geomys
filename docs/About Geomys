@@ -59,7 +59,13 @@ Getting Started
 5. Use the Back and Forward buttons (or Cmd-[ and
    Cmd-]) to navigate through your browsing history.
 
-6. To quit, choose Quit from the File menu or press
+6. To select text, click and drag in the content
+   area. Double-click to select a word. Hold Shift
+   and click to extend the selection. Press Cmd-C
+   to copy. The address bar also supports Cut,
+   Copy, and Paste via the Edit menu.
+
+7. To quit, choose Quit from the File menu or press
    Command-Q.
 
 

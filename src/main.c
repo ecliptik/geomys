@@ -290,8 +290,10 @@ main_event_loop(void)
 
 				/* Update cursor based on mouse position */
 				GetMouse(&mouse_pt);
-				content_cursor_update(g_window,
-				    mouse_pt);
+				if (!browser_cursor_update(g_window,
+				    mouse_pt))
+					content_cursor_update(g_window,
+					    mouse_pt);
 
 				SetPort(save);
 			}
@@ -373,6 +375,7 @@ handle_key_down(EventRecord *event)
 				    history_forward(), 1);
 			return;
 		}
+
 		update_menus();
 		handle_menu(MenuKey(key));
 		return;
@@ -1055,9 +1058,16 @@ handle_activate(EventRecord *event)
 	win = (WindowPtr)event->message;
 
 	if (win == g_window) {
-		if (event->modifiers & activeFlag)
+		if (event->modifiers & activeFlag) {
 			browser_activate(true);
-		else
+#ifdef GEOMYS_CLIPBOARD
+			content_activate(win, true);
+#endif
+		} else {
 			browser_activate(false);
+#ifdef GEOMYS_CLIPBOARD
+			content_activate(win, false);
+#endif
+		}
 	}
 }

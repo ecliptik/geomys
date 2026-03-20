@@ -13,6 +13,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Options > Show Details: toggle to show/hide server metadata columns in directory listings
+- Text selection and copy in content area (directory listings and text pages)
+- Address bar clipboard support (Cut/Copy/Paste via Edit menu)
+- Edit menu fully wired: context-aware enable/disable based on focus and selection
+- Double-click word selection and shift-click to extend
 
 ## [0.2.1] — Performance & Polish
 

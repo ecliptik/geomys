@@ -5,6 +5,15 @@
 #ifndef BROWSER_H
 #define BROWSER_H
 
+/* Focus tracking */
+#define FOCUS_NONE      0
+#define FOCUS_ADDR_BAR  1
+#define FOCUS_CONTENT   2
+
+/* Get/set which UI element has focus */
+short browser_get_focus(void);
+void browser_set_focus(short focus);
+
 /* Layout constants */
 #define NAV_BAR_HEIGHT    30
 #define STATUS_BAR_HEIGHT 16
@@ -63,7 +72,21 @@ void browser_activate(Boolean active);
 /* Idle for cursor blink in address bar */
 void browser_idle(void);
 
+/* Update cursor to I-beam when over address bar.
+ * Returns true if mouse is over address bar. */
+Boolean browser_cursor_update(WindowPtr win, Point local_pt);
+
 /* Get content area rect (below nav bar, above status bar) */
 void browser_get_content_rect(WindowPtr win, Rect *r);
+
+#ifdef GEOMYS_CLIPBOARD
+/* Address bar clipboard operations */
+void browser_edit_cut(void);
+void browser_edit_copy(void);
+void browser_edit_paste(void);
+void browser_edit_clear(void);
+void browser_edit_select_all(void);
+Boolean browser_has_selection(void);
+#endif
 
 #endif /* BROWSER_H */

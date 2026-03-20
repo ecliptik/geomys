@@ -7,6 +7,24 @@
 
 #include "gopher.h"
 
+#ifdef GEOMYS_CLIPBOARD
+/* Text selection state */
+typedef struct {
+	short		active;
+	short		selecting;
+	short		anchor_row;
+	short		anchor_col;
+	short		extent_row;
+	short		extent_col;
+	short		word_mode;
+	short		word_anchor_start;
+	short		word_anchor_end;
+	unsigned long	last_click_ticks;
+	short		last_click_row;
+	short		last_click_col;
+} Selection;
+#endif
+
 /* Scrollbar width (standard Mac) */
 #define SCROLLBAR_WIDTH  16
 
@@ -56,5 +74,28 @@ short content_row_height(void);
  * Call from nullEvent handler. Sets hand cursor over
  * navigable items, arrow cursor otherwise. */
 void content_cursor_update(WindowPtr win, Point local_pt);
+
+#ifdef GEOMYS_CLIPBOARD
+/* Activate/deactivate content selection display */
+void content_activate(WindowPtr win, Boolean active);
+
+/* Check if content has active selection */
+Boolean content_has_selection(void);
+
+/* Get display text for a row (formatted with style prefix for
+ * directory, raw line for text pages). Returns length. */
+short content_row_text(short row, char *buf, short bufsiz);
+
+/* Get normalized selection range (start <= end in reading order).
+ * Returns false if no selection. */
+Boolean content_get_selection(short *start_row, short *start_col,
+    short *end_row, short *end_col);
+
+/* Select all rows in content, marking selection active */
+void content_select_all(WindowPtr win);
+
+/* Clear content selection and redraw affected rows */
+void content_clear_selection(WindowPtr win);
+#endif
 
 #endif /* CONTENT_H */

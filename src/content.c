@@ -33,8 +33,23 @@ static short g_row_height = ROW_HEIGHT_DEFAULT;  /* dynamic row height */
 static short g_font_id = 4;         /* current font (Monaco) */
 static short g_font_size = 9;       /* current font size */
 static CursHandle g_hand_cursor = 0L;  /* hand cursor for links */
+#ifdef GEOMYS_CLIPBOARD
+static CursHandle g_ibeam_cursor = 0L; /* I-beam cursor for text */
+#endif
 static short g_scrolling = 0;          /* 1 during scroll action — skip offscreen */
 static short g_hover_row = -1;         /* currently highlighted row, -1 = none */
+
+#ifdef GEOMYS_CLIPBOARD
+/* Selection state */
+static Selection g_sel;
+static short g_win_active = 1;  /* window active flag for selection dimming */
+
+/* Forward declarations for selection helpers */
+short content_row_text(short row, char *buf, short bufsiz);
+static short pixel_to_col(short row, short pixel_x, WindowPtr win);
+static short col_to_pixel(short row, short col, WindowPtr win);
+static void sel_normalize(short *sr, short *sc, short *er, short *ec);
+#endif
 
 /* Scroll bar action proc */
 static pascal void scroll_action(ControlHandle ctl, short part);
@@ -86,6 +101,10 @@ content_init(WindowPtr win)
 
 	/* Load hand cursor for hovering over links */
 	g_hand_cursor = GetCursor(129);
+#ifdef GEOMYS_CLIPBOARD
+	/* Load I-beam cursor for text selection */
+	g_ibeam_cursor = GetCursor(iBeamCursor);
+#endif
 
 	/* Initialize font from prefs */
 	{
@@ -112,6 +131,13 @@ content_set_page(GopherState *gs)
 	g_page = gs;
 	g_scroll_pos = 0;
 	g_hover_row = -1;
+#ifdef GEOMYS_CLIPBOARD
+	/* Clear selection on page change */
+	g_sel.active = 0;
+	g_sel.selecting = 0;
+	g_sel.word_mode = 0;
+	g_sel.last_click_ticks = 0;
+#endif
 }
 
 void
@@ -411,6 +437,52 @@ content_draw_row(WindowPtr win, short row_index)
 		}
 	}
 
+#ifdef GEOMYS_CLIPBOARD
+	/* Invert selected characters (skip when window inactive) */
+	if (g_sel.active && g_win_active) {
+		short sr, sc, er, ec;
+
+		sr = g_sel.anchor_row;
+		sc = g_sel.anchor_col;
+		er = g_sel.extent_row;
+		ec = g_sel.extent_col;
+		sel_normalize(&sr, &sc, &er, &ec);
+
+		if (row_index >= sr && row_index <= er) {
+			Rect inv_r;
+			short x1, x2;
+
+			if (sr == er) {
+				/* Single row: invert col range */
+				x1 = col_to_pixel(row_index,
+				    sc, win);
+				x2 = col_to_pixel(row_index,
+				    ec, win);
+			} else if (row_index == sr) {
+				/* First row: from start_col to EOL */
+				x1 = col_to_pixel(row_index,
+				    sc, win);
+				x2 = r.right;
+			} else if (row_index == er) {
+				/* Last row: from BOL to end_col */
+				x1 = r.left;
+				x2 = col_to_pixel(row_index,
+				    ec, win);
+			} else {
+				/* Middle row: full width */
+				x1 = r.left;
+				x2 = r.right;
+			}
+
+			if (x2 > x1) {
+				SetRect(&inv_r, x1,
+				    y - g_row_height, x2, y);
+				InvertRect(&inv_r);
+			}
+		}
+	}
+#endif
+
 	SetClip(save_clip);
 	DisposeRgn(save_clip);
 }
@@ -529,6 +601,48 @@ content_draw_text_row(WindowPtr win, short line_index)
 			DrawChar('\xC9');
 	}
 
+#ifdef GEOMYS_CLIPBOARD
+	/* Invert selected characters (skip when window inactive) */
+	if (g_sel.active && g_win_active) {
+		short sr, sc, er, ec;
+
+		sr = g_sel.anchor_row;
+		sc = g_sel.anchor_col;
+		er = g_sel.extent_row;
+		ec = g_sel.extent_col;
+		sel_normalize(&sr, &sc, &er, &ec);
+
+		if (line_index >= sr && line_index <= er) {
+			Rect inv_r;
+			short x1, x2;
+
+			if (sr == er) {
+				x1 = col_to_pixel(line_index,
+				    sc, win);
+				x2 = col_to_pixel(line_index,
+				    ec, win);
+			} else if (line_index == sr) {
+				x1 = col_to_pixel(line_index,
+				    sc, win);
+				x2 = r.right;
+			} else if (line_index == er) {
+				x1 = r.left;
+				x2 = col_to_pixel(line_index,
+				    ec, win);
+			} else {
+				x1 = r.left;
+				x2 = r.right;
+			}
+
+			if (x2 > x1) {
+				SetRect(&inv_r, x1,
+				    y - g_row_height, x2, y);
+				InvertRect(&inv_r);
+			}
+		}
+	}
+#endif
+
 	SetClip(save_clip);
 	DisposeRgn(save_clip);
 }
@@ -643,35 +757,576 @@ done:
 	}
 }
 
+#ifdef GEOMYS_CLIPBOARD
+/* Selection slop threshold in pixels — movement beyond this
+ * turns a click into a drag/selection */
+#define SEL_SLOP  3
+
+/* Text drawing offset from content rect left edge */
+#define TEXT_X_OFFSET  4
+
+/*
+ * content_row_text - get the display text for a given row.
+ * For directory: formatted prefix+name (matching draw logic).
+ * For text: raw line text.
+ * Returns length of text placed in buf.
+ */
+short
+content_row_text(short row, char *buf, short bufsiz)
+{
+	extern GeomysPrefs g_prefs;
+
+	if (!g_page)
+		return 0;
+
+	if (g_page->page_type == PAGE_DIRECTORY) {
+		GopherItem *item;
+		const char *disp, *label;
+		short dlen, split_pos, name_len, li, len;
+
+		if (row < 0 || row >= g_page->item_count)
+			return 0;
+
+		item = &g_page->items[row];
+		label = gopher_type_label(item->type);
+		disp = item->display;
+		dlen = strlen(disp);
+		split_pos = -1;
+
+		if (item->type != GOPHER_INFO) {
+			for (li = 1; li < dlen - 1; li++) {
+				if (disp[li] == ' ' &&
+				    disp[li + 1] == ' ') {
+					split_pos = li;
+					break;
+				}
+			}
+		}
+
+		name_len = (split_pos > 0) ?
+		    split_pos : dlen;
+
+		switch (g_prefs.page_style) {
+		case STYLE_PLAIN:
+			len = snprintf(buf, bufsiz,
+			    "  %.*s", name_len, disp);
+			break;
+		case STYLE_MARKDOWN:
+			if (item->type == GOPHER_INFO)
+				len = snprintf(buf, bufsiz,
+				    "  %.*s", name_len, disp);
+			else if (item->type == GOPHER_SEARCH)
+				len = snprintf(buf, bufsiz,
+				    " ?  %.*s",
+				    name_len, disp);
+			else if (gopher_type_navigable(
+			    item->type))
+				len = snprintf(buf, bufsiz,
+				    " \xA5  %.*s",
+				    name_len, disp);
+			else
+				len = snprintf(buf, bufsiz,
+				    "    %.*s",
+				    name_len, disp);
+			break;
+		default: /* STYLE_TRADITIONAL */
+			if (item->type == GOPHER_INFO)
+				len = snprintf(buf, bufsiz,
+				    "      %.*s",
+				    name_len, disp);
+			else {
+#ifdef GEOMYS_GOPHER_PLUS
+				if (item->has_plus)
+					len = snprintf(buf,
+					    bufsiz,
+					    " %s+ %.*s", label,
+					    name_len, disp);
+				else
+#endif
+					len = snprintf(buf,
+					    bufsiz,
+					    " %s  %.*s", label,
+					    name_len, disp);
+			}
+			break;
+		}
+
+		if (len < 0) len = 0;
+		if (len >= bufsiz) len = bufsiz - 1;
+		return len;
+
+	} else if (g_page->page_type == PAGE_TEXT) {
+		const char *line_start;
+		short line_len;
+
+		if (row < 0 ||
+		    row >= g_page->text_line_count)
+			return 0;
+		if (!g_page->text_buf ||
+		    !g_page->text_lines)
+			return 0;
+
+		line_start = g_page->text_buf +
+		    g_page->text_lines[row];
+		if (row + 1 < g_page->text_line_count) {
+			line_len = (short)(
+			    g_page->text_lines[row + 1] -
+			    g_page->text_lines[row] - 1);
+		} else {
+			line_len = (short)(g_page->text_len -
+			    g_page->text_lines[row]);
+			if (line_len > 0 &&
+			    line_start[line_len - 1] == '\r')
+				line_len--;
+		}
+		if (line_len < 0) line_len = 0;
+		if (line_len >= bufsiz)
+			line_len = bufsiz - 1;
+
+		memcpy(buf, line_start, line_len);
+		buf[line_len] = '\0';
+		return line_len;
+	}
+
+	return 0;
+}
+
+/*
+ * pixel_to_col - convert pixel x offset to character column.
+ * Uses CharWidth to accumulate widths; returns nearest
+ * character boundary. Must be called with correct port/font.
+ */
+static short
+pixel_to_col(short row, short pixel_x, WindowPtr win)
+{
+	char buf[256];
+	short len, i, accum, cw;
+	Rect r;
+
+	content_get_rect(win, &r);
+	pixel_x -= (r.left + TEXT_X_OFFSET);
+	if (pixel_x <= 0)
+		return 0;
+
+	len = content_row_text(row, buf, sizeof(buf));
+	if (len <= 0)
+		return 0;
+
+	TextFont(g_font_id);
+	TextSize(g_font_size);
+
+	accum = 0;
+	for (i = 0; i < len; i++) {
+		cw = CharWidth(buf[i]);
+		if (accum + cw / 2 > pixel_x)
+			return i;
+		accum += cw;
+	}
+	return len;
+}
+
+/*
+ * col_to_pixel - convert character column to pixel x.
+ * Returns x in local coordinates. Must have correct font set.
+ */
+static short
+col_to_pixel(short row, short col, WindowPtr win)
+{
+	char buf[256];
+	short len;
+	Rect r;
+
+	content_get_rect(win, &r);
+	len = content_row_text(row, buf, sizeof(buf));
+	if (col <= 0 || len <= 0)
+		return r.left + TEXT_X_OFFSET;
+	if (col > len)
+		col = len;
+
+	TextFont(g_font_id);
+	TextSize(g_font_size);
+
+	return r.left + TEXT_X_OFFSET +
+	    TextWidth(buf, 0, col);
+}
+
+/* Normalize selection: ensure start <= end in reading order */
+static void
+sel_normalize(short *sr, short *sc, short *er, short *ec)
+{
+	if (*sr > *er ||
+	    (*sr == *er && *sc > *ec)) {
+		short tmp;
+
+		tmp = *sr; *sr = *er; *er = tmp;
+		tmp = *sc; *sc = *ec; *ec = tmp;
+	}
+}
+
+/* Check if ticks are within double-click time */
+static short
+is_double_click(unsigned long now, short row, short col)
+{
+	unsigned long dbltime;
+
+	dbltime = LMGetDoubleTime();
+	return (g_sel.last_click_ticks &&
+	    (now - g_sel.last_click_ticks) < dbltime &&
+	    row == g_sel.last_click_row &&
+	    (col - g_sel.last_click_col <= 2) &&
+	    (g_sel.last_click_col - col <= 2));
+}
+
+/*
+ * sel_find_word_bounds - find word boundaries at column
+ * position on a row. Scans for contiguous non-space run.
+ * Sets start_col and end_col (end is one past last char).
+ */
+static void
+sel_find_word_bounds(short row, short col,
+    short *start_col, short *end_col)
+{
+	char buf[256];
+	short len, i;
+
+	len = content_row_text(row, buf, sizeof(buf));
+	if (len <= 0 || col >= len) {
+		*start_col = 0;
+		*end_col = len > 0 ? len : 0;
+		return;
+	}
+
+	/* If clicked on a space, select just that space */
+	if (buf[col] == ' ') {
+		*start_col = col;
+		*end_col = col + 1;
+		return;
+	}
+
+	/* Scan left for word start */
+	i = col;
+	while (i > 0 && buf[i - 1] != ' ')
+		i--;
+	*start_col = i;
+
+	/* Scan right for word end */
+	i = col;
+	while (i < len && buf[i] != ' ')
+		i++;
+	*end_col = i;
+}
+
+/* Begin tracking selection drag. Redraws rows as selection
+ * extends. Returns 1 if the mouse moved beyond slop
+ * (i.e. user is dragging), 0 if released without moving
+ * (i.e. a click). Tracks character-level positions. */
+static short
+track_content_drag(WindowPtr win, Point start_pt, short start_row)
+{
+	Point pt;
+	short row, col, prev_row, prev_col;
+	short total;
+	short dragged = 0;
+	Rect r;
+
+	content_get_rect(win, &r);
+	total = count_rows();
+	prev_row = start_row;
+	prev_col = g_sel.anchor_col;
+
+	while (StillDown()) {
+		GetMouse(&pt);
+
+		/* Check slop */
+		if (!dragged) {
+			short dx = pt.h - start_pt.h;
+			short dy = pt.v - start_pt.v;
+
+			if (dx < 0) dx = -dx;
+			if (dy < 0) dy = -dy;
+			if (dx < SEL_SLOP && dy < SEL_SLOP)
+				continue;
+			dragged = 1;
+			g_hover_row = -1;  /* clear hover */
+		}
+
+		row = g_scroll_pos +
+		    (pt.v - r.top) / g_row_height;
+		if (row < 0) row = 0;
+		if (row >= total) row = total - 1;
+
+		col = pixel_to_col(row, pt.h, win);
+
+		if (row == prev_row && col == prev_col)
+			continue;
+
+		/* Update extent and redraw changed rows */
+		{
+			short old_sr, old_sc, old_er, old_ec;
+			short new_sr, new_sc, new_er, new_ec;
+			short rr, lo, hi;
+
+			/* Old visible range */
+			old_sr = g_sel.anchor_row;
+			old_sc = g_sel.anchor_col;
+			old_er = g_sel.extent_row;
+			old_ec = g_sel.extent_col;
+			sel_normalize(&old_sr, &old_sc,
+			    &old_er, &old_ec);
+
+			if (g_sel.word_mode) {
+				/* In word mode, extend by
+				 * word boundaries */
+				if (row < g_sel.word_anchor_start ||
+				    (row == g_sel.word_anchor_start &&
+				    col < g_sel.anchor_col)) {
+					g_sel.extent_row = row;
+					g_sel.extent_col = col;
+				} else {
+					g_sel.extent_row = row;
+					g_sel.extent_col = col;
+				}
+			} else {
+				g_sel.extent_row = row;
+				g_sel.extent_col = col;
+			}
+
+			/* New visible range */
+			new_sr = g_sel.anchor_row;
+			new_sc = g_sel.anchor_col;
+			new_er = g_sel.extent_row;
+			new_ec = g_sel.extent_col;
+			sel_normalize(&new_sr, &new_sc,
+			    &new_er, &new_ec);
+
+			/* Redraw changed rows */
+			lo = old_sr < new_sr ?
+			    old_sr : new_sr;
+			hi = old_er > new_er ?
+			    old_er : new_er;
+			for (rr = lo; rr <= hi; rr++) {
+				if (g_page->page_type ==
+				    PAGE_DIRECTORY)
+					content_draw_row(
+					    win, rr);
+				else
+					content_draw_text_row(
+					    win, rr);
+			}
+		}
+
+		prev_row = row;
+		prev_col = col;
+	}
+
+	return dragged;
+}
+
+/* Handle a click that was determined to be navigation
+ * (not a drag/selection) on a directory row. */
+static Boolean
+do_directory_navigate(WindowPtr win, GopherState *gs,
+    short clicked_row)
+{
+	Rect r;
+	GopherItem *item;
+	Rect hilite_r;
+	short y_off;
+
+	content_get_rect(win, &r);
+	item = &gs->items[clicked_row];
+
+	/* Info lines are not clickable */
+	if (item->type == GOPHER_INFO)
+		return false;
+
+	/* Inverse highlight feedback */
+	y_off = (clicked_row - g_scroll_pos) * g_row_height;
+	SetRect(&hilite_r,
+	    r.left, r.top + y_off,
+	    r.right, r.top + y_off + g_row_height);
+	InvertRect(&hilite_r);
+
+	/* Type 7 (Search) — show query dialog */
+	if (item->type == GOPHER_SEARCH) {
+		do_search_dialog(item->display,
+		    item->host, item->port,
+		    item->selector);
+		content_draw(win);
+		return true;
+	}
+
+	/* Navigable types — build URI and navigate */
+	if (gopher_type_navigable(item->type)) {
+		char uri[300];
+		char clean_name[80];
+		const char *d;
+		short ni;
+
+		gopher_build_uri(uri, sizeof(uri),
+		    item->host, item->port,
+		    item->type, item->selector);
+
+		/* Extract clean name from display text */
+		d = item->display;
+		ni = 0;
+		while (*d && ni < 78) {
+			if (*d == '\t')
+				break;
+			if (*d == ' ' && *(d + 1) == ' ')
+				break;
+			clean_name[ni++] = *d;
+			d++;
+		}
+		while (ni > 0 && clean_name[ni - 1] == ' ')
+			ni--;
+		clean_name[ni] = '\0';
+
+		do_navigate_url_titled(uri,
+		    clean_name[0] ? clean_name :
+		    item->host);
+		return true;
+	}
+
+	/* Non-navigable types — show info message */
+	do_type_message(item->type, item->display,
+	    item->host, item->port);
+	content_draw(win);
+	return true;
+}
+#endif /* GEOMYS_CLIPBOARD */
+
 Boolean
 content_click(WindowPtr win, Point local_pt, GopherState *gs)
 {
 	Rect r;
 	short clicked_row;
+	short total;
 
 	content_get_rect(win, &r);
 	if (!PtInRect(local_pt, &r))
 		return false;
 
-	if (!gs || gs->page_type != PAGE_DIRECTORY ||
-	    gs->item_count == 0)
+	browser_set_focus(FOCUS_CONTENT);
+#ifdef GEOMYS_CLIPBOARD
+	/* Deactivate addr bar cursor when focus moves to content */
+	browser_activate(false);
+#endif
+
+	if (!gs || gs->page_type == PAGE_NONE)
+		return false;
+
+	total = count_rows();
+	if (total == 0)
 		return false;
 
 	clicked_row = g_scroll_pos +
 	    (local_pt.v - r.top) / g_row_height;
+	if (clicked_row < 0 || clicked_row >= total)
+		return false;
 
-	if (clicked_row < 0 || clicked_row >= gs->item_count)
+#ifdef GEOMYS_CLIPBOARD
+	{
+		unsigned long now = TickCount();
+		short clicked_col;
+		short was_double;
+		short dragged;
+
+		clicked_col = pixel_to_col(clicked_row,
+		    local_pt.h, win);
+
+		/* Clear previous selection */
+		if (g_sel.active)
+			content_clear_selection(win);
+
+		/* Check for double-click */
+		was_double = is_double_click(now,
+		    clicked_row, clicked_col);
+
+		if (was_double) {
+			/* Double-click: word selection */
+			short wsc, wec;
+
+			sel_find_word_bounds(clicked_row,
+			    clicked_col, &wsc, &wec);
+			g_sel.active = 1;
+			g_sel.selecting = 1;
+			g_sel.anchor_row = clicked_row;
+			g_sel.anchor_col = wsc;
+			g_sel.extent_row = clicked_row;
+			g_sel.extent_col = wec;
+			g_sel.word_mode = 1;
+			g_sel.word_anchor_start = wsc;
+			g_sel.word_anchor_end = wec;
+			g_hover_row = -1;
+
+			/* Redraw to show word highlight */
+			if (gs->page_type == PAGE_DIRECTORY)
+				content_draw_row(win,
+				    clicked_row);
+			else
+				content_draw_text_row(win,
+				    clicked_row);
+
+			/* Track drag extension */
+			track_content_drag(win, local_pt,
+			    clicked_row);
+			g_sel.selecting = 0;
+
+			/* Record for next double-click */
+			g_sel.last_click_ticks = now;
+			g_sel.last_click_row = clicked_row;
+			g_sel.last_click_col = clicked_col;
+			return false;
+		}
+
+		/* Single click — start selection and track */
+		g_sel.active = 1;
+		g_sel.selecting = 1;
+		g_sel.anchor_row = clicked_row;
+		g_sel.anchor_col = clicked_col;
+		g_sel.extent_row = clicked_row;
+		g_sel.extent_col = clicked_col;
+		g_sel.word_mode = 0;
+
+		dragged = track_content_drag(win, local_pt,
+		    clicked_row);
+		g_sel.selecting = 0;
+
+		/* Record for double-click detection */
+		g_sel.last_click_ticks = now;
+		g_sel.last_click_row = clicked_row;
+		g_sel.last_click_col = clicked_col;
+
+		if (dragged) {
+			/* Mouse moved — selection drag */
+			return false;
+		}
+
+		/* No drag — this was a click. Clear the
+		 * proto-selection. */
+		g_sel.active = 0;
+
+		/* For directory pages, navigate */
+		if (gs->page_type == PAGE_DIRECTORY)
+			return do_directory_navigate(win, gs,
+			    clicked_row);
+
+		/* Text pages: click does nothing (no nav) */
+		return false;
+	}
+#else
+	/* Non-clipboard build: original behavior */
+	if (gs->page_type != PAGE_DIRECTORY)
 		return false;
 
 	{
 		GopherItem *item = &gs->items[clicked_row];
 		Rect hilite_r;
 
-		/* Info lines are not clickable */
 		if (item->type == GOPHER_INFO)
 			return false;
 
-		/* Inverse highlight feedback */
 		SetRect(&hilite_r,
 		    r.left,
 		    r.top + (clicked_row - g_scroll_pos)
@@ -681,18 +1336,14 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 		    * g_row_height + g_row_height);
 		InvertRect(&hilite_r);
 
-		/* Type 7 (Search) — show query dialog */
 		if (item->type == GOPHER_SEARCH) {
 			do_search_dialog(item->display,
 			    item->host, item->port,
 			    item->selector);
-			/* Redraw to remove highlight */
 			content_draw(win);
 			return true;
 		}
 
-		/* Navigable types — build URI and navigate
-		 * through do_navigate_url for history tracking */
 		if (gopher_type_navigable(item->type)) {
 			char uri[300];
 			char clean_name[80];
@@ -703,10 +1354,6 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 			    item->host, item->port,
 			    item->type, item->selector);
 
-			/* Extract clean name from display text:
-			 * trim at first run of 2+ spaces or tab
-			 * (Gopher servers pad with spaces before
-			 * dates/sizes) */
 			d = item->display;
 			ni = 0;
 			while (*d && ni < 78) {
@@ -717,7 +1364,6 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 				clean_name[ni++] = *d;
 				d++;
 			}
-			/* Trim trailing spaces */
 			while (ni > 0 &&
 			    clean_name[ni - 1] == ' ')
 				ni--;
@@ -729,15 +1375,12 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 			return true;
 		}
 
-		/* Non-navigable types — show info message */
 		do_type_message(item->type, item->display,
 		    item->host, item->port);
-		/* Redraw to remove highlight */
 		content_draw(win);
 		return true;
 	}
-
-	return false;
+#endif /* GEOMYS_CLIPBOARD */
 }
 
 void
@@ -955,12 +1598,8 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		}
 	}
 
-	/* Early exit if hover unchanged — skip redraws */
-	if (new_hover == g_hover_row)
-		return;
-
 	/* Update hover — redraw only affected rows */
-	{
+	if (new_hover != g_hover_row) {
 		short old_hover = g_hover_row;
 
 		g_hover_row = new_hover;
@@ -974,7 +1613,137 @@ content_cursor_update(WindowPtr win, Point local_pt)
 	if (new_hover >= 0) {
 		if (g_hand_cursor)
 			SetCursor(*g_hand_cursor);
+#ifdef GEOMYS_CLIPBOARD
+	} else if (g_page && g_page->page_type == PAGE_TEXT) {
+		/* I-beam over text pages */
+		if (g_ibeam_cursor)
+			SetCursor(*g_ibeam_cursor);
+	} else if (g_page && g_page->page_type == PAGE_DIRECTORY) {
+		/* I-beam over non-navigable items */
+		row = g_scroll_pos +
+		    (local_pt.v - r.top) / g_row_height;
+		if (row >= 0 && row < g_page->item_count &&
+		    !gopher_type_navigable(
+		    g_page->items[row].type)) {
+			if (g_ibeam_cursor)
+				SetCursor(*g_ibeam_cursor);
+		} else {
+			InitCursor();
+		}
+#endif
 	} else {
 		InitCursor();
 	}
 }
+
+#ifdef GEOMYS_CLIPBOARD
+void
+content_activate(WindowPtr win, Boolean active)
+{
+	g_win_active = active ? 1 : 0;
+
+	/* Redraw to update selection highlight appearance */
+	if (g_sel.active && win) {
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+		content_draw(win);
+		SetPort(save);
+	}
+}
+
+Boolean
+content_has_selection(void)
+{
+	return g_sel.active;
+}
+
+void
+content_clear_selection(WindowPtr win)
+{
+	short old_start, old_end;
+
+	if (!g_sel.active)
+		return;
+
+	/* Remember range for redraw */
+	if (g_sel.anchor_row <= g_sel.extent_row) {
+		old_start = g_sel.anchor_row;
+		old_end = g_sel.extent_row;
+	} else {
+		old_start = g_sel.extent_row;
+		old_end = g_sel.anchor_row;
+	}
+
+	g_sel.active = 0;
+	g_sel.selecting = 0;
+	g_sel.anchor_row = 0;
+	g_sel.anchor_col = 0;
+	g_sel.extent_row = 0;
+	g_sel.extent_col = 0;
+	g_sel.word_mode = 0;
+
+	/* Redraw affected rows */
+	if (win && g_page) {
+		short i;
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+		for (i = old_start; i <= old_end; i++) {
+			if (g_page->page_type == PAGE_DIRECTORY)
+				content_draw_row(win, i);
+			else if (g_page->page_type == PAGE_TEXT)
+				content_draw_text_row(win, i);
+		}
+		SetPort(save);
+	}
+}
+
+Boolean
+content_get_selection(short *start_row, short *start_col,
+    short *end_row, short *end_col)
+{
+	if (!g_sel.active)
+		return false;
+
+	*start_row = g_sel.anchor_row;
+	*start_col = g_sel.anchor_col;
+	*end_row = g_sel.extent_row;
+	*end_col = g_sel.extent_col;
+	sel_normalize(start_row, start_col,
+	    end_row, end_col);
+	return true;
+}
+
+void
+content_select_all(WindowPtr win)
+{
+	short total;
+	char buf[256];
+
+	total = count_rows();
+	if (total == 0)
+		return;
+
+	g_sel.active = 1;
+	g_sel.selecting = 0;
+	g_sel.anchor_row = 0;
+	g_sel.anchor_col = 0;
+	g_sel.extent_row = total - 1;
+	g_sel.extent_col = content_row_text(total - 1,
+	    buf, sizeof(buf));
+	g_sel.word_mode = 0;
+	g_hover_row = -1;
+
+	if (win) {
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+		content_draw(win);
+		SetPort(save);
+	}
+}
+#endif /* GEOMYS_CLIPBOARD */

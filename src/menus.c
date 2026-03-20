@@ -16,12 +16,16 @@
 
 #include "main.h"
 #include "menus.h"
+#include "browser.h"
 #include "dialogs.h"
 #include "macutil.h"
 #include "settings.h"
 #include "favorites.h"
 #include "gopher.h"
 #include "content.h"
+#ifdef GEOMYS_CLIPBOARD
+#include "clipboard.h"
+#endif
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
@@ -132,7 +136,7 @@ update_menus(void)
 	}
 
 	/* Edit menu: enable when DA is active so SystemEdit works,
-	 * disable otherwise until we have text editing (Phase 3+) */
+	 * or based on focus for clipboard operations */
 	if (edit_menu) {
 		if (da_active) {
 			EnableItem(edit_menu, EDIT_MENU_UNDO);
@@ -141,6 +145,31 @@ update_menus(void)
 			EnableItem(edit_menu, EDIT_MENU_PASTE);
 			EnableItem(edit_menu, EDIT_MENU_CLEAR);
 			EnableItem(edit_menu, EDIT_MENU_SELALL);
+#ifdef GEOMYS_CLIPBOARD
+		} else if (browser_get_focus() == FOCUS_ADDR_BAR) {
+			DisableItem(edit_menu, EDIT_MENU_UNDO);
+			if (browser_has_selection()) {
+				EnableItem(edit_menu, EDIT_MENU_CUT);
+				EnableItem(edit_menu, EDIT_MENU_COPY);
+				EnableItem(edit_menu, EDIT_MENU_CLEAR);
+			} else {
+				DisableItem(edit_menu, EDIT_MENU_CUT);
+				DisableItem(edit_menu, EDIT_MENU_COPY);
+				DisableItem(edit_menu, EDIT_MENU_CLEAR);
+			}
+			EnableItem(edit_menu, EDIT_MENU_PASTE);
+			EnableItem(edit_menu, EDIT_MENU_SELALL);
+		} else if (browser_get_focus() == FOCUS_CONTENT) {
+			DisableItem(edit_menu, EDIT_MENU_UNDO);
+			DisableItem(edit_menu, EDIT_MENU_CUT);
+			if (content_has_selection())
+				EnableItem(edit_menu, EDIT_MENU_COPY);
+			else
+				DisableItem(edit_menu, EDIT_MENU_COPY);
+			DisableItem(edit_menu, EDIT_MENU_PASTE);
+			DisableItem(edit_menu, EDIT_MENU_CLEAR);
+			EnableItem(edit_menu, EDIT_MENU_SELALL);
+#endif
 		} else {
 			DisableItem(edit_menu, EDIT_MENU_UNDO);
 			DisableItem(edit_menu, EDIT_MENU_CUT);
@@ -188,9 +217,39 @@ static void
 handle_edit_menu(short item)
 {
 	/* Let DA get edit commands first */
-	if (!SystemEdit(item - 1)) {
-		/* App-specific edit handling — Phase 3+ */
+	if (SystemEdit(item - 1))
+		return;
+
+#ifdef GEOMYS_CLIPBOARD
+	if (browser_get_focus() == FOCUS_ADDR_BAR) {
+		switch (item) {
+		case EDIT_MENU_CUT:
+			browser_edit_cut();
+			break;
+		case EDIT_MENU_COPY:
+			browser_edit_copy();
+			break;
+		case EDIT_MENU_PASTE:
+			browser_edit_paste();
+			break;
+		case EDIT_MENU_CLEAR:
+			browser_edit_clear();
+			break;
+		case EDIT_MENU_SELALL:
+			browser_edit_select_all();
+			break;
+		}
+	} else if (browser_get_focus() == FOCUS_CONTENT) {
+		switch (item) {
+		case EDIT_MENU_COPY:
+			clipboard_copy_content(g_window);
+			break;
+		case EDIT_MENU_SELALL:
+			clipboard_select_all(g_window);
+			break;
+		}
 	}
+#endif
 }
 
 Boolean

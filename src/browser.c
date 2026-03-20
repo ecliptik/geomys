@@ -16,6 +16,9 @@
 #include "browser.h"
 #include "content.h"
 #include "main.h"
+#ifdef GEOMYS_CLIPBOARD
+#include "clipboard.h"
+#endif
 
 /* Module state */
 static TEHandle g_addr_te = 0L;
@@ -23,6 +26,19 @@ static char g_status[80];
 static short g_btn_state[NAV_BTN_COUNT];
 static Rect g_btn_rects[NAV_BTN_COUNT];
 static Rect g_addr_rect;
+static short g_focus = FOCUS_ADDR_BAR;  /* which UI element has focus */
+
+short
+browser_get_focus(void)
+{
+	return g_focus;
+}
+
+void
+browser_set_focus(short focus)
+{
+	g_focus = focus;
+}
 
 /* Forward declarations */
 static void draw_nav_bar(WindowPtr win);
@@ -60,9 +76,10 @@ browser_init(WindowPtr win)
 	g_addr_rect = te_rect;
 	{
 		Rect dest_rect = te_rect;
-		/* Offset dest rect down to vertically center
-		 * Monaco 12 (~15px) in 18px box */
-		dest_rect.top += 2;
+		/* Symmetric inset for vertical centering —
+		 * keeps selection highlight evenly padded */
+		dest_rect.top += 1;
+		dest_rect.bottom -= 1;
 		g_addr_te = TENew(&dest_rect, &te_rect);
 	}
 	if (g_addr_te) {
@@ -113,8 +130,34 @@ draw_nav_bar(WindowPtr win)
 	FrameRect(&frame_r);
 
 	/* Draw address bar content */
-	if (g_addr_te)
+	if (g_addr_te) {
+		RgnHandle save_clip = NewRgn();
+		Rect text_clip;
+		short text_end_x;
+		short save_font, save_size;
+
+		/* Clip TE drawing to text width so selection
+		 * highlight doesn't extend into empty space */
+		GetClip(save_clip);
+		save_font = qd.thePort->txFont;
+		save_size = qd.thePort->txSize;
+		TextFont((*g_addr_te)->txFont);
+		TextSize((*g_addr_te)->txSize);
+		text_end_x = (*g_addr_te)->destRect.left +
+		    TextWidth(*((*g_addr_te)->hText), 0,
+		    (*g_addr_te)->teLength) + 1;
+		TextFont(save_font);
+		TextSize(save_size);
+		text_clip = g_addr_rect;
+		if (text_end_x < text_clip.right)
+			text_clip.right = text_end_x;
+		ClipRect(&text_clip);
+
 		TEUpdate(&g_addr_rect, g_addr_te);
+
+		SetClip(save_clip);
+		DisposeRgn(save_clip);
+	}
 }
 
 static void
@@ -438,12 +481,68 @@ browser_click(WindowPtr win, Point local_pt)
 
 	/* Check address bar */
 	if (PtInRect(local_pt, &g_addr_rect)) {
+		g_focus = FOCUS_ADDR_BAR;
+#ifdef GEOMYS_CLIPBOARD
+		/* Clear content selection when switching to addr bar */
+		if (content_has_selection())
+			content_clear_selection(win);
+#endif
 		if (g_addr_te) {
 			GrafPtr save;
+			static unsigned long last_click = 0;
+			unsigned long now;
+			RgnHandle save_clip;
+			Rect text_clip;
+			short text_end_x;
 
 			GetPort(&save);
 			SetPort(win);
-			TEClick(local_pt, false, g_addr_te);
+
+			/* Clip TE drawing to text width so
+			 * selection doesn't fill empty space.
+			 * Must be set BEFORE TEActivate. */
+			save_clip = NewRgn();
+			GetClip(save_clip);
+			{
+				short sf, ss;
+
+				sf = qd.thePort->txFont;
+				ss = qd.thePort->txSize;
+				TextFont((*g_addr_te)->txFont);
+				TextSize((*g_addr_te)->txSize);
+				text_end_x = (*g_addr_te)->
+				    destRect.left +
+				    TextWidth(*((*g_addr_te)->
+				    hText), 0,
+				    (*g_addr_te)->teLength) + 1;
+				TextFont(sf);
+				TextSize(ss);
+			}
+			text_clip = g_addr_rect;
+			if (text_end_x < text_clip.right)
+				text_clip.right = text_end_x;
+			ClipRect(&text_clip);
+
+			TEActivate(g_addr_te);
+
+			/* Double-click: select all text */
+			now = TickCount();
+			if (last_click &&
+			    (now - last_click) <
+			    LMGetDoubleTime()) {
+				short len;
+
+				len = (*g_addr_te)->teLength;
+				TESetSelect(0, len, g_addr_te);
+				last_click = 0;
+			} else {
+				TEClick(local_pt, false,
+				    g_addr_te);
+				last_click = now;
+			}
+
+			SetClip(save_clip);
+			DisposeRgn(save_clip);
 			SetPort(save);
 		}
 		return -2;
@@ -475,12 +574,38 @@ browser_key(WindowPtr win, EventRecord *event)
 void
 browser_activate(Boolean active)
 {
+	RgnHandle save_clip;
+	Rect text_clip;
+	short text_end_x, sf, ss;
+
 	if (!g_addr_te)
 		return;
+
+	/* Clip TE drawing to text width so deactivate
+	 * highlight doesn't extend into empty space */
+	save_clip = NewRgn();
+	GetClip(save_clip);
+	sf = qd.thePort->txFont;
+	ss = qd.thePort->txSize;
+	TextFont((*g_addr_te)->txFont);
+	TextSize((*g_addr_te)->txSize);
+	text_end_x = (*g_addr_te)->destRect.left +
+	    TextWidth(*((*g_addr_te)->hText), 0,
+	    (*g_addr_te)->teLength) + 1;
+	TextFont(sf);
+	TextSize(ss);
+	text_clip = g_addr_rect;
+	if (text_end_x < text_clip.right)
+		text_clip.right = text_end_x;
+	ClipRect(&text_clip);
+
 	if (active)
 		TEActivate(g_addr_te);
 	else
 		TEDeactivate(g_addr_te);
+
+	SetClip(save_clip);
+	DisposeRgn(save_clip);
 }
 
 void
@@ -490,6 +615,22 @@ browser_idle(void)
 		TEIdle(g_addr_te);
 }
 
+Boolean
+browser_cursor_update(WindowPtr win, Point local_pt)
+{
+	(void)win;
+
+	if (PtInRect(local_pt, &g_addr_rect)) {
+		CursHandle ibeam;
+
+		ibeam = GetCursor(iBeamCursor);
+		if (ibeam)
+			SetCursor(*ibeam);
+		return true;
+	}
+	return false;
+}
+
 void
 browser_get_content_rect(WindowPtr win, Rect *r)
 {
@@ -497,3 +638,99 @@ browser_get_content_rect(WindowPtr win, Rect *r)
 	    win->portRect.right,
 	    win->portRect.bottom - STATUS_BAR_HEIGHT);
 }
+
+#ifdef GEOMYS_CLIPBOARD
+/* Copy TE scrap to system scrap */
+static void
+te_to_system_scrap(void)
+{
+	Handle scrap_h;
+	long len;
+
+	scrap_h = LMGetTEScrpHandle();
+	len = (long)LMGetTEScrpLength();
+	if (scrap_h && len > 0) {
+		HLock(scrap_h);
+		ZeroScrap();
+		PutScrap(len, 'TEXT', *scrap_h);
+		HUnlock(scrap_h);
+	}
+}
+
+/* Copy system scrap to TE scrap */
+static void
+system_to_te_scrap(void)
+{
+	Handle h, te_h;
+	long offset, len;
+
+	h = NewHandle(0);
+	if (!h)
+		return;
+	len = GetScrap(h, 'TEXT', &offset);
+	if (len > 0) {
+		te_h = LMGetTEScrpHandle();
+		SetHandleSize(te_h, len);
+		if (MemError() == noErr) {
+			HLock(h);
+			HLock(te_h);
+			BlockMove(*h, *te_h, len);
+			HUnlock(te_h);
+			HUnlock(h);
+			LMSetTEScrpLength((short)len);
+		}
+	}
+	DisposeHandle(h);
+}
+
+void
+browser_edit_cut(void)
+{
+	if (!g_addr_te)
+		return;
+	TECut(g_addr_te);
+	te_to_system_scrap();
+}
+
+void
+browser_edit_copy(void)
+{
+	if (!g_addr_te)
+		return;
+	TECopy(g_addr_te);
+	te_to_system_scrap();
+}
+
+void
+browser_edit_paste(void)
+{
+	if (!g_addr_te)
+		return;
+	system_to_te_scrap();
+	TEPaste(g_addr_te);
+}
+
+void
+browser_edit_clear(void)
+{
+	if (!g_addr_te)
+		return;
+	TEDelete(g_addr_te);
+}
+
+void
+browser_edit_select_all(void)
+{
+	if (!g_addr_te)
+		return;
+	TESetSelect(0, 32767, g_addr_te);
+}
+
+Boolean
+browser_has_selection(void)
+{
+	if (!g_addr_te)
+		return false;
+	return (*g_addr_te)->selStart != (*g_addr_te)->selEnd;
+}
+#endif /* GEOMYS_CLIPBOARD */
