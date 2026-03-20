@@ -51,9 +51,9 @@
 #define OPT_MENU_DETAILS    6   /* "Show Details" toggle */
 
 /* Font submenu items */
-#define FONT_CHICAGO12      1
-#define FONT_MONACO9        2
-#define FONT_MONACO12       3
+#define FONT_MONACO9        1
+#define FONT_MONACO12       2
+#define FONT_CHICAGO12      3
 #define FONT_COURIER10      4
 #define FONT_GENEVA9        5
 #define FONT_GENEVA10       6
