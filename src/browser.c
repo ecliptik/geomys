@@ -52,17 +52,17 @@ browser_init(WindowPtr win)
 		x += NAV_BTN_SIZE + NAV_BTN_MARGIN;
 	}
 
-	/* Create address bar TextEdit — match button height and
-	 * stop before scrollbar column */
-	SetRect(&te_rect, ADDR_BAR_LEFT, NAV_BTN_Y,
-	    win->portRect.right - SCROLLBAR_WIDTH - ADDR_BAR_MARGIN,
-	    NAV_BTN_Y + NAV_BTN_SIZE);
+	/* Create address bar TextEdit — frame aligns with
+	 * button bounds, right edge aligns with scrollbar */
+	SetRect(&te_rect, ADDR_BAR_LEFT, NAV_BTN_Y + 1,
+	    win->portRect.right - SCROLLBAR_WIDTH,
+	    NAV_BTN_Y + NAV_BTN_SIZE - 1);
 	g_addr_rect = te_rect;
 	{
 		Rect dest_rect = te_rect;
 		/* Offset dest rect down to vertically center
-		 * Monaco 12 (~15px) in 20px box */
-		dest_rect.top += 3;
+		 * Monaco 12 (~15px) in 18px box */
+		dest_rect.top += 2;
 		g_addr_te = TENew(&dest_rect, &te_rect);
 	}
 	if (g_addr_te) {
