@@ -21,6 +21,7 @@ resource 'MENU' (129, "File") {
 	129, textMenuProc, allEnabled, enabled, "File",
 	{
 		"Open URL\311", noIcon, "L", noMark, plain;
+		"Save Page As\311", noIcon, "S", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Close", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;

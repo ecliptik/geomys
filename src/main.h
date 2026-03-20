@@ -23,10 +23,11 @@
 
 /* File menu items */
 #define FILE_MENU_OPEN_URL  1
-/* separator = 2 */
-#define FILE_MENU_CLOSE     3
-/* separator = 4 */
-#define FILE_MENU_QUIT      5
+#define FILE_MENU_SAVE_AS   2
+/* separator = 3 */
+#define FILE_MENU_CLOSE     4
+/* separator = 5 */
+#define FILE_MENU_QUIT      6
 
 /* Edit menu items */
 #define EDIT_MENU_UNDO      1

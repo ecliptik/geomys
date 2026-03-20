@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Text page scroll: line scroll now uses ScrollRect with line index for O(1) row lookup (~15x faster); `count_rows()` optimized from O(N) byte scan to O(1)
 
 ### Added
+- Save Page As (Cmd-S): save current page as TeachText-readable TEXT file, supports text pages and directory listings, works on System 6 and System 7
 - Options > Show Details: toggle to show/hide server metadata columns in directory listings
 - Text selection and copy in content area (directory listings and text pages)
 - Address bar clipboard support (Cut/Copy/Paste via Edit menu)

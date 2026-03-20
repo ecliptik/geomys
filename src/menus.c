@@ -26,6 +26,7 @@
 #ifdef GEOMYS_CLIPBOARD
 #include "clipboard.h"
 #endif
+#include "savefile.h"
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
@@ -128,6 +129,20 @@ update_menus(void)
 	/* File menu: Open URL always enabled, Close when window open */
 	if (file_menu) {
 		EnableItem(file_menu, FILE_MENU_OPEN_URL);
+#ifdef GEOMYS_DOWNLOAD
+		{
+			extern GopherState g_gopher;
+			if (g_gopher.page_type != PAGE_NONE &&
+			    g_app_state == APP_STATE_IDLE)
+				EnableItem(file_menu,
+				    FILE_MENU_SAVE_AS);
+			else
+				DisableItem(file_menu,
+				    FILE_MENU_SAVE_AS);
+		}
+#else
+		DisableItem(file_menu, FILE_MENU_SAVE_AS);
+#endif
 		if (g_window)
 			EnableItem(file_menu, FILE_MENU_CLOSE);
 		else
@@ -203,6 +218,9 @@ handle_file_menu(short item)
 	switch (item) {
 	case FILE_MENU_OPEN_URL:
 		do_open_url_dialog();
+		break;
+	case FILE_MENU_SAVE_AS:
+		do_save_page();
 		break;
 	case FILE_MENU_CLOSE:
 		g_running = false;
