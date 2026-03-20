@@ -35,5 +35,9 @@ void offscreen_end(WindowPtr win, const Rect *blit_rect);
 /* Check if offscreen is available and allocated */
 short offscreen_is_ready(void);
 
+/* Reallocate offscreen buffer if window grew beyond current
+ * buffer size. No-op if buffer is already large enough. */
+void offscreen_resize(WindowPtr win);
+
 #endif /* GEOMYS_OFFSCREEN */
 #endif /* OFFSCREEN_H */

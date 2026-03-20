@@ -40,16 +40,18 @@
 /* Globals */
 Boolean g_running = true;
 Boolean g_suspended = false;
-WindowPtr g_window = 0L;
-short g_app_state = APP_STATE_IDLE;
-GopherState g_gopher;
 GeomysPrefs g_prefs;
-static short g_pending_scroll = -1;  /* deferred scroll restore, -1 = none */
+
+/* g_window, g_app_state, g_gopher are macros in main.h
+ * pointing to active_session fields.
+ * g_pending_scroll is also per-session: */
+#define g_pending_scroll (active_session->pending_scroll)
 
 /* Forward declarations */
 static void init_toolbox(void);
 static void init_apple_events(void);
-static void create_window(void);
+static void create_session_window(BrowserSession *s);
+static void init_session(BrowserSession *s);
 static void main_event_loop(void);
 static void handle_mouse_down(EventRecord *event);
 static void handle_key_down(EventRecord *event);
@@ -59,6 +61,7 @@ static void handle_activate(EventRecord *event);
 static void handle_nav_button(short btn_id);
 static void update_nav_buttons(void);
 static void navigate_history_entry(const HistoryEntry *e, short direction);
+static void handle_page_loaded(void);
 
 /*
  * Apple Events handlers for System 7 compatibility.
@@ -124,19 +127,19 @@ main(void)
 	prefs_load(&g_prefs);
 
 	init_menus();
-	create_window();
 
-	/* Initialize browser chrome and content area */
+	/* Create first session with window, chrome, and content */
 	{
-		GrafPtr save;
-		GetPort(&save);
-		SetPort(g_window);
-		browser_init(g_window);
-		content_init(g_window);
-#ifdef GEOMYS_OFFSCREEN
-		offscreen_init(g_window);
+		BrowserSession *s = session_new();
+		if (!s) {
+			SysBeep(10);
+			ExitToShell();
+		}
+		create_session_window(s);
+#if GEOMYS_MAX_WINDOWS > 1
+		active_session = s;
 #endif
-		SetPort(save);
+		init_session(s);
 	}
 
 	update_menus();
@@ -146,11 +149,6 @@ main(void)
 	favorites_init_menu(&g_prefs);
 #endif
 
-	/* Initialize Gopher engine and history */
-	gopher_init(&g_gopher);
-	g_gopher.conn.dns_server = ip2long(g_prefs.dns_server);
-	content_set_page(&g_gopher);
-	history_init();
 #ifdef GEOMYS_CACHE
 	cache_init();
 #endif
@@ -160,6 +158,10 @@ main(void)
 		do_navigate_url(g_prefs.home_url);
 	else
 		browser_set_status("Ready");
+
+	/* Save initial state so first window's session has correct
+	 * status/URL — matches do_new_window() pattern */
+	session_save_state(active_session);
 
 	main_event_loop();
 	return 0;
@@ -180,14 +182,183 @@ init_toolbox(void)
 	MaxApplZone();
 }
 
+/*
+ * create_session_window - Create the Mac window for a session.
+ * Uses cascading position for multi-window builds.
+ */
 static void
-create_window(void)
+create_session_window(BrowserSession *s)
 {
 	Rect bounds;
+#if GEOMYS_MAX_WINDOWS > 1 
+	short offset = s->id * CASCADE_OFFSET;
 
+	SetRect(&bounds, 2 + offset, 42 + offset,
+	    SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2);
+#else
 	SetRect(&bounds, 2, 42, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2);
-	g_window = NewWindow(0L, &bounds, "\pGeomys", true,
+#endif
+
+	s->window = NewWindow(0L, &bounds, "\pGeomys", true,
 	    documentProc, (WindowPtr)-1L, true, 0L);
+}
+
+/*
+ * init_session - Initialize browser chrome, content, gopher, and history
+ * for a newly created session. Assumes window already exists.
+ */
+static void
+init_session(BrowserSession *s)
+{
+	GrafPtr save;
+
+	GetPort(&save);
+	SetPort(s->window);
+	browser_init(s->window);
+	content_init(s->window);
+#ifdef GEOMYS_OFFSCREEN
+	offscreen_init(s->window);
+#endif
+	SetPort(save);
+
+	/* Initialize Gopher engine and history */
+	gopher_init(&s->gopher);
+	s->gopher.conn.dns_server = ip2long(g_prefs.dns_server);
+	content_set_page(&s->gopher);
+	history_init();
+
+	/* Save module statics into this session */
+	browser_save_state(s);
+	content_save_state(s);
+	history_save_state(s);
+}
+
+/*
+ * do_new_window - Create a new browser window (Cmd-N).
+ * Allocates a session, creates window, initializes, and
+ * navigates to home page.
+ */
+void
+do_new_window(void)
+{
+	BrowserSession *s;
+
+#if GEOMYS_MAX_WINDOWS > 1 
+	/* Save current session state before creating new one */
+	if (active_session)
+		session_save_state(active_session);
+#endif
+
+	s = session_new();
+	if (!s) {
+		/* Memory pressure or max windows reached */
+		if (session_count() >= GEOMYS_MAX_WINDOWS)
+			ParamText(
+			    "\pMaximum number of windows reached.",
+			    "\p", "\p", "\p");
+		else
+			ParamText(
+			    "\pNot enough memory to open "
+			    "a new window.",
+			    "\p", "\p", "\p");
+		StopAlert(128, 0L);
+		return;
+	}
+
+	create_session_window(s);
+	if (!s->window) {
+		session_destroy(s);
+		ParamText(
+		    "\pNot enough memory to open a new window.",
+		    "\p", "\p", "\p");
+		StopAlert(128, 0L);
+		return;
+	}
+
+#if GEOMYS_MAX_WINDOWS > 1
+	active_session = s;
+#endif
+
+	init_session(s);
+
+	/* Navigate to home page or show blank */
+	if (g_prefs.home_url[0])
+		do_navigate_url(g_prefs.home_url);
+	else
+		browser_set_status("Ready");
+
+	/* Save initial state so session switch restores it */
+	session_save_state(s);
+}
+
+/*
+ * handle_page_loaded - Handle completion of a Gopher page load.
+ * Updates title, address bar, status bar, caches page,
+ * and redraws. Must be called with correct session active.
+ */
+static void
+handle_page_loaded(void)
+{
+	char uri[300];
+	GrafPtr save;
+
+	g_app_state = APP_STATE_IDLE;
+
+	{
+		const HistoryEntry *he;
+
+		he = history_current();
+		if (he && he->title[0])
+			set_wtitlef(g_window, "Geomys - %s",
+			    he->title);
+		else
+			set_wtitlef(g_window, "Geomys - %s",
+			    g_gopher.cur_host);
+	}
+
+	/* Update address bar and status */
+	gopher_build_uri(uri, sizeof(uri),
+	    g_gopher.cur_host, g_gopher.cur_port,
+	    g_gopher.cur_type, g_gopher.cur_selector);
+	browser_set_url(uri);
+
+	if (g_gopher.page_type == PAGE_DIRECTORY)
+		snprintf(uri, sizeof(uri),
+		    "Done \xD0 %d items",
+		    g_gopher.item_count);
+	else
+		snprintf(uri, sizeof(uri),
+		    "Done \xD0 %ld bytes",
+		    g_gopher.text_len);
+	browser_set_status(uri);
+
+	/* Cache the loaded page */
+#ifdef GEOMYS_CACHE
+	cache_store(active_session->id,
+	    history_current_index(), &g_gopher);
+#endif
+
+	/* Update nav button states */
+	update_nav_buttons();
+
+	GetPort(&save);
+	SetPort(g_window);
+
+	/* Restore deferred scroll position */
+	if (g_pending_scroll >= 0) {
+		content_update_scroll(g_window);
+		content_set_scroll_pos(g_pending_scroll);
+		g_pending_scroll = -1;
+	}
+
+	content_draw(g_window);
+	browser_draw_status(g_window);
+	browser_draw(g_window);
+	SetPort(save);
+
+	/* Persist final state so session switch restores
+	 * correct status bar, address bar, and scrollbar */
+	session_save_state(active_session);
 }
 
 static void
@@ -197,17 +368,104 @@ main_event_loop(void)
 	long wait_ticks;
 
 	while (g_running) {
-		if (g_suspended)
+		if (g_suspended) {
 			wait_ticks = 60L;
-		else if (g_app_state == APP_STATE_LOADING)
-			wait_ticks = 0L;
-		else
+#if GEOMYS_MAX_WINDOWS > 1 
+		} else {
+			short si;
+
 			wait_ticks = 10L;
+			for (si = 0; si < GEOMYS_MAX_WINDOWS; si++) {
+				BrowserSession *bs = session_get(si);
+				if (bs && bs->gopher.receiving) {
+					wait_ticks = 0L;
+					break;
+				}
+			}
+#else
+		} else if (g_app_state == APP_STATE_LOADING) {
+			wait_ticks = 0L;
+		} else {
+			wait_ticks = 10L;
+#endif
+		}
 
 		WaitNextEvent(everyEvent, &event, wait_ticks, 0L);
 
 		switch (event.what) {
 		case nullEvent:
+#if GEOMYS_MAX_WINDOWS > 1
+			/* Poll ALL sessions for incoming data.
+			 * Background sessions: only poll connection,
+			 * do NOT draw (avoids offscreen buffer
+			 * conflicts). Drawing happens on activate
+			 * or when the session is the active one.
+			 * Throttle background to every 4th tick. */
+			{
+				BrowserSession *orig = active_session;
+				short si;
+				static unsigned short bg_tick;
+
+				bg_tick++;
+				for (si = 0; si < GEOMYS_MAX_WINDOWS;
+				    si++) {
+					BrowserSession *bs;
+
+					bs = session_get(si);
+					if (!bs ||
+					    !bs->gopher.receiving)
+						continue;
+
+					/* Active session: poll and
+					 * draw normally */
+					if (bs == orig) {
+						if (gopher_idle(
+						    &g_gopher)) {
+							GrafPtr sp;
+
+							GetPort(&sp);
+							SetPort(
+							    g_window);
+							content_draw(
+							    g_window);
+							content_update_scroll(
+							    g_window);
+							SetPort(sp);
+						}
+						if (!g_gopher.receiving)
+							handle_page_loaded();
+						continue;
+					}
+
+					/* Background: throttle */
+					if ((bg_tick & 3) != 0)
+						continue;
+
+					/* Poll connection only —
+					 * no drawing, no state
+					 * switch needed since
+					 * gopher_idle operates
+					 * directly on the struct */
+					(void)gopher_idle(
+					    &bs->gopher);
+					if (!bs->gopher.receiving) {
+						/* Page done: do full
+						 * switch for
+						 * handle_page_loaded */
+						session_switch_to(bs);
+						SetPort(bs->window);
+						handle_page_loaded();
+					}
+				}
+
+				/* Restore original active session */
+				if (active_session != orig) {
+					session_switch_to(orig);
+					if (orig && orig->window)
+						SetPort(orig->window);
+				}
+			}
+#else
 			/* Poll Gopher connection for data */
 			if (g_gopher.receiving) {
 				if (gopher_idle(&g_gopher)) {
@@ -220,76 +478,10 @@ main_event_loop(void)
 					    g_window);
 					SetPort(save);
 				}
-				if (!g_gopher.receiving) {
-					char uri[300];
-					GrafPtr save;
-
-					g_app_state = APP_STATE_IDLE;
-
-					{
-						const HistoryEntry *he;
-
-						he = history_current();
-						if (he && he->title[0])
-							set_wtitlef(
-							    g_window,
-							    "Geomys - %s",
-							    he->title);
-						else
-							set_wtitlef(
-							    g_window,
-							    "Geomys - %s",
-							    g_gopher
-							    .cur_host);
-					}
-
-					/* Update address bar and status */
-					gopher_build_uri(uri, sizeof(uri),
-					    g_gopher.cur_host,
-					    g_gopher.cur_port,
-					    g_gopher.cur_type,
-					    g_gopher.cur_selector);
-					browser_set_url(uri);
-
-					if (g_gopher.page_type ==
-					    PAGE_DIRECTORY)
-						snprintf(uri, sizeof(uri),
-						    "Done \xD0 %d items",
-						    g_gopher.item_count);
-					else
-						snprintf(uri, sizeof(uri),
-						    "Done \xD0 %ld bytes",
-						    g_gopher.text_len);
-					browser_set_status(uri);
-
-					/* Cache the loaded page */
-#ifdef GEOMYS_CACHE
-					cache_store(
-					    history_current_index(),
-					    &g_gopher);
-#endif
-
-					/* Update nav button states */
-					update_nav_buttons();
-
-					GetPort(&save);
-					SetPort(g_window);
-
-					/* Restore deferred scroll position */
-					if (g_pending_scroll >= 0) {
-						content_update_scroll(
-						    g_window);
-						content_set_scroll_pos(
-						    g_pending_scroll);
-						g_pending_scroll = -1;
-					}
-
-					content_draw(g_window);
-					browser_draw_status(g_window);
-					browser_draw(g_window);
-					SetPort(save);
-				}
+				if (!g_gopher.receiving)
+					handle_page_loaded();
 			}
+#endif
 
 			/* Address bar cursor blink + content cursor update */
 			if (!g_suspended && g_window) {
@@ -353,12 +545,18 @@ main_event_loop(void)
 #ifdef GEOMYS_OFFSCREEN
 	offscreen_cleanup();
 #endif
-	content_cleanup();
-	browser_cleanup();
-	gopher_cleanup(&g_gopher);
 
-	if (g_window)
-		DisposeWindow(g_window);
+	/* Destroy all remaining sessions (closes connections,
+	 * disposes TE/controls/windows, frees gopher data) */
+	{
+		short i;
+
+		for (i = GEOMYS_MAX_WINDOWS - 1; i >= 0; i--) {
+			BrowserSession *s = session_get(i);
+			if (s)
+				session_destroy(s);
+		}
+	}
 
 	ExitToShell();
 }
@@ -449,6 +647,8 @@ do_navigate_url_titled(const char *url, const char *title)
 	g_app_state = APP_STATE_LOADING;
 	content_scroll_to_top();
 
+	/* Show loading state in title bar and status bar */
+	set_wtitlef(g_window, "Loading %.50s\311", host);
 	snprintf(uri, sizeof(uri), "Loading %.50s\311", host);
 	browser_set_status(uri);
 	{
@@ -478,7 +678,8 @@ do_navigate_url_titled(const char *url, const char *title)
 		 * Invalidate forward cache entries since
 		 * history_push clears forward history. */
 #ifdef GEOMYS_CACHE
-		cache_invalidate_from(history_current_index() + 1);
+		cache_invalidate_from(active_session->id,
+		    history_current_index() + 1);
 #endif
 		history_push(host, port, type, selector,
 		    (title && title[0]) ? title : host,
@@ -618,6 +819,7 @@ do_search_dialog(const char *title, const char *host,
 			    GOPHER_DIRECTORY, full_sel)) {
 #ifdef GEOMYS_CACHE
 				cache_invalidate_from(
+				    active_session->id,
 				    history_current_index() + 1);
 #endif
 				/* Push to history with query preserved */
@@ -734,7 +936,8 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 
 #ifdef GEOMYS_CACHE
 	/* Try cache first for instant back/forward */
-	if (cache_retrieve(history_current_index(), &g_gopher)) {
+	if (cache_retrieve(active_session->id,
+	    history_current_index(), &g_gopher)) {
 		GrafPtr save;
 
 		/* Cancel any in-progress loading — the active
@@ -785,6 +988,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	g_pending_scroll = e->scroll_pos;
 	content_scroll_to_top();
 
+	set_wtitlef(g_window, "Loading %.50s\311", e->host);
 	snprintf(uri, sizeof(uri), "Loading %.50s\311", e->host);
 	browser_set_status(uri);
 
@@ -921,7 +1125,8 @@ handle_nav_button(short btn_id)
 
 #ifdef GEOMYS_CACHE
 		/* Invalidate cached copy so we re-fetch from server */
-		cache_invalidate(history_current_index());
+		cache_invalidate(active_session->id,
+		    history_current_index());
 #endif
 		gopher_build_uri(url, sizeof(url),
 		    g_gopher.cur_host, g_gopher.cur_port,
@@ -957,8 +1162,15 @@ handle_mouse_down(EventRecord *event)
 		    &qd.screenBits.bounds);
 		break;
 	case inGoAway:
-		if (TrackGoAway(win, event->where))
-			g_running = false;
+		if (TrackGoAway(win, event->where)) {
+			BrowserSession *s;
+
+			s = session_from_window(win);
+			if (s)
+				session_destroy_and_fixup(s);
+			else
+				g_running = false;
+		}
 		break;
 	case inGrow: {
 		long new_size;
@@ -971,21 +1183,39 @@ handle_mouse_down(EventRecord *event)
 		    &limit_rect);
 		if (new_size != 0) {
 			GrafPtr save;
+#if GEOMYS_MAX_WINDOWS > 1 
+			BrowserSession *gs, *orig;
 
+			gs = session_from_window(win);
+			orig = active_session;
+			if (gs && gs != active_session)
+				session_switch_to(gs);
+#endif
 			SizeWindow(win, LoWord(new_size),
 			    HiWord(new_size), true);
+#ifdef GEOMYS_OFFSCREEN
+			offscreen_resize(win);
+#endif
 			GetPort(&save);
 			SetPort(win);
 			content_resize(win);
 			InvalRect(&win->portRect);
 			SetPort(save);
+#if GEOMYS_MAX_WINDOWS > 1
+			/* Save resized state so session switch
+			 * restores correct layout */
+			if (gs)
+				session_save_state(gs);
+			if (gs && gs != orig && orig)
+				session_switch_to(orig);
+#endif
 		}
 		break;
 	}
 	case inContent:
 		if (win != FrontWindow()) {
 			SelectWindow(win);
-		} else if (win == g_window) {
+		} else if (session_from_window(win)) {
 			Point local_pt;
 			GrafPtr save;
 			short click_result;
@@ -1034,14 +1264,22 @@ handle_update(EventRecord *event)
 {
 	WindowPtr win;
 	GrafPtr old_port;
+	BrowserSession *s;
 
 	win = (WindowPtr)event->message;
+	s = session_from_window(win);
 
 	GetPort(&old_port);
 	SetPort(win);
 	BeginUpdate(win);
 
-	if (win == g_window) {
+	if (s) {
+#if GEOMYS_MAX_WINDOWS > 1 
+		BrowserSession *orig = active_session;
+
+		if (s != active_session)
+			session_switch_to(s);
+#endif
 		browser_draw(win);
 		content_draw(win);
 		content_update_scroll(win);
@@ -1072,6 +1310,11 @@ handle_update(EventRecord *event)
 			SetClip(save_clip);
 			DisposeRgn(save_clip);
 		}
+
+#if GEOMYS_MAX_WINDOWS > 1 
+		if (s != orig && orig)
+			session_switch_to(orig);
+#endif
 	} else {
 		EraseRect(&win->portRect);
 	}
@@ -1084,20 +1327,73 @@ static void
 handle_activate(EventRecord *event)
 {
 	WindowPtr win;
+	BrowserSession *s;
 
 	win = (WindowPtr)event->message;
+	s = session_from_window(win);
+	if (!s)
+		return;
 
-	if (win == g_window) {
-		if (event->modifiers & activeFlag) {
-			browser_activate(true);
-#ifdef GEOMYS_CLIPBOARD
-			content_activate(win, true);
+	if (event->modifiers & activeFlag) {
+#if GEOMYS_MAX_WINDOWS > 1 
+		session_switch_to(s);
 #endif
-		} else {
+		browser_activate(true);
+#ifdef GEOMYS_CLIPBOARD
+		content_activate(win, true);
+#endif
+		/* Restore scrollbar and force full redraw to
+		 * ensure correct content after session switch */
+		{
+			GrafPtr save;
+
+			GetPort(&save);
+			SetPort(win);
+			content_update_scroll(win);
+#if GEOMYS_MAX_WINDOWS > 1
+			/* Ensure back/forward buttons reflect
+			 * this session's history state */
+			update_nav_buttons();
+
+			/* Force full redraw with correct session
+			 * state — prevents stale content from
+			 * previous session showing through */
+			InvalRect(&win->portRect);
+#endif
+			SetPort(save);
+		}
+	} else {
+#if GEOMYS_MAX_WINDOWS > 1
+		if (s == active_session) {
+#endif
 			browser_activate(false);
 #ifdef GEOMYS_CLIPBOARD
 			content_activate(win, false);
 #endif
+			/* Dim scrollbar on deactivation (per HIG) */
+			{
+				ControlHandle sb;
+
+				sb = content_get_scrollbar();
+				if (sb)
+					HiliteControl(sb, 255);
+			}
+#if GEOMYS_MAX_WINDOWS > 1
+			session_save_state(s);
+		} else {
+			/* active_session already switched (e.g.,
+			 * do_new_window). Use session's stored
+			 * handles for deactivation visuals. */
+			GrafPtr sp;
+
+			GetPort(&sp);
+			SetPort(win);
+			if (s->addr_te)
+				TEDeactivate(s->addr_te);
+			if (s->scrollbar)
+				HiliteControl(s->scrollbar, 255);
+			SetPort(sp);
 		}
+#endif
 	}
 }

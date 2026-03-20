@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(Geomys VERSION 0.2.1)
+project(Geomys VERSION 0.3.0)
 
 # --- Feature flags with defaults (all ON for full preset) ---
 option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     ON)
@@ -13,6 +13,22 @@ option(GEOMYS_CP437        "Enable CP437 character set"         ON)
 option(GEOMYS_STYLES       "Enable page format styles"          ON)
 option(GEOMYS_CACHE        "Enable local page caching"          ON)
 option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
+
+# Maximum simultaneous windows (1 = single-window, zero overhead)
+if(NOT DEFINED GEOMYS_MAX_WINDOWS)
+    set(GEOMYS_MAX_WINDOWS 1)
+endif()
+
+# Scale cache slots based on window count (more windows = more cache needed)
+if(NOT DEFINED CACHE_MAX)
+    if(GEOMYS_MAX_WINDOWS EQUAL 1)
+        set(CACHE_MAX 3)
+    elseif(GEOMYS_MAX_WINDOWS EQUAL 2)
+        set(CACHE_MAX 4)
+    else()
+        set(CACHE_MAX 6)
+    endif()
+endif()
 
 # --- Core source files (always compiled) ---
 set(GEOMYS_SOURCES
@@ -30,6 +46,7 @@ set(GEOMYS_SOURCES
     src/gopher_types.c
     src/macutil.c
     src/sysutil.c
+    src/session.c
 )
 
 # --- Conditional source files ---
@@ -79,6 +96,8 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_STYLES}>:GEOMYS_STYLES>
     $<$<BOOL:${GEOMYS_CACHE}>:GEOMYS_CACHE>
     $<$<BOOL:${GEOMYS_CLIPBOARD}>:GEOMYS_CLIPBOARD>
+    GEOMYS_MAX_WINDOWS=${GEOMYS_MAX_WINDOWS}
+    CACHE_MAX=${CACHE_MAX}
 )
 
 # Target 68000 CPU (Mac Plus compatible) and optimize for size

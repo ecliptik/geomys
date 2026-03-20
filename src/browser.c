@@ -16,6 +16,7 @@
 #include "browser.h"
 #include "content.h"
 #include "main.h"
+#include "session.h"
 #ifdef GEOMYS_CLIPBOARD
 #include "clipboard.h"
 #endif
@@ -53,6 +54,9 @@ browser_init(WindowPtr win)
 {
 	Rect te_rect;
 	short i, x;
+
+	/* Reset status text for new session */
+	g_status[0] = '\0';
 
 	/* Initialize button states — back/forward disabled initially */
 	g_btn_state[NAV_BTN_BACK] = BTN_DISABLED;
@@ -734,3 +738,29 @@ browser_has_selection(void)
 	return (*g_addr_te)->selStart != (*g_addr_te)->selEnd;
 }
 #endif /* GEOMYS_CLIPBOARD */
+
+/*
+ * Save/restore browser chrome statics to/from session struct.
+ * Used during session switching (GEOMYS_MAX_WINDOWS > 1).
+ */
+void
+browser_save_state(struct BrowserSession *s)
+{
+	s->addr_te = g_addr_te;
+	memcpy(s->status, g_status, sizeof(g_status));
+	memcpy(s->btn_state, g_btn_state, sizeof(g_btn_state));
+	memcpy(s->btn_rects, g_btn_rects, sizeof(g_btn_rects));
+	s->addr_rect = g_addr_rect;
+	s->focus = g_focus;
+}
+
+void
+browser_load_state(struct BrowserSession *s)
+{
+	g_addr_te = s->addr_te;
+	memcpy(g_status, s->status, sizeof(g_status));
+	memcpy(g_btn_state, s->btn_state, sizeof(g_btn_state));
+	memcpy(g_btn_rects, s->btn_rects, sizeof(g_btn_rects));
+	g_addr_rect = s->addr_rect;
+	g_focus = s->focus;
+}

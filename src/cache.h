@@ -15,8 +15,11 @@
 
 #include "gopher.h"
 
-/* Maximum cached pages (conservative for 4MB Mac Plus) */
+/* Maximum cached pages (conservative for 4MB Mac Plus).
+ * Can be overridden via CMake compile definition for multi-window builds. */
+#ifndef CACHE_MAX
 #define CACHE_MAX  3
+#endif
 
 /* Initialize cache — call once at startup */
 void cache_init(void);
@@ -24,19 +27,22 @@ void cache_init(void);
 /* Clean up all cache entries */
 void cache_cleanup(void);
 
-/* Store current page content into cache slot for history index.
+/* Store current page content into cache slot.
+ * session_id scopes the entry to avoid cross-window collisions.
  * Copies items array or text buffer from GopherState. */
-void cache_store(short history_idx, const GopherState *gs);
+void cache_store(short session_id, short history_idx,
+    const GopherState *gs);
 
 /* Retrieve cached page content into GopherState.
  * Returns true if cache hit, false if miss. */
-Boolean cache_retrieve(short history_idx, GopherState *gs);
+Boolean cache_retrieve(short session_id, short history_idx,
+    GopherState *gs);
 
 /* Invalidate cache entry at history index (e.g., on refresh) */
-void cache_invalidate(short history_idx);
+void cache_invalidate(short session_id, short history_idx);
 
 /* Invalidate all entries from index onward (e.g., on new navigation) */
-void cache_invalidate_from(short history_idx);
+void cache_invalidate_from(short session_id, short history_idx);
 
 /* Get current history position (for cache coordination) */
 short history_current_index(void);

@@ -2,16 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-
-### Changed
-- Default font changed from Monaco 9 to Chicago 12
-- Chicago 12 moved to top of Font submenu
-- Address bar: matches nav button height, stops before scrollbar, uses Monaco 12
-- Directory metadata (dates, sizes) drawn right-aligned; metadata truncated with ellipsis when too wide (item names never truncated)
-- Text page scroll: line scroll now uses ScrollRect with line index for O(1) row lookup (~15x faster); `count_rows()` optimized from O(N) byte scan to O(1)
+## [0.3.0] — Multi-Window Browsing
 
 ### Added
+- Multi-window browsing: open up to 4 simultaneous Gopher windows
+- Window menu for switching between open windows
+- New Window (Cmd-N) and Close Window (Cmd-W) commands
+- Background loading: pages load in background windows while browsing
+- Per-window history, scroll position, and text selection
+- `--max-windows N` build flag with preset integration (minimal=1, lite=2, full=4)
+- Build presets scale memory and cache allocation per window count
+- Window title shows "Loading host..." during page fetch
+- Memory pressure alert when unable to open new window
 - Save Page As (Cmd-S): save current page as TeachText-readable TEXT file, supports text pages and directory listings, works on System 6 and System 7
 - Options > Show Details: toggle to show/hide server metadata columns in directory listings
 - Text selection and copy in content area (directory listings and text pages)
@@ -19,6 +21,17 @@ All notable changes to this project will be documented in this file.
 - Edit menu fully wired: context-aware enable/disable based on focus and selection
 - Double-click word selection and shift-click to extend
 - Scroll position preserved when navigating back/forward through page history (instant on cache hit, deferred restore on network re-fetch)
+
+### Changed
+- File menu reorganized: New Window, Open URL, Save Page As, Close Window, Quit
+- Close Window (Cmd-W) closes front window; closing last window quits application
+- Cache pool shared across windows with scaled slot allocation (3/4/6 slots)
+- Inactive window scrollbar dimmed per Apple HIG
+- Default font changed from Monaco 9 to Chicago 12
+- Chicago 12 moved to top of Font submenu
+- Address bar: matches nav button height, stops before scrollbar, uses Monaco 12
+- Directory metadata (dates, sizes) drawn right-aligned; metadata truncated with ellipsis when too wide (item names never truncated)
+- Text page scroll: line scroll now uses ScrollRect with line index for O(1) row lookup (~15x faster); `count_rows()` optimized from O(N) byte scan to O(1)
 
 ## [0.2.1] — Performance & Polish
 

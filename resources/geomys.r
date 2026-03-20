@@ -7,7 +7,7 @@
 #include "Processes.r"
 
 resource 'MBAR' (128) {
-	{ 128, 129, 130, 131, 132 }
+	{ 128, 129, 130, 131, 133, 132 }
 };
 
 resource 'MENU' (128, "Apple") {
@@ -20,10 +20,12 @@ resource 'MENU' (128, "Apple") {
 resource 'MENU' (129, "File") {
 	129, textMenuProc, allEnabled, enabled, "File",
 	{
+		"New Window", noIcon, "N", noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
 		"Open URL\311", noIcon, "L", noMark, plain;
 		"Save Page As\311", noIcon, "S", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Close", noIcon, "W", noMark, plain;
+		"Close Window", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Quit", noIcon, "Q", noMark, plain
 	}
@@ -60,6 +62,14 @@ resource 'MENU' (132, "Options") {
 		"Page Style", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Show Details", noIcon, noKey, noMark, plain
+	}
+};
+
+resource 'MENU' (133, "Window") {
+	133, textMenuProc, allEnabled, enabled, "Window",
+	{
+		"1 of 4 Windows", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain
 	}
 };
 

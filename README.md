@@ -25,7 +25,9 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 
 **User Interface**
 - Full Macintosh GUI with mouse support
+- Multi-window browsing: up to 4 simultaneous windows with background loading
 - Web browser-style experience: address bar, back/forward/refresh/home buttons
+- Window menu for switching between open windows
 - Page styles: Traditional, Plain, Markdown
 - Show Details toggle: show/hide server metadata (dates, sizes) in directory listings
 - Font selection: Chicago 12, Monaco 9/12, Courier 10, Geneva 9/10
@@ -34,13 +36,14 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Hand cursor on navigable items
 - Bottom status bar with connection info
 - Monochrome display
-- Menus: File, Edit, Favorites, Options
+- Menus: File, Edit, Favorites, Window, Options
 - Aligned with Apple Human Interface Guidelines (1992)
 
 **Networking**
 - MacTCP for TCP/IP connectivity
 - Built-in DNS resolver
-- Local page cache (3-page LRU) for instant back/forward with scroll position preservation
+- Local page cache for instant back/forward with scroll position preservation
+- Per-window history, scroll position, and text selection
 - Works well within 4MB of RAM
 
 **Character Support**
@@ -61,12 +64,21 @@ bash ../Retro68/build-toolchain.bash --no-ppc --no-carbon --prefix=$(pwd)/toolch
 Then build Geomys:
 
 ```bash
-./scripts/build.sh
+./scripts/build.sh                    # full preset (4 windows)
+./scripts/build.sh --preset lite      # lite preset (2 windows)
+./scripts/build.sh --preset minimal   # minimal preset (1 window)
+./scripts/build.sh --max-windows 2    # override window count
 ```
 
 Output: `build/Geomys.dsk` (800K floppy image) and `build/Geomys.bin` (BinHex).
 
-See [docs/BUILD.md](docs/BUILD.md) for build presets, feature flags, and detailed instructions.
+| Preset | Windows | Features | SIZE (preferred) |
+|--------|---------|----------|-----------------|
+| Full (default) | 4 | All features | ~1024 KB |
+| Lite | 2 | Core + offscreen + favorites + clipboard | ~505 KB |
+| Minimal | 1 | Core only | ~297 KB |
+
+See [docs/BUILD.md](docs/BUILD.md) for feature flags and detailed instructions.
 
 ## Testing
 

@@ -15,19 +15,27 @@
 #define EDIT_MENU_ID        130
 #define FAVORITES_MENU_ID   131
 #define OPTIONS_MENU_ID     132
+#define WINDOW_MENU_ID      133
 #define FONT_MENU_ID        134
 #define STYLE_MENU_ID       135
+
+/* Window menu items (dynamic: items 3+ are window list) */
+#define WIN_MENU_HEADER     1
+/* separator = 2 */
+#define WIN_MENU_FIRST_WIN  3
 
 /* Apple menu items */
 #define APPLE_MENU_ABOUT    1
 
 /* File menu items */
-#define FILE_MENU_OPEN_URL  1
-#define FILE_MENU_SAVE_AS   2
-/* separator = 3 */
-#define FILE_MENU_CLOSE     4
+#define FILE_MENU_NEW_WIN   1
+/* separator = 2 */
+#define FILE_MENU_OPEN_URL  3
+#define FILE_MENU_SAVE_AS   4
 /* separator = 5 */
-#define FILE_MENU_QUIT      6
+#define FILE_MENU_CLOSE     6
+/* separator = 7 */
+#define FILE_MENU_QUIT      8
 
 /* Edit menu items */
 #define EDIT_MENU_UNDO      1
@@ -85,6 +93,7 @@
 #define APP_STATE_LOADING   1
 
 /* Functions callable from menus and content click handlers */
+void do_new_window(void);
 void do_open_url_dialog(void);
 void do_navigate_url_titled(const char *url, const char *title);
 void do_navigate_url(const char *url);  /* title = NULL */
@@ -97,7 +106,15 @@ void do_home_page_dialog(void);
 /* Globals (defined in main.c) */
 extern Boolean g_running;
 extern Boolean g_suspended;
-extern WindowPtr g_window;
-extern short g_app_state;
+
+/*
+ * Per-session state accessed through active_session.
+ * For GEOMYS_MAX_WINDOWS == 1 these are direct struct access
+ * with zero overhead (active_session is a compile-time macro).
+ */
+#include "session.h"
+#define g_window     (active_session->window)
+#define g_app_state  (active_session->app_state)
+#define g_gopher     (active_session->gopher)
 
 #endif /* MAIN_H */

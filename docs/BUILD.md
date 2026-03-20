@@ -37,11 +37,11 @@ The full path of created disk images is printed on completion.
 
 Geomys supports build presets for different configurations. The default preset is `full`.
 
-| Preset | Description |
-|--------|-------------|
-| `full` | All features enabled (default) |
-| `lite` | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
-| `minimal` | Bare-bones — smallest possible binary |
+| Preset | Windows | Memory | Description |
+|--------|---------|--------|-------------|
+| `full` | 4 | 1024 KB | All features enabled (default) |
+| `lite` | 2 | 505 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
+| `minimal` | 1 | 297 KB | Bare-bones — smallest possible binary, single window |
 
 Select a preset:
 
@@ -58,16 +58,18 @@ The build system uses CMake feature flags to enable or disable components at com
 
 | Flag | Purpose | Default | Minimal | Lite | Full |
 |------|---------|---------|---------|------|------|
+| `GEOMYS_MAX_WINDOWS` | Max simultaneous windows | 1 | 1 | 2 | 4 |
 | `GEOMYS_OFFSCREEN` | Offscreen double-buffer | ON | OFF | ON | ON |
 | `GEOMYS_STATUS_BAR` | Status bar | ON | ON | ON | ON |
 | `GEOMYS_FAVORITES` | Favorites system | ON | OFF | ON | ON |
 | `GEOMYS_COLOR` | 256-color support (future) | OFF | OFF | OFF | OFF |
-| `GEOMYS_DOWNLOAD` | File downloads (future) | OFF | OFF | OFF | OFF |
+| `GEOMYS_DOWNLOAD` | File downloads | ON | OFF | OFF | ON |
 | `GEOMYS_GOPHER_PLUS` | Gopher+ protocol support | ON | OFF | OFF | ON |
 | `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | OFF | ON |
 | `GEOMYS_CP437` | CP437 character set | ON | OFF | ON | ON |
 | `GEOMYS_STYLES` | Page format styles | ON | OFF | OFF | ON |
 | `GEOMYS_CACHE` | Local page caching | ON | OFF | OFF | ON |
+| `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | OFF | ON | ON |
 
 ### Dependencies
 
@@ -89,6 +91,18 @@ Individual feature flags can be toggled on or off after a preset is applied. Use
 | `--cp437` | `--no-cp437` | CP437 character set |
 | `--styles` | `--no-styles` | Page format styles |
 | `--cache` | `--no-cache` | Local page caching |
+| `--clipboard` | `--no-clipboard` | Text selection and clipboard |
+
+### Window Count
+
+Use `--max-windows N` to set the maximum number of simultaneous windows (overrides preset):
+
+```bash
+./scripts/build.sh --max-windows 3                # custom window limit
+./scripts/build.sh --preset lite --max-windows 4   # lite features, 4 windows
+```
+
+When `GEOMYS_MAX_WINDOWS` is 1, multi-window code compiles with zero overhead (no Window menu, no session switching). Cache slots scale automatically: 3 slots for 1 window, 4 for 2, 6 for 3+.
 
 Flags are applied after presets, so you can start from a preset and override individual features:
 

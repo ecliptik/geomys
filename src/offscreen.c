@@ -72,11 +72,28 @@ offscreen_cleanup(void)
 void
 offscreen_begin(WindowPtr win)
 {
+	short win_w, win_h, buf_w, buf_h;
+
 	if (!g_ready || g_active)
+		return;
+
+	/* Validate buffer is large enough for this window.
+	 * If the window was resized larger than the buffer,
+	 * skip offscreen to avoid memory corruption. */
+	win_w = win->portRect.right - win->portRect.left;
+	win_h = win->portRect.bottom - win->portRect.top;
+	buf_w = (g_offscreen.rowBytes * 8);
+	buf_h = g_offscreen.bounds.bottom - g_offscreen.bounds.top;
+	if (win_w > buf_w || win_h > buf_h)
 		return;
 
 	/* Save the real screen bits */
 	g_saved_bits = win->portBits;
+
+	/* Update offscreen bounds to match current window's
+	 * coordinate system — critical for multi-window support
+	 * where each window may have different portRect */
+	g_offscreen.bounds = win->portRect;
 
 	/* Redirect QuickDraw to offscreen */
 	SetPortBits(&g_offscreen);
@@ -103,6 +120,45 @@ short
 offscreen_is_ready(void)
 {
 	return g_ready;
+}
+
+void
+offscreen_resize(WindowPtr win)
+{
+	short pixel_w, pixel_h, rb;
+	long size;
+	Ptr new_bits;
+
+	if (!g_ready)
+		return;
+
+	pixel_w = win->portRect.right - win->portRect.left;
+	pixel_h = win->portRect.bottom - win->portRect.top;
+
+	/* Check if current buffer is large enough */
+	rb = ((pixel_w + 15) / 16) * 2;
+	if (rb <= g_offscreen.rowBytes &&
+	    pixel_h <= (g_offscreen.bounds.bottom -
+	    g_offscreen.bounds.top))
+		return;  /* buffer is big enough */
+
+	/* Reallocate with new size */
+	if (rb < g_offscreen.rowBytes)
+		rb = g_offscreen.rowBytes;
+	size = (long)rb * pixel_h;
+
+	new_bits = NewPtr(size);
+	if (!new_bits)
+		return;  /* keep old buffer */
+
+	memset(new_bits, 0xFF, size);  /* white fill */
+
+	/* Free old buffer and install new one */
+	DisposePtr(g_offscreen_bits);
+	g_offscreen_bits = new_bits;
+	g_offscreen.baseAddr = new_bits;
+	g_offscreen.rowBytes = rb;
+	g_offscreen.bounds = win->portRect;
 }
 
 #endif /* GEOMYS_OFFSCREEN */

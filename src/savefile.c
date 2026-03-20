@@ -19,9 +19,8 @@
 #include "sysutil.h"
 #include "savefile.h"
 
-/* External references to main.c globals */
-extern GopherState g_gopher;
-extern short g_app_state;
+/* g_gopher and g_app_state are macros in main.h
+ * pointing to active_session fields */
 
 /*
  * write_text_page - Write text page content to open file.

@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include "history.h"
+#include "session.h"
 
 static HistoryEntry g_history[HISTORY_MAX];
 static short g_count = 0;    /* total entries */
@@ -126,4 +127,24 @@ short
 history_get_scroll(const HistoryEntry *e)
 {
 	return e->scroll_pos;
+}
+
+/*
+ * Save/restore history module statics to/from session struct.
+ * Used during session switching (GEOMYS_MAX_WINDOWS > 1).
+ */
+void
+history_save_state(struct BrowserSession *s)
+{
+	memcpy(s->history, g_history, sizeof(g_history));
+	s->history_count = g_count;
+	s->history_pos = g_pos;
+}
+
+void
+history_load_state(struct BrowserSession *s)
+{
+	memcpy(g_history, s->history, sizeof(g_history));
+	g_count = s->history_count;
+	g_pos = s->history_pos;
 }

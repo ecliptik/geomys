@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 0.2.0
+                   Version 0.3.0
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -26,6 +26,10 @@ The browser features a web-style interface with an
 address bar, back/forward/refresh/home navigation
 buttons, and a status bar — all designed to follow
 the Apple Human Interface Guidelines.
+
+Geomys supports multi-window browsing, allowing up
+to 4 simultaneous Gopher windows with independent
+history, scroll position, and background loading.
 
 
 System Requirements

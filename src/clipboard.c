@@ -16,8 +16,7 @@
 #include "gopher.h"
 #include "main.h"
 
-/* External gopher state from main.c */
-extern GopherState g_gopher;
+/* g_gopher is a macro in main.h pointing to active_session->gopher */
 
 /*
  * clipboard_copy_content - extract selected rows as TEXT

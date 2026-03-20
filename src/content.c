@@ -17,6 +17,7 @@
 #include "gopher_types.h"
 #include "main.h"
 #include "settings.h"
+#include "session.h"
 #ifdef GEOMYS_OFFSCREEN
 #include "offscreen.h"
 #endif
@@ -1771,3 +1772,38 @@ content_select_all(WindowPtr win)
 	}
 }
 #endif /* GEOMYS_CLIPBOARD */
+
+/*
+ * Save/restore content area statics to/from session struct.
+ * Used during session switching (GEOMYS_MAX_WINDOWS > 1).
+ */
+void
+content_save_state(struct BrowserSession *s)
+{
+	s->scrollbar = g_scrollbar;
+	s->scroll_pos = g_scroll_pos;
+	s->hover_row = g_hover_row;
+	s->row_height = g_row_height;
+	s->font_id = g_font_id;
+	s->font_size = g_font_size;
+#ifdef GEOMYS_CLIPBOARD
+	s->sel = g_sel;
+	s->win_active = g_win_active;
+#endif
+}
+
+void
+content_load_state(struct BrowserSession *s)
+{
+	g_scrollbar = s->scrollbar;
+	g_scroll_pos = s->scroll_pos;
+	g_page = &s->gopher;
+	g_hover_row = s->hover_row;
+	g_row_height = s->row_height;
+	g_font_id = s->font_id;
+	g_font_size = s->font_size;
+#ifdef GEOMYS_CLIPBOARD
+	g_sel = s->sel;
+	g_win_active = s->win_active;
+#endif
+}

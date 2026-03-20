@@ -31,11 +31,17 @@
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
 static MenuHandle favorites_menu, options_menu;
+static MenuHandle window_menu;
 static MenuHandle font_submenu;
 static MenuHandle style_submenu;
 
 /* main.c globals */
 extern GeomysPrefs g_prefs;
+
+#if GEOMYS_MAX_WINDOWS > 1
+static void update_window_menu(void);
+static void handle_window_menu(short item);
+#endif
 
 void
 init_menus(void)
@@ -59,6 +65,17 @@ init_menus(void)
 	edit_menu = GetMenuHandle(EDIT_MENU_ID);
 	favorites_menu = GetMenuHandle(FAVORITES_MENU_ID);
 	options_menu = GetMenuHandle(OPTIONS_MENU_ID);
+
+	/* Window menu is in MBAR — loaded atomically by GetNewMBar.
+	 * Use GetMenuHandle (like Flynn), not GetMenu+InsertMenu
+	 * which corrupts menu bar font state on 68000. */
+	window_menu = GetMenuHandle(WINDOW_MENU_ID);
+#if GEOMYS_MAX_WINDOWS == 1
+	/* Single-window: remove Window menu from bar */
+	if (window_menu)
+		DeleteMenu(WINDOW_MENU_ID);
+	window_menu = 0L;
+#endif
 
 	/* Load and insert Font hierarchical submenu */
 	font_submenu = GetMenu(FONT_MENU_ID);
@@ -126,12 +143,17 @@ update_menus(void)
 	/* DA windows have negative windowKind */
 	da_active = (front && ((WindowPeek)front)->windowKind < 0);
 
-	/* File menu: Open URL always enabled, Close when window open */
+	/* File menu */
 	if (file_menu) {
+		/* New Window: disable when at max sessions */
+		if (session_count() >= GEOMYS_MAX_WINDOWS)
+			DisableItem(file_menu, FILE_MENU_NEW_WIN);
+		else
+			EnableItem(file_menu, FILE_MENU_NEW_WIN);
+
 		EnableItem(file_menu, FILE_MENU_OPEN_URL);
 #ifdef GEOMYS_DOWNLOAD
 		{
-			extern GopherState g_gopher;
 			if (g_gopher.page_type != PAGE_NONE &&
 			    g_app_state == APP_STATE_IDLE)
 				EnableItem(file_menu,
@@ -194,6 +216,10 @@ update_menus(void)
 			DisableItem(edit_menu, EDIT_MENU_SELALL);
 		}
 	}
+
+#if GEOMYS_MAX_WINDOWS > 1
+	update_window_menu();
+#endif
 }
 
 static void
@@ -216,6 +242,9 @@ static void
 handle_file_menu(short item)
 {
 	switch (item) {
+	case FILE_MENU_NEW_WIN:
+		do_new_window();
+		break;
 	case FILE_MENU_OPEN_URL:
 		do_open_url_dialog();
 		break;
@@ -223,7 +252,10 @@ handle_file_menu(short item)
 		do_save_page();
 		break;
 	case FILE_MENU_CLOSE:
-		g_running = false;
+		if (active_session)
+			session_destroy_and_fixup(active_session);
+		else
+			g_running = false;
 		break;
 	case FILE_MENU_QUIT:
 		g_running = false;
@@ -270,6 +302,97 @@ handle_edit_menu(short item)
 #endif
 }
 
+#if GEOMYS_MAX_WINDOWS > 1
+/*
+ * update_window_menu - Rebuild the Window menu dynamically.
+ * Shows "N of M Windows" header, then lists each open window
+ * with a checkmark on the active session.
+ */
+static void
+update_window_menu(void)
+{
+	short i, item_num;
+	char label[80];
+	Str255 ps;
+
+	if (!window_menu)
+		return;
+
+	/* Clear all items after separator (item 2) */
+	while (CountMItems(window_menu) > 2)
+		DeleteMenuItem(window_menu,
+		    CountMItems(window_menu));
+
+	/* Header: "N of M Windows" */
+	snprintf(label, sizeof(label), "%d of %d Windows",
+	    session_count(), GEOMYS_MAX_WINDOWS);
+	c2pstr(ps, label);
+	SetMenuItemText(window_menu, WIN_MENU_HEADER, ps);
+	DisableItem(window_menu, WIN_MENU_HEADER);
+
+	/* List open windows */
+	item_num = WIN_MENU_FIRST_WIN;
+	for (i = 0; i < GEOMYS_MAX_WINDOWS; i++) {
+		BrowserSession *s = session_get(i);
+		Str255 wtitle;
+
+		if (!s)
+			continue;
+
+		/* Get window title */
+		if (s->window) {
+			GetWTitle(s->window, wtitle);
+			if (wtitle[0] == 0) {
+				/* Fallback for untitled windows */
+				c2pstr(wtitle, "Geomys");
+			}
+		} else {
+			c2pstr(wtitle, "Geomys");
+		}
+
+		/* Use AppendMenu + SetMenuItemText to avoid
+		 * metacharacter interpretation */
+		AppendMenu(window_menu, "\p ");
+		SetMenuItemText(window_menu, item_num, wtitle);
+
+		/* Checkmark on active window */
+		CheckItem(window_menu, item_num,
+		    s == active_session);
+		item_num++;
+	}
+}
+
+/*
+ * handle_window_menu - Handle click on a Window menu item.
+ * Items 3+ correspond to session windows.
+ */
+static void
+handle_window_menu(short item)
+{
+	short i, item_num;
+
+	if (item < WIN_MENU_FIRST_WIN)
+		return;
+
+	/* Map menu item to session */
+	item_num = WIN_MENU_FIRST_WIN;
+	for (i = 0; i < GEOMYS_MAX_WINDOWS; i++) {
+		BrowserSession *s = session_get(i);
+
+		if (!s)
+			continue;
+
+		if (item_num == item) {
+			/* Switch to this session's window */
+			if (s->window)
+				SelectWindow(s->window);
+			return;
+		}
+		item_num++;
+	}
+}
+#endif /* GEOMYS_MAX_WINDOWS > 1 */
+
 Boolean
 handle_menu(long menu_id)
 {
@@ -299,7 +422,6 @@ handle_menu(long menu_id)
 			char url[300];
 			char name[80];
 			Str255 wtitle;
-			extern GopherState g_gopher;
 
 			gopher_build_uri(url, sizeof(url),
 			    g_gopher.cur_host, g_gopher.cur_port,
@@ -335,6 +457,11 @@ handle_menu(long menu_id)
 			favorites_menu_click(&g_prefs, item);
 			break;
 		}
+		break;
+#endif
+#if GEOMYS_MAX_WINDOWS > 1
+	case WINDOW_MENU_ID:
+		handle_window_menu(item);
 		break;
 #endif
 	case OPTIONS_MENU_ID:

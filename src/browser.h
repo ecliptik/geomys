@@ -89,4 +89,9 @@ void browser_edit_select_all(void);
 Boolean browser_has_selection(void);
 #endif
 
+/* Save/restore browser chrome state to/from a session struct */
+struct BrowserSession;
+void browser_save_state(struct BrowserSession *s);
+void browser_load_state(struct BrowserSession *s);
+
 #endif /* BROWSER_H */

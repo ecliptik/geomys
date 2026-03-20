@@ -104,4 +104,9 @@ void content_select_all(WindowPtr win);
 void content_clear_selection(WindowPtr win);
 #endif
 
+/* Save/restore content area state to/from a session struct */
+struct BrowserSession;
+void content_save_state(struct BrowserSession *s);
+void content_load_state(struct BrowserSession *s);
+
 #endif /* CONTENT_H */

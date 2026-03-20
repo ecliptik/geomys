@@ -17,7 +17,8 @@
 #include "gopher.h"
 
 typedef struct {
-	short       history_idx;    /* which history entry this caches, -1 = empty */
+	short       session_id;     /* owning session, -1 = empty */
+	short       history_idx;    /* which history entry this caches */
 	short       page_type;      /* PAGE_DIRECTORY or PAGE_TEXT */
 	GopherItem  *items;         /* copied items array (NewPtr) */
 	short       item_count;
@@ -46,6 +47,7 @@ free_slot(CacheSlot *slot)
 		DisposePtr((Ptr)slot->text_lines);
 		slot->text_lines = 0L;
 	}
+	slot->session_id = -1;
 	slot->history_idx = -1;
 	slot->page_type = PAGE_NONE;
 	slot->item_count = 0;
@@ -53,14 +55,15 @@ free_slot(CacheSlot *slot)
 	slot->text_line_count = 0;
 }
 
-/* Find slot for a history index, or -1 */
+/* Find slot for a session + history index, or -1 */
 static short
-find_slot(short history_idx)
+find_slot(short session_id, short history_idx)
 {
 	short i;
 
 	for (i = 0; i < CACHE_MAX; i++) {
-		if (g_cache[i].history_idx == history_idx)
+		if (g_cache[i].session_id == session_id &&
+		    g_cache[i].history_idx == history_idx)
 			return i;
 	}
 	return -1;
@@ -74,7 +77,7 @@ find_lru_slot(void)
 	long oldest = g_cache[0].access_time;
 
 	for (i = 1; i < CACHE_MAX; i++) {
-		if (g_cache[i].history_idx == -1)
+		if (g_cache[i].session_id == -1)
 			return i;  /* empty slot, use it */
 		if (g_cache[i].access_time < oldest) {
 			oldest = g_cache[i].access_time;
@@ -90,6 +93,7 @@ cache_init(void)
 	short i;
 
 	for (i = 0; i < CACHE_MAX; i++) {
+		g_cache[i].session_id = -1;
 		g_cache[i].history_idx = -1;
 		g_cache[i].items = 0L;
 		g_cache[i].text_buf = 0L;
@@ -113,7 +117,7 @@ cache_cleanup(void)
 }
 
 void
-cache_store(short history_idx, const GopherState *gs)
+cache_store(short session_id, short history_idx, const GopherState *gs)
 {
 	short slot_idx;
 	CacheSlot *slot;
@@ -122,13 +126,14 @@ cache_store(short history_idx, const GopherState *gs)
 		return;
 
 	/* Reuse existing slot or evict LRU */
-	slot_idx = find_slot(history_idx);
+	slot_idx = find_slot(session_id, history_idx);
 	if (slot_idx < 0) {
 		slot_idx = find_lru_slot();
 		free_slot(&g_cache[slot_idx]);
 	}
 
 	slot = &g_cache[slot_idx];
+	slot->session_id = session_id;
 	slot->history_idx = history_idx;
 	slot->page_type = gs->page_type;
 	slot->access_time = ++g_tick;
@@ -179,12 +184,12 @@ cache_store(short history_idx, const GopherState *gs)
 }
 
 Boolean
-cache_retrieve(short history_idx, GopherState *gs)
+cache_retrieve(short session_id, short history_idx, GopherState *gs)
 {
 	short slot_idx;
 	CacheSlot *slot;
 
-	slot_idx = find_slot(history_idx);
+	slot_idx = find_slot(session_id, history_idx);
 	if (slot_idx < 0)
 		return false;
 
@@ -281,22 +286,23 @@ cache_retrieve(short history_idx, GopherState *gs)
 }
 
 void
-cache_invalidate(short history_idx)
+cache_invalidate(short session_id, short history_idx)
 {
 	short slot_idx;
 
-	slot_idx = find_slot(history_idx);
+	slot_idx = find_slot(session_id, history_idx);
 	if (slot_idx >= 0)
 		free_slot(&g_cache[slot_idx]);
 }
 
 void
-cache_invalidate_from(short history_idx)
+cache_invalidate_from(short session_id, short history_idx)
 {
 	short i;
 
 	for (i = 0; i < CACHE_MAX; i++) {
-		if (g_cache[i].history_idx >= history_idx)
+		if (g_cache[i].session_id == session_id &&
+		    g_cache[i].history_idx >= history_idx)
 			free_slot(&g_cache[i]);
 	}
 }

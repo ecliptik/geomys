@@ -18,6 +18,7 @@ GEOMYS_CP437=ON
 GEOMYS_STYLES=ON
 GEOMYS_CACHE=ON
 GEOMYS_CLIPBOARD=ON
+GEOMYS_MAX_WINDOWS=1
 
 PRESET=""
 
@@ -36,6 +37,7 @@ apply_preset() {
             GEOMYS_STYLES=OFF
             GEOMYS_CACHE=OFF
             GEOMYS_CLIPBOARD=OFF
+            GEOMYS_MAX_WINDOWS=1
             ;;
         lite|macplus)
             GEOMYS_OFFSCREEN=ON
@@ -49,6 +51,7 @@ apply_preset() {
             GEOMYS_STYLES=OFF
             GEOMYS_CACHE=OFF
             GEOMYS_CLIPBOARD=ON
+            GEOMYS_MAX_WINDOWS=2
             ;;
         full|default)
             GEOMYS_OFFSCREEN=ON
@@ -62,6 +65,7 @@ apply_preset() {
             GEOMYS_STYLES=ON
             GEOMYS_CACHE=ON
             GEOMYS_CLIPBOARD=ON
+            GEOMYS_MAX_WINDOWS=4
             ;;
         *)
             echo "Error: unknown preset '$1' (valid: minimal, lite, full; macplus is alias for lite)"
@@ -80,6 +84,9 @@ while [ $i -lt ${#ARGS[@]} ]; do
         --preset)
             PRESET="${ARGS[$((i+1))]}"
             apply_preset "$PRESET"
+            i=$((i + 2))
+            ;;
+        --max-windows)
             i=$((i + 2))
             ;;
         *)
@@ -114,6 +121,7 @@ while [[ $# -gt 0 ]]; do
         --no-cache)      GEOMYS_CACHE=OFF;           shift ;;
         --clipboard)     GEOMYS_CLIPBOARD=ON;        shift ;;
         --no-clipboard)  GEOMYS_CLIPBOARD=OFF;       shift ;;
+        --max-windows)   GEOMYS_MAX_WINDOWS="$2";    shift 2 ;;
         *)
             MAKE_ARGS+=("$1")
             shift
@@ -132,25 +140,31 @@ fi
 compute_size() {
     local base=100
 
+    # Shared (global) memory costs
     local shared=0
     [ "$GEOMYS_OFFSCREEN" = "ON" ] && shared=$(( shared + 22 ))
     [ "$GEOMYS_STATUS_BAR" = "ON" ] && shared=$(( shared + 1 ))
     [ "$GEOMYS_FAVORITES" = "ON" ] && shared=$(( shared + 3 ))
     [ "$GEOMYS_GLYPHS" = "ON" ] && shared=$(( shared + 6 ))
     [ "$GEOMYS_CP437" = "ON" ] && shared=$(( shared + 1 ))
-    [ "$GEOMYS_CACHE" = "ON" ] && shared=$(( shared + 100 ))
     [ "$GEOMYS_GOPHER_PLUS" = "ON" ] && shared=$(( shared + 3 ))
 
+    # Per-session memory: items(80KB) + text(32KB) + tcp(12KB) + history(4KB) = 128KB
+    local per_session=128
+    [ "$GEOMYS_CACHE" = "ON" ] && per_session=$(( per_session + 100 ))
+    local session_total=$(( per_session * GEOMYS_MAX_WINDOWS ))
+
     # Total with 30% headroom
-    local computed=$(( base + shared + 80 + 32 + 12 + 4 ))  # items + text + tcp + history
+    local computed=$(( base + shared + session_total ))
     SIZE_PREFERRED=$(( computed * 130 / 100 ))
     SIZE_MINIMUM=$(( SIZE_PREFERRED - 128 ))
 
-    # Clamp
+    # Clamp — keep SIZE modest to avoid starving system heap
+    # on 4MB Mac Plus. Original single-window: 384/256.
     [ $SIZE_PREFERRED -lt 256 ] && SIZE_PREFERRED=256 || true
     [ $SIZE_MINIMUM -lt 192 ] && SIZE_MINIMUM=192 || true
-    [ $SIZE_PREFERRED -gt 768 ] && SIZE_PREFERRED=768 || true
-    [ $SIZE_MINIMUM -gt 640 ] && SIZE_MINIMUM=640 || true
+    [ $SIZE_PREFERRED -gt 384 ] && SIZE_PREFERRED=384 || true
+    [ $SIZE_MINIMUM -gt 256 ] && SIZE_MINIMUM=256 || true
 }
 
 compute_size
@@ -208,7 +222,8 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_CP437="$GEOMYS_CP437" \
     -DGEOMYS_STYLES="$GEOMYS_STYLES" \
     -DGEOMYS_CACHE="$GEOMYS_CACHE" \
-    -DGEOMYS_CLIPBOARD="$GEOMYS_CLIPBOARD"
+    -DGEOMYS_CLIPBOARD="$GEOMYS_CLIPBOARD" \
+    -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS"
 make "${MAKE_ARGS[@]}"
 
 # Fix creator code in MacBinary header (Retro68 sets '????' instead of 'GEOM')
@@ -296,6 +311,7 @@ echo ""
 echo "Build complete (v${VERSION_DISPLAY}, ${PRESET_LABEL} preset):"
 echo "  Features:${ENABLED}"
 [ -n "$DISABLED" ] && echo "  Disabled:${DISABLED}"
+echo "  Windows: ${GEOMYS_MAX_WINDOWS} max"
 echo "  SIZE: ${SIZE_PREFERRED}KB preferred / ${SIZE_MINIMUM}KB minimum"
 echo ""
 echo "Artifacts:"
