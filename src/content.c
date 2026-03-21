@@ -28,7 +28,10 @@
 
 /* Module state */
 static ControlHandle g_scrollbar = 0L;
+static ControlHandle g_hscrollbar = 0L;
 static short g_scroll_pos = 0;      /* first visible row */
+static short g_hscroll_pos = 0;     /* first visible pixel column */
+static short g_content_max_width = 0; /* max line width in pixels */
 static GopherState *g_page = 0L;    /* current page to render */
 static short g_row_height = ROW_HEIGHT_DEFAULT;  /* dynamic row height */
 static short g_font_id = 4;         /* current font (Monaco) */
@@ -52,9 +55,15 @@ static short col_to_pixel(short row, short col, WindowPtr win);
 static void sel_normalize(short *sr, short *sc, short *er, short *ec);
 #endif
 
-/* Scroll bar action proc */
+/* Scroll bar action procs */
 static pascal void scroll_action(ControlHandle ctl, short part);
+static pascal void hscroll_action(ControlHandle ctl, short part);
 static ControlActionUPP g_scroll_upp = 0L;
+static ControlActionUPP g_hscroll_upp = 0L;
+
+/* Forward declaration */
+static void content_calc_max_width(WindowPtr win);
+static void content_update_hscroll(WindowPtr win);
 
 /* Count total rows in current page */
 static short
@@ -87,18 +96,37 @@ content_init(WindowPtr win)
 
 	browser_get_content_rect(win, &content_r);
 
-	/* Create vertical scroll bar in standard position */
+	/* Create vertical scroll bar — extends alongside both
+	 * content area and status bar, ends at grow box.
+	 * The +1 shares border pixel with grow box top. */
 	SetRect(&sb_rect,
 	    win->portRect.right - SCROLLBAR_WIDTH,
 	    content_r.top - 1,
 	    win->portRect.right + 1,
-	    win->portRect.bottom - STATUS_BAR_HEIGHT + 1);
+	    win->portRect.bottom - SCROLLBAR_WIDTH + 1);
 
 	g_scrollbar = NewControl(win, &sb_rect, "\p", true,
 	    0, 0, 0, scrollBarProc, 0L);
 
 	g_scroll_upp = NewControlActionUPP(scroll_action);
 	g_scroll_pos = 0;
+
+	/* Create horizontal scroll bar — below status bar,
+	 * left of grow box. Matches Finder scrollbar geometry:
+	 * top aligns with grow box top, right frame shares
+	 * border pixel with grow box left edge. */
+	SetRect(&sb_rect,
+	    -1,
+	    win->portRect.bottom - SCROLLBAR_WIDTH,
+	    win->portRect.right - SCROLLBAR_WIDTH + 1,
+	    win->portRect.bottom + 1);
+
+	g_hscrollbar = NewControl(win, &sb_rect, "\p", true,
+	    0, 0, 0, scrollBarProc, 0L);
+
+	g_hscroll_upp = NewControlActionUPP(hscroll_action);
+	g_hscroll_pos = 0;
+	g_content_max_width = 0;
 
 	/* Load hand cursor for hovering over links */
 	g_hand_cursor = GetCursor(129);
@@ -119,6 +147,10 @@ content_init(WindowPtr win)
 void
 content_cleanup(void)
 {
+	if (g_hscrollbar) {
+		DisposeControl(g_hscrollbar);
+		g_hscrollbar = 0L;
+	}
 	if (g_scrollbar) {
 		DisposeControl(g_scrollbar);
 		g_scrollbar = 0L;
@@ -131,6 +163,8 @@ content_set_page(GopherState *gs)
 {
 	g_page = gs;
 	g_scroll_pos = 0;
+	g_hscroll_pos = 0;
+	g_content_max_width = 0;
 	g_hover_row = -1;
 #ifdef GEOMYS_CLIPBOARD
 	/* Clear selection on page change */
@@ -172,6 +206,9 @@ content_update_scroll(WindowPtr win)
 
 	/* Dim if nothing to scroll */
 	HiliteControl(g_scrollbar, max_val > 0 ? 0 : 255);
+
+	/* Update horizontal scrollbar */
+	content_update_hscroll(win);
 }
 
 #ifdef GEOMYS_CP437
@@ -227,7 +264,7 @@ static void
 content_draw_row(WindowPtr win, short row_index)
 {
 	Rect r, erase_r;
-	short y, content_width, ellipsis_w;
+	short y, content_width;
 	GopherItem *item;
 	char line[100];
 	const char *label;
@@ -262,7 +299,6 @@ content_draw_row(WindowPtr win, short row_index)
 	TextFont(g_font_id);
 	TextSize(g_font_size);
 	content_width = r.right - r.left - 8;
-	ellipsis_w = TextWidth("\xC9", 0, 1);
 
 	item = &g_page->items[row_index];
 	label = gopher_type_label(item->type);
@@ -342,36 +378,27 @@ content_draw_row(WindowPtr win, short row_index)
 		len = strlen(line);
 		if (len > 255) len = 255;
 
-		/* Measure name width once — reused for
-		 * truncation check and metadata positioning */
+		/* Measure name width */
 		text_width = TextWidth(line, 0, len);
 
-		/* Truncate name with ellipsis only if it
-		 * alone exceeds content width */
-		if (text_width > content_width && len > 3) {
-			short max_w = content_width - ellipsis_w;
-
-			while (len > 3 &&
-			    TextWidth(line, 0, len) > max_w)
-				len--;
-			line[len] = '\xC9';
-			len++;
-			text_width = TextWidth(line, 0, len);
-		}
-
-		/* Draw name (left-aligned) */
+		/* Draw name with horizontal offset —
+		 * ClipRect handles clipping automatically */
 		ps[0] = len;
 		memcpy(ps + 1, line, len);
-		MoveTo(r.left + 4, y - 2);
+		MoveTo(r.left + 4 - g_hscroll_pos, y - 2);
 		DrawString(ps);
 
 		/* Draw metadata right-aligned when Show
-		 * Details is on and metadata exists */
+		 * Details is on and metadata exists.
+		 * Metadata stays fixed at right edge
+		 * (not affected by hscroll). */
 		if (split_pos > 0 && g_prefs.show_details) {
 			const char *rp = disp + split_pos;
 			short right_len, right_w;
 			short right_avail;
-			char right_buf[100];
+			short ellipsis_w;
+
+			ellipsis_w = TextWidth("\xC9", 0, 1);
 
 			/* Skip padding spaces */
 			while (*rp == ' ' && rp < disp + dlen)
@@ -379,6 +406,8 @@ content_draw_row(WindowPtr win, short row_index)
 			right_len = dlen - (rp - disp);
 
 			if (right_len > 0 && right_len < 100) {
+				char right_buf[100];
+
 				right_w = TextWidth(rp, 0,
 				    right_len);
 				right_avail = content_width -
@@ -432,9 +461,10 @@ content_draw_row(WindowPtr win, short row_index)
 		if (show_underline) {
 			/* line now contains only prefix + name
 			 * (no metadata), so underline it all */
-			MoveTo(r.left + 4, y - 1);
-			LineTo(r.left + 4 + TextWidth(
-			    line, 0, len), y - 1);
+			MoveTo(r.left + 4 - g_hscroll_pos,
+			    y - 1);
+			LineTo(r.left + 4 - g_hscroll_pos +
+			    TextWidth(line, 0, len), y - 1);
 		}
 	}
 
@@ -495,9 +525,9 @@ static void
 content_draw_text_row(WindowPtr win, short line_index)
 {
 	Rect r, erase_r;
-	short y, content_width;
+	short y;
 	const char *line_start;
-	short line_len, orig_len;
+	short line_len;
 	RgnHandle save_clip;
 
 	if (!g_page || g_page->page_type != PAGE_TEXT)
@@ -529,7 +559,6 @@ content_draw_text_row(WindowPtr win, short line_index)
 
 	TextFont(g_font_id);
 	TextSize(g_font_size);
-	content_width = r.right - r.left - 8;
 
 	/* Get line start and length from index */
 	line_start = g_page->text_buf +
@@ -550,7 +579,6 @@ content_draw_text_row(WindowPtr win, short line_index)
 	}
 	if (line_len < 0)
 		line_len = 0;
-	orig_len = line_len;
 
 #ifdef GEOMYS_CP437
 	if (cp437_has_high(line_start, line_len)) {
@@ -562,44 +590,17 @@ content_draw_text_row(WindowPtr win, short line_index)
 		xlen = cp437_translate(xlated,
 		    line_start, xlen);
 
-		if (xlen > 0 &&
-		    TextWidth(xlated, 0, xlen) >
-		    content_width) {
-			short ew = TextWidth("\xC9", 0, 1);
-			short mw = content_width - ew;
-
-			while (xlen > 0 &&
-			    TextWidth(xlated, 0, xlen) > mw)
-				xlen--;
-		}
-
-		MoveTo(r.left + 4, y - 2);
+		/* Draw with horizontal offset — ClipRect
+		 * handles clipping automatically */
+		MoveTo(r.left + 4 - g_hscroll_pos, y - 2);
 		DrawText(xlated, 0, xlen);
-		if (xlen < orig_len)
-			DrawChar('\xC9');
 	} else
 #endif
 	{
-		/* Truncate with ellipsis if too wide */
-		if (line_len > 0 &&
-		    TextWidth((Ptr)line_start, 0, line_len) >
-		    content_width) {
-			short ellip_w =
-			    TextWidth("\xC9", 0, 1);
-			short max_w = content_width - ellip_w;
-
-			while (line_len > 0 &&
-			    TextWidth((Ptr)line_start, 0,
-			    line_len) > max_w)
-				line_len--;
-		}
-
-		MoveTo(r.left + 4, y - 2);
+		/* Draw with horizontal offset — ClipRect
+		 * handles clipping automatically */
+		MoveTo(r.left + 4 - g_hscroll_pos, y - 2);
 		DrawText((Ptr)line_start, 0, line_len);
-
-		/* Draw ellipsis if line was truncated */
-		if (line_len < orig_len)
-			DrawChar('\xC9');
 	}
 
 #ifdef GEOMYS_CLIPBOARD
@@ -731,19 +732,12 @@ done:
 		offscreen_end(win, &r);
 #endif
 
-	/* Redraw grow box: erase area, then clip to the
-	 * full 16x16 grow box and draw. Frame lines from
-	 * DrawGrowIcon form the correct borders. */
+	/* Redraw grow box over the scrollbar overlap pixels.
+	 * DrawGrowIcon redraws the grow icon and its frame,
+	 * which overwrites the scrollbar +1 overlap. */
 	{
 		Rect clip_r;
 		RgnHandle gc = NewRgn();
-
-		SetRect(&clip_r,
-		    win->portRect.right - SCROLLBAR_WIDTH,
-		    win->portRect.bottom - SCROLLBAR_WIDTH,
-		    win->portRect.right,
-		    win->portRect.bottom);
-		EraseRect(&clip_r);
 
 		GetClip(gc);
 		SetRect(&clip_r,
@@ -752,6 +746,7 @@ done:
 		    win->portRect.right + 1,
 		    win->portRect.bottom + 1);
 		ClipRect(&clip_r);
+		EraseRect(&clip_r);
 		DrawGrowIcon(win);
 		SetClip(gc);
 		DisposeRgn(gc);
@@ -906,6 +901,7 @@ pixel_to_col(short row, short pixel_x, WindowPtr win)
 
 	content_get_rect(win, &r);
 	pixel_x -= (r.left + TEXT_X_OFFSET);
+	pixel_x += g_hscroll_pos;  /* adjust for hscroll */
 	if (pixel_x <= 0)
 		return 0;
 
@@ -947,7 +943,7 @@ col_to_pixel(short row, short col, WindowPtr win)
 	TextFont(g_font_id);
 	TextSize(g_font_size);
 
-	return r.left + TEXT_X_OFFSET +
+	return r.left + TEXT_X_OFFSET - g_hscroll_pos +
 	    TextWidth(buf, 0, col);
 }
 
@@ -1500,21 +1496,39 @@ content_resize(WindowPtr win)
 {
 	Rect sb_rect, content_r;
 
-	if (!g_scrollbar)
-		return;
-
 	browser_get_content_rect(win, &content_r);
 
-	SetRect(&sb_rect,
-	    win->portRect.right - SCROLLBAR_WIDTH,
-	    content_r.top - 1,
-	    win->portRect.right + 1,
-	    win->portRect.bottom - STATUS_BAR_HEIGHT + 1);
+	/* Reposition vertical scrollbar — extends alongside
+	 * content and status bar, ends at grow box */
+	if (g_scrollbar) {
+		SetRect(&sb_rect,
+		    win->portRect.right - SCROLLBAR_WIDTH,
+		    content_r.top - 1,
+		    win->portRect.right + 1,
+		    win->portRect.bottom - SCROLLBAR_WIDTH + 1);
 
-	MoveControl(g_scrollbar, sb_rect.left, sb_rect.top);
-	SizeControl(g_scrollbar,
-	    sb_rect.right - sb_rect.left,
-	    sb_rect.bottom - sb_rect.top);
+		MoveControl(g_scrollbar, sb_rect.left,
+		    sb_rect.top);
+		SizeControl(g_scrollbar,
+		    sb_rect.right - sb_rect.left,
+		    sb_rect.bottom - sb_rect.top);
+	}
+
+	/* Reposition horizontal scrollbar — below status bar,
+	 * left of grow box */
+	if (g_hscrollbar) {
+		SetRect(&sb_rect,
+		    -1,
+		    win->portRect.bottom - SCROLLBAR_WIDTH,
+		    win->portRect.right - SCROLLBAR_WIDTH + 1,
+		    win->portRect.bottom + 1);
+
+		MoveControl(g_hscrollbar, sb_rect.left,
+		    sb_rect.top);
+		SizeControl(g_hscrollbar,
+		    sb_rect.right - sb_rect.left,
+		    sb_rect.bottom - sb_rect.top);
+	}
 
 	content_update_scroll(win);
 }
@@ -1525,12 +1539,21 @@ content_get_scrollbar(void)
 	return g_scrollbar;
 }
 
+ControlHandle
+content_get_hscrollbar(void)
+{
+	return g_hscrollbar;
+}
+
 void
 content_scroll_to_top(void)
 {
 	g_scroll_pos = 0;
+	g_hscroll_pos = 0;
 	if (g_scrollbar)
 		SetControlValue(g_scrollbar, 0);
+	if (g_hscrollbar)
+		SetControlValue(g_hscrollbar, 0);
 }
 
 short
@@ -1557,6 +1580,59 @@ content_set_scroll_pos(short pos)
 	SetControlValue(g_scrollbar, pos);
 }
 
+/*
+ * content_vscroll_by - scroll vertically by delta rows.
+ * Positive = down, negative = up. Clamps to [0, max].
+ */
+void
+content_vscroll_by(short delta)
+{
+	short new_pos, max_val;
+	WindowPtr win;
+	GrafPtr save;
+
+	if (!g_scrollbar)
+		return;
+
+	max_val = GetControlMaximum(g_scrollbar);
+	new_pos = g_scroll_pos + delta;
+
+	if (new_pos < 0)
+		new_pos = 0;
+	if (new_pos > max_val)
+		new_pos = max_val;
+
+	if (new_pos == g_scroll_pos)
+		return;
+
+	g_scroll_pos = new_pos;
+	SetControlValue(g_scrollbar, new_pos);
+
+	win = (*g_scrollbar)->contrlOwner;
+	GetPort(&save);
+	SetPort(win);
+	g_scrolling = 1;
+	content_draw(win);
+	g_scrolling = 0;
+	SetPort(save);
+}
+
+/*
+ * content_visible_rows - return number of rows visible in
+ * the content area.
+ */
+short
+content_visible_rows(void)
+{
+	WindowPtr win;
+
+	if (!g_scrollbar)
+		return 1;
+
+	win = (*g_scrollbar)->contrlOwner;
+	return visible_rows(win);
+}
+
 void
 content_update_font(void)
 {
@@ -1579,6 +1655,13 @@ content_update_font(void)
 			g_row_height = 10;
 		SetPort(save);
 	}
+}
+
+void
+content_recalc_width(WindowPtr win)
+{
+	content_calc_max_width(win);
+	content_update_hscroll(win);
 }
 
 short
@@ -1774,6 +1857,363 @@ content_select_all(WindowPtr win)
 #endif /* GEOMYS_CLIPBOARD */
 
 /*
+ * content_calc_max_width - measure the widest line in the page.
+ * Called after page load and font changes to set hscroll range.
+ */
+static void
+content_calc_max_width(WindowPtr win)
+{
+	short i, total, w;
+	GrafPtr save;
+
+	g_content_max_width = 0;
+
+	if (!g_page)
+		return;
+
+	GetPort(&save);
+	SetPort(win);
+	TextFont(g_font_id);
+	TextSize(g_font_size);
+
+	total = count_rows();
+
+	if (g_page->page_type == PAGE_DIRECTORY) {
+		char line[100];
+		extern GeomysPrefs g_prefs;
+
+		for (i = 0; i < total; i++) {
+			GopherItem *item = &g_page->items[i];
+			const char *disp = item->display;
+			const char *label;
+			short dlen = strlen(disp);
+			short split_pos = -1;
+			short name_len, len, li;
+
+			label = gopher_type_label(item->type);
+
+			if (item->type != GOPHER_INFO) {
+				for (li = 1; li < dlen - 1;
+				    li++) {
+					if (disp[li] == ' ' &&
+					    disp[li + 1] == ' ') {
+						split_pos = li;
+						break;
+					}
+				}
+			}
+
+			name_len = (split_pos > 0) ?
+			    split_pos : dlen;
+
+			switch (g_prefs.page_style) {
+			case STYLE_PLAIN:
+				snprintf(line, sizeof(line),
+				    "  %.*s",
+				    name_len, disp);
+				break;
+			case STYLE_MARKDOWN:
+				if (item->type == GOPHER_INFO)
+					snprintf(line,
+					    sizeof(line),
+					    "  %.*s",
+					    name_len, disp);
+				else if (item->type ==
+				    GOPHER_SEARCH)
+					snprintf(line,
+					    sizeof(line),
+					    " ?  %.*s",
+					    name_len, disp);
+				else if (gopher_type_navigable(
+				    item->type))
+					snprintf(line,
+					    sizeof(line),
+					    " \xA5  %.*s",
+					    name_len, disp);
+				else
+					snprintf(line,
+					    sizeof(line),
+					    "    %.*s",
+					    name_len, disp);
+				break;
+			default:
+				if (item->type == GOPHER_INFO)
+					snprintf(line,
+					    sizeof(line),
+					    "      %.*s",
+					    name_len, disp);
+				else {
+#ifdef GEOMYS_GOPHER_PLUS
+					if (item->has_plus)
+						snprintf(line,
+						    sizeof(line),
+						    " %s+ %.*s",
+						    label,
+						    name_len,
+						    disp);
+					else
+#endif
+						snprintf(line,
+						    sizeof(line),
+						    " %s  %.*s",
+						    label,
+						    name_len,
+						    disp);
+				}
+				break;
+			}
+
+			len = strlen(line);
+			if (len > 255) len = 255;
+			w = TextWidth(line, 0, len) + 8;
+			if (w > g_content_max_width)
+				g_content_max_width = w;
+		}
+	} else if (g_page->page_type == PAGE_TEXT &&
+	    g_page->text_buf && g_page->text_lines) {
+		for (i = 0; i < total; i++) {
+			const char *ls;
+			short ll;
+
+			ls = g_page->text_buf +
+			    g_page->text_lines[i];
+			if (i + 1 < total)
+				ll = (short)(
+				    g_page->text_lines[i + 1] -
+				    g_page->text_lines[i] - 1);
+			else {
+				ll = (short)(g_page->text_len -
+				    g_page->text_lines[i]);
+				if (ll > 0 &&
+				    ls[ll - 1] == '\r')
+					ll--;
+			}
+			if (ll < 0) ll = 0;
+
+#ifdef GEOMYS_CP437
+			if (cp437_has_high(ls, ll)) {
+				char xlated[256];
+				short xlen = ll;
+
+				if (xlen > 255) xlen = 255;
+				xlen = cp437_translate(xlated,
+				    ls, xlen);
+				w = TextWidth(xlated, 0, xlen)
+				    + 8;
+			} else
+#endif
+				w = TextWidth((Ptr)ls, 0, ll)
+				    + 8;
+			if (w > g_content_max_width)
+				g_content_max_width = w;
+		}
+	}
+
+	SetPort(save);
+}
+
+/*
+ * content_update_hscroll - update horizontal scrollbar range
+ * based on content width vs visible width.
+ */
+static void
+content_update_hscroll(WindowPtr win)
+{
+	Rect r;
+	short visible_w, max_val;
+
+	if (!g_hscrollbar)
+		return;
+
+	content_get_rect(win, &r);
+	visible_w = r.right - r.left;
+
+	max_val = g_content_max_width - visible_w;
+	if (max_val < 0)
+		max_val = 0;
+
+	SetControlMaximum(g_hscrollbar, max_val);
+	SetControlValue(g_hscrollbar, g_hscroll_pos);
+
+	/* Dim if nothing to scroll */
+	HiliteControl(g_hscrollbar,
+	    max_val > 0 ? 0 : 255);
+}
+
+/*
+ * Horizontal scroll bar action proc — pixel-based scrolling.
+ */
+static pascal void
+hscroll_action(ControlHandle ctl, short part)
+{
+	short new_pos, max_val, char_w;
+	WindowPtr win;
+	GrafPtr save;
+	Rect r;
+
+	new_pos = g_hscroll_pos;
+	max_val = GetControlMaximum(ctl);
+	win = (*ctl)->contrlOwner;
+
+	TextFont(g_font_id);
+	TextSize(g_font_size);
+	char_w = CharWidth('M');
+
+	content_get_rect(win, &r);
+
+	switch (part) {
+	case inUpButton:
+		new_pos -= char_w;
+		break;
+	case inDownButton:
+		new_pos += char_w;
+		break;
+	case inPageUp:
+		new_pos -= (r.right - r.left);
+		break;
+	case inPageDown:
+		new_pos += (r.right - r.left);
+		break;
+	default:
+		return;
+	}
+
+	if (new_pos < 0)
+		new_pos = 0;
+	if (new_pos > max_val)
+		new_pos = max_val;
+
+	if (new_pos == g_hscroll_pos)
+		return;
+
+	g_hscroll_pos = new_pos;
+	SetControlValue(ctl, new_pos);
+
+	GetPort(&save);
+	SetPort(win);
+
+	/* Full redraw for horizontal scroll */
+	g_scrolling = 1;
+	content_draw(win);
+	g_scrolling = 0;
+
+	SetPort(save);
+}
+
+/*
+ * content_hscroll_step - return one character-width scroll step
+ * in pixels, with the correct font set.
+ */
+short
+content_hscroll_step(void)
+{
+	TextFont(g_font_id);
+	TextSize(g_font_size);
+	return CharWidth('M');
+}
+
+/*
+ * content_hscroll_by - scroll horizontally by delta pixels.
+ * Positive = right, negative = left. Clamps to [0, max].
+ */
+void
+content_hscroll_by(short delta)
+{
+	short new_pos, max_val;
+	WindowPtr win;
+	GrafPtr save;
+
+	if (!g_hscrollbar)
+		return;
+
+	max_val = GetControlMaximum(g_hscrollbar);
+	new_pos = g_hscroll_pos + delta;
+
+	if (new_pos < 0)
+		new_pos = 0;
+	if (new_pos > max_val)
+		new_pos = max_val;
+
+	if (new_pos == g_hscroll_pos)
+		return;
+
+	g_hscroll_pos = new_pos;
+	SetControlValue(g_hscrollbar, new_pos);
+
+	win = (*g_hscrollbar)->contrlOwner;
+	GetPort(&save);
+	SetPort(win);
+	g_scrolling = 1;
+	content_draw(win);
+	g_scrolling = 0;
+	SetPort(save);
+}
+
+/*
+ * content_hscroll_to - scroll to absolute horizontal pixel
+ * position. Clamps to [0, max].
+ */
+void
+content_hscroll_to(short pos)
+{
+	short max_val;
+	WindowPtr win;
+	GrafPtr save;
+
+	if (!g_hscrollbar)
+		return;
+
+	max_val = GetControlMaximum(g_hscrollbar);
+
+	if (pos < 0)
+		pos = 0;
+	if (pos > max_val)
+		pos = max_val;
+
+	if (pos == g_hscroll_pos)
+		return;
+
+	g_hscroll_pos = pos;
+	SetControlValue(g_hscrollbar, pos);
+
+	win = (*g_hscrollbar)->contrlOwner;
+	GetPort(&save);
+	SetPort(win);
+	g_scrolling = 1;
+	content_draw(win);
+	g_scrolling = 0;
+	SetPort(save);
+}
+
+/*
+ * content_hscroll_click - handle a click on the horizontal
+ * scrollbar. Called from main event loop.
+ */
+void
+content_hscroll_click(WindowPtr win, Point local_pt, short part)
+{
+	if (!g_hscrollbar)
+		return;
+
+	if (part == inThumb) {
+		GrafPtr save;
+
+		TrackControl(g_hscrollbar, local_pt, 0L);
+		g_hscroll_pos =
+		    GetControlValue(g_hscrollbar);
+
+		/* Redraw after thumb release */
+		GetPort(&save);
+		SetPort(win);
+		content_draw(win);
+		SetPort(save);
+	} else {
+		TrackControl(g_hscrollbar, local_pt,
+		    g_hscroll_upp);
+	}
+}
+
+/*
  * Save/restore content area statics to/from session struct.
  * Used during session switching (GEOMYS_MAX_WINDOWS > 1).
  */
@@ -1781,7 +2221,10 @@ void
 content_save_state(struct BrowserSession *s)
 {
 	s->scrollbar = g_scrollbar;
+	s->hscrollbar = g_hscrollbar;
 	s->scroll_pos = g_scroll_pos;
+	s->hscroll_pos = g_hscroll_pos;
+	s->content_max_width = g_content_max_width;
 	s->hover_row = g_hover_row;
 	s->row_height = g_row_height;
 	s->font_id = g_font_id;
@@ -1796,7 +2239,10 @@ void
 content_load_state(struct BrowserSession *s)
 {
 	g_scrollbar = s->scrollbar;
+	g_hscrollbar = s->hscrollbar;
 	g_scroll_pos = s->scroll_pos;
+	g_hscroll_pos = s->hscroll_pos;
+	g_content_max_width = s->content_max_width;
 	g_page = &s->gopher;
 	g_hover_row = s->hover_row;
 	g_row_height = s->row_height;

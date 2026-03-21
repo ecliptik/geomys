@@ -26,7 +26,7 @@ typedef struct {
 #endif
 
 /* Scrollbar width (standard Mac) */
-#define SCROLLBAR_WIDTH  16
+#define SCROLLBAR_WIDTH  15
 
 /* Default row height for directory and text display (recalculated by font) */
 #define ROW_HEIGHT_DEFAULT  11
@@ -58,8 +58,21 @@ void content_resize(WindowPtr win);
 /* Get content rect (excluding scrollbar) */
 void content_get_rect(WindowPtr win, Rect *r);
 
-/* Get the scroll bar control handle */
+/* Get the scroll bar control handles */
 ControlHandle content_get_scrollbar(void);
+ControlHandle content_get_hscrollbar(void);
+
+/* Handle horizontal scroll bar click */
+void content_hscroll_click(WindowPtr win, Point local_pt, short part);
+
+/* Scroll horizontally by delta pixels (positive=right, negative=left) */
+void content_hscroll_by(short delta);
+
+/* Scroll to absolute horizontal pixel position */
+void content_hscroll_to(short pos);
+
+/* Get one character-width horizontal scroll step in pixels */
+short content_hscroll_step(void);
 
 /* Scroll to top */
 void content_scroll_to_top(void);
@@ -70,8 +83,17 @@ short content_get_scroll_pos(void);
 /* Set scroll position — clamps, updates scrollbar, redraws */
 void content_set_scroll_pos(short pos);
 
+/* Scroll vertically by delta rows (positive=down, negative=up) */
+void content_vscroll_by(short delta);
+
+/* Get number of rows visible in content area */
+short content_visible_rows(void);
+
 /* Update font from prefs — recalculates row height */
 void content_update_font(void);
+
+/* Recalculate max content width for horizontal scrollbar */
+void content_recalc_width(WindowPtr win);
 
 /* Get current dynamic row height */
 short content_row_height(void);

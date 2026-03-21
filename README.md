@@ -33,6 +33,8 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Font selection: Chicago 12, Monaco 9/12, Courier 10, Geneva 9/10
 - Save Page As (Cmd-S): save current page as TeachText-readable TEXT file
 - Text selection and copy: highlight text in content area or address bar, copy to clipboard (Cmd-C)
+- Horizontal scrollbar for wide content
+- Keyboard navigation: arrow keys, Page Up/Down, Home/End
 - Hand cursor on navigable items
 - Bottom status bar with connection info
 - Monochrome display

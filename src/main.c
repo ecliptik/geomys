@@ -344,6 +344,9 @@ handle_page_loaded(void)
 	GetPort(&save);
 	SetPort(g_window);
 
+	/* Calculate content width for horizontal scrollbar */
+	content_recalc_width(g_window);
+
 	/* Restore deferred scroll position */
 	if (g_pending_scroll >= 0) {
 		content_update_scroll(g_window);
@@ -352,6 +355,7 @@ handle_page_loaded(void)
 	}
 
 	content_draw(g_window);
+	content_update_scroll(g_window);
 	browser_draw_status(g_window);
 	browser_draw(g_window);
 	SetPort(save);
@@ -506,14 +510,24 @@ main_event_loop(void)
 			handle_key_down(&event);
 			break;
 		case autoKey:
-			/* Text repeat in address bar */
 			if (!(event.modifiers & cmdKey)) {
-				GrafPtr save;
+				char ak = event.message & charCodeMask;
 
-				GetPort(&save);
-				SetPort(g_window);
-				browser_key(g_window, &event);
-				SetPort(save);
+				if (browser_get_focus() != FOCUS_ADDR_BAR
+				    && (ak == 0x1C || ak == 0x1D
+				    || ak == 0x1E || ak == 0x1F
+				    || ak == 0x0B || ak == 0x0C)) {
+					/* Arrow/Page key repeat — scroll */
+					handle_key_down(&event);
+				} else {
+					/* Text repeat in address bar */
+					GrafPtr save;
+
+					GetPort(&save);
+					SetPort(g_window);
+					browser_key(g_window, &event);
+					SetPort(save);
+				}
 			}
 			break;
 		case mouseDown:
@@ -605,6 +619,38 @@ handle_key_down(EventRecord *event)
 		if (url[0])
 			do_navigate_url(url);
 		return;
+	}
+
+	/* Arrow / Page / Home / End — scroll content when not in addr bar */
+	if (browser_get_focus() != FOCUS_ADDR_BAR) {
+		switch (key) {
+		case 0x1C:  /* Left arrow */
+			content_hscroll_by(-content_hscroll_step());
+			return;
+		case 0x1D:  /* Right arrow */
+			content_hscroll_by(content_hscroll_step());
+			return;
+		case 0x1E:  /* Up arrow */
+			content_vscroll_by(-1);
+			return;
+		case 0x1F:  /* Down arrow */
+			content_vscroll_by(1);
+			return;
+		case 0x0B:  /* Page Up */
+			content_vscroll_by(
+			    -content_visible_rows());
+			return;
+		case 0x0C:  /* Page Down */
+			content_vscroll_by(
+			    content_visible_rows());
+			return;
+		case 0x01:  /* Home — top of document */
+			content_set_scroll_pos(0);
+			return;
+		case 0x04:  /* End — bottom of document */
+			content_set_scroll_pos(32767);
+			return;
+		}
 	}
 
 	/* Pass to address bar */
@@ -974,6 +1020,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 
 		GetPort(&save);
 		SetPort(g_window);
+		content_recalc_width(g_window);
 		content_update_scroll(g_window);
 		content_set_scroll_pos(e->scroll_pos);
 		content_draw(g_window);
@@ -1231,7 +1278,7 @@ handle_mouse_down(EventRecord *event)
 				/* Nav button clicked */
 				handle_nav_button(click_result);
 			} else if (click_result == -1) {
-				/* Check scroll bar first */
+				/* Check scroll bars first */
 				ControlHandle hit_ctl;
 				short ctl_part;
 
@@ -1242,6 +1289,12 @@ handle_mouse_down(EventRecord *event)
 				    hit_ctl ==
 				    content_get_scrollbar()) {
 					content_scroll_click(
+					    win, local_pt,
+					    ctl_part);
+				} else if (ctl_part &&
+				    hit_ctl ==
+				    content_get_hscrollbar()) {
+					content_hscroll_click(
 					    win, local_pt,
 					    ctl_part);
 				} else {
@@ -1285,18 +1338,10 @@ handle_update(EventRecord *event)
 		content_update_scroll(win);
 		DrawControls(win);
 
-		/* Draw grow box: erase area, then clip to the
-		 * full 16x16 grow box and draw. */
+		/* Draw grow box over scrollbar overlap. */
 		{
 			Rect clip_r;
 			RgnHandle save_clip;
-
-			SetRect(&clip_r,
-			    win->portRect.right - SCROLLBAR_WIDTH,
-			    win->portRect.bottom - SCROLLBAR_WIDTH,
-			    win->portRect.right,
-			    win->portRect.bottom);
-			EraseRect(&clip_r);
 
 			save_clip = NewRgn();
 			GetClip(save_clip);
@@ -1306,6 +1351,7 @@ handle_update(EventRecord *event)
 			    win->portRect.right + 1,
 			    win->portRect.bottom + 1);
 			ClipRect(&clip_r);
+			EraseRect(&clip_r);
 			DrawGrowIcon(win);
 			SetClip(save_clip);
 			DisposeRgn(save_clip);
@@ -1370,11 +1416,14 @@ handle_activate(EventRecord *event)
 #ifdef GEOMYS_CLIPBOARD
 			content_activate(win, false);
 #endif
-			/* Dim scrollbar on deactivation (per HIG) */
+			/* Dim scrollbars on deactivation (per HIG) */
 			{
 				ControlHandle sb;
 
 				sb = content_get_scrollbar();
+				if (sb)
+					HiliteControl(sb, 255);
+				sb = content_get_hscrollbar();
 				if (sb)
 					HiliteControl(sb, 255);
 			}
@@ -1392,6 +1441,8 @@ handle_activate(EventRecord *event)
 				TEDeactivate(s->addr_te);
 			if (s->scrollbar)
 				HiliteControl(s->scrollbar, 255);
+			if (s->hscrollbar)
+				HiliteControl(s->hscrollbar, 255);
 			SetPort(sp);
 		}
 #endif

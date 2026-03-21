@@ -16,7 +16,7 @@ void browser_set_focus(short focus);
 
 /* Layout constants */
 #define NAV_BAR_HEIGHT    30
-#define STATUS_BAR_HEIGHT 16
+#define STATUS_BAR_HEIGHT 15
 #define NAV_BTN_SIZE      20
 #define NAV_BTN_MARGIN     3
 #define NAV_BTN_Y          5   /* vertical offset within nav bar */

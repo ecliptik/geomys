@@ -481,6 +481,7 @@ handle_menu(long menu_id)
 				GrafPtr save;
 				GetPort(&save);
 				SetPort(g_window);
+				content_recalc_width(g_window);
 				content_draw(g_window);
 				SetPort(save);
 			}
@@ -536,6 +537,7 @@ handle_menu(long menu_id)
 			GrafPtr save;
 			GetPort(&save);
 			SetPort(g_window);
+			content_recalc_width(g_window);
 			content_update_scroll(g_window);
 			content_draw(g_window);
 			SetPort(save);
@@ -569,6 +571,7 @@ handle_menu(long menu_id)
 			GrafPtr save;
 			GetPort(&save);
 			SetPort(g_window);
+			content_recalc_width(g_window);
 			content_update_scroll(g_window);
 			content_draw(g_window);
 			SetPort(save);

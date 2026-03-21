@@ -333,8 +333,10 @@ browser_draw_status(WindowPtr win)
 	short len;
 	RgnHandle save_clip;
 
-	SetRect(&bar_r, 0, win->portRect.bottom - STATUS_BAR_HEIGHT,
-	    win->portRect.right, win->portRect.bottom);
+	SetRect(&bar_r, 0,
+	    win->portRect.bottom - STATUS_BAR_HEIGHT - SCROLLBAR_WIDTH,
+	    win->portRect.right,
+	    win->portRect.bottom - SCROLLBAR_WIDTH);
 
 	/* Separator line above status bar.
 	 * Stop before scrollbar column (like Flynn) so the
@@ -343,7 +345,7 @@ browser_draw_status(WindowPtr win)
 	LineTo(win->portRect.right - SCROLLBAR_WIDTH - 1,
 	    bar_r.top);
 
-	/* Clear status bar text area (exclude grow box corner) */
+	/* Clear status bar text area (exclude scrollbar column) */
 	bar_r.top += 1;
 	SetRect(&clip_r, bar_r.left, bar_r.top,
 	    win->portRect.right - SCROLLBAR_WIDTH, bar_r.bottom);
@@ -357,25 +359,19 @@ browser_draw_status(WindowPtr win)
 	ps[0] = len;
 	memcpy(ps + 1, g_status, len);
 
-	MoveTo(6, win->portRect.bottom - 4);
+	MoveTo(6, win->portRect.bottom - SCROLLBAR_WIDTH - 4);
 	DrawString(ps);
 
-	/* Redraw grow box after status bar.
-	 * Erase first, then clip to full grow box and draw. */
+	/* Redraw grow box after status bar. */
 	save_clip = NewRgn();
 	GetClip(save_clip);
-	SetRect(&clip_r,
-	    win->portRect.right - SCROLLBAR_WIDTH,
-	    win->portRect.bottom - SCROLLBAR_WIDTH,
-	    win->portRect.right,
-	    win->portRect.bottom);
-	EraseRect(&clip_r);
 	SetRect(&clip_r,
 	    win->portRect.right - SCROLLBAR_WIDTH,
 	    win->portRect.bottom - SCROLLBAR_WIDTH,
 	    win->portRect.right + 1,
 	    win->portRect.bottom + 1);
 	ClipRect(&clip_r);
+	EraseRect(&clip_r);
 	DrawGrowIcon(win);
 	SetClip(save_clip);
 	DisposeRgn(save_clip);
@@ -640,7 +636,8 @@ browser_get_content_rect(WindowPtr win, Rect *r)
 {
 	SetRect(r, 0, NAV_BAR_HEIGHT,
 	    win->portRect.right,
-	    win->portRect.bottom - STATUS_BAR_HEIGHT);
+	    win->portRect.bottom - STATUS_BAR_HEIGHT -
+	    SCROLLBAR_WIDTH);
 }
 
 #ifdef GEOMYS_CLIPBOARD

@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — Horizontal Scrolling
+
+### Added
+- Horizontal scrollbar for content wider than the window
+- Left/Right arrow keys scroll content horizontally (one character width per step)
+- Up/Down arrow keys scroll content vertically (one row per step)
+- Page Up/Page Down scroll vertically by one visible page
+- Home key scrolls to top of document
+- End key scrolls to bottom of document
+- All navigation keys support key repeat for continuous scrolling
+- Keyboard navigation is focus-aware: arrow keys move cursor when address bar is focused
+
+### Fixed
+- Width measurement parity with drawing code for Gopher+ indicators
+- CP437 character translation applied during text page width measurement
+
 ## [0.3.0] — Multi-Window Browsing
 
 ### Added

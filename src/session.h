@@ -31,6 +31,7 @@ typedef struct BrowserSession {
 	/* Window */
 	WindowPtr       window;
 	ControlHandle   scrollbar;
+	ControlHandle   hscrollbar;         /* horizontal scrollbar */
 
 	/* Gopher engine state */
 	GopherState     gopher;
@@ -50,6 +51,8 @@ typedef struct BrowserSession {
 
 	/* Content area state */
 	short           scroll_pos;
+	short           hscroll_pos;        /* horizontal pixel offset */
+	short           content_max_width;  /* widest line in pixels */
 	short           hover_row;
 	short           row_height;
 	short           font_id;
