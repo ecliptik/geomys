@@ -18,6 +18,8 @@
 #include "main.h"
 #include "settings.h"
 #include "session.h"
+#include "theme.h"
+#include "color.h"
 #ifdef GEOMYS_OFFSCREEN
 #include "offscreen.h"
 #endif
@@ -42,6 +44,7 @@ static CursHandle g_ibeam_cursor = 0L; /* I-beam cursor for text */
 #endif
 static short g_scrolling = 0;          /* 1 during scroll action — skip offscreen */
 static short g_hover_row = -1;         /* currently highlighted row, -1 = none */
+static short g_in_full_draw = 0;       /* 1 during content_draw loop — skip per-row clip/restore */
 
 #ifdef GEOMYS_CLIPBOARD
 /* Selection state */
@@ -270,7 +273,7 @@ content_draw_row(WindowPtr win, short row_index)
 	const char *label;
 	short len, text_width;
 	Str255 ps;
-	RgnHandle save_clip;
+	RgnHandle save_clip = 0L;
 	extern GeomysPrefs g_prefs;
 
 	if (!g_page || g_page->page_type != PAGE_DIRECTORY)
@@ -285,16 +288,66 @@ content_draw_row(WindowPtr win, short row_index)
 	    row_index > g_scroll_pos + visible_rows(win))
 		return;
 
-	save_clip = NewRgn();
-	GetClip(save_clip);
-	ClipRect(&r);
+	if (!g_in_full_draw) {
+		save_clip = NewRgn();
+		GetClip(save_clip);
+		ClipRect(&r);
+	}
 
 	y = r.top + (row_index - g_scroll_pos + 1)
 	    * g_row_height;
 
 	SetRect(&erase_r, r.left, y - g_row_height,
 	    r.right, y);
+
+#ifdef GEOMYS_THEMES
+	{
+		const ThemeColors *t = theme_current();
+		short did_erase = 0;
+
+		if (t) {
+#ifdef GEOMYS_COLOR
+			if (g_has_color_qd) {
+				/* Color path: set RGB background */
+				if (row_index == g_hover_row)
+					theme_set_bg(&t->hover_bg);
+				else
+					theme_set_bg(&t->bg);
+				EraseRect(&erase_r);
+				did_erase = 1;
+
+				/* Set foreground per item type */
+				{
+					GopherItem *ti =
+					    &g_page->items[row_index];
+					if (ti->type == GOPHER_INFO)
+						theme_set_fg(&t->text);
+					else if (ti->type == GOPHER_ERROR)
+						theme_set_fg(&t->link_error);
+					else if (ti->type == GOPHER_SEARCH)
+						theme_set_fg(&t->link_search);
+					else if (gopher_type_navigable(
+					    ti->type))
+						theme_set_fg(&t->link);
+					else
+						theme_set_fg(
+						    &t->link_external);
+				}
+			} else
+#endif
+			if (t->is_dark) {
+				/* Mono dark: black bg, white text */
+				PaintRect(&erase_r);
+				TextMode(srcBic);
+				did_erase = 1;
+			}
+		}
+		if (!did_erase)
+			EraseRect(&erase_r);
+	}
+#else
 	EraseRect(&erase_r);
+#endif
 
 	TextFont(g_font_id);
 	TextSize(g_font_size);
@@ -381,12 +434,84 @@ content_draw_row(WindowPtr win, short row_index)
 		/* Measure name width */
 		text_width = TextWidth(line, 0, len);
 
-		/* Draw name with horizontal offset —
-		 * ClipRect handles clipping automatically */
-		ps[0] = len;
-		memcpy(ps + 1, line, len);
-		MoveTo(r.left + 4 - g_hscroll_pos, y - 2);
-		DrawString(ps);
+		/* Draw with horizontal offset —
+		 * ClipRect handles clipping automatically.
+		 * Traditional style: draw label prefix in
+		 * label color, then name in link color. */
+#if defined(GEOMYS_THEMES) && defined(GEOMYS_COLOR)
+		if (g_has_color_qd &&
+		    g_prefs.page_style == STYLE_TRADITIONAL &&
+		    item->type != GOPHER_INFO) {
+			const ThemeColors *lt =
+			    theme_current();
+			if (lt) {
+				/* Label prefix is 5 chars:
+				 * " DIR " or " TXT+" etc */
+				short lbl_len = 5;
+				Str255 lps;
+
+#ifdef GEOMYS_GOPHER_PLUS
+				if (item->has_plus)
+					lbl_len = 5;
+#endif
+				if (lbl_len > len)
+					lbl_len = len;
+
+				/* Draw label in label color */
+				theme_set_fg(&lt->label);
+				lps[0] = lbl_len;
+				memcpy(lps + 1, line,
+				    lbl_len);
+				MoveTo(r.left + 4 -
+				    g_hscroll_pos, y - 2);
+				DrawString(lps);
+
+				/* Draw name in link color */
+				{
+					GopherItem *ci =
+					    &g_page->items[
+					    row_index];
+					if (ci->type ==
+					    GOPHER_ERROR)
+						theme_set_fg(
+						    &lt->link_error);
+					else if (ci->type ==
+					    GOPHER_SEARCH)
+						theme_set_fg(
+						    &lt->link_search);
+					else if (
+					    gopher_type_navigable(
+					    ci->type))
+						theme_set_fg(
+						    &lt->link);
+					else
+						theme_set_fg(
+						    &lt->
+						    link_external);
+				}
+				if (len > lbl_len) {
+					ps[0] = len - lbl_len;
+					memcpy(ps + 1,
+					    line + lbl_len,
+					    len - lbl_len);
+					DrawString(ps);
+				}
+			} else {
+				ps[0] = len;
+				memcpy(ps + 1, line, len);
+				MoveTo(r.left + 4 -
+				    g_hscroll_pos, y - 2);
+				DrawString(ps);
+			}
+		} else
+#endif
+		{
+			ps[0] = len;
+			memcpy(ps + 1, line, len);
+			MoveTo(r.left + 4 - g_hscroll_pos,
+			    y - 2);
+			DrawString(ps);
+		}
 
 		/* Draw metadata right-aligned when Show
 		 * Details is on and metadata exists.
@@ -436,6 +561,17 @@ content_draw_row(WindowPtr win, short row_index)
 
 				/* Right-align metadata */
 				if (right_avail > ellipsis_w) {
+#ifdef GEOMYS_THEMES
+					{
+						const ThemeColors *mt =
+						    theme_current();
+#ifdef GEOMYS_COLOR
+						if (mt && g_has_color_qd)
+							theme_set_fg(
+							    &mt->metadata);
+#endif
+					}
+#endif
 					ps[0] = right_len;
 					memcpy(ps + 1, rp,
 					    right_len);
@@ -508,14 +644,40 @@ content_draw_row(WindowPtr win, short row_index)
 			if (x2 > x1) {
 				SetRect(&inv_r, x1,
 				    y - g_row_height, x2, y);
+#ifdef GEOMYS_COLOR
+				if (g_has_color_qd &&
+				    !theme_is_dark()) {
+					/* Light themes: use HiliteMode
+					 * for system highlight color.
+					 * Dark themes: plain XOR works
+					 * better on colored bgs. */
+					LMSetHiliteMode(
+					    LMGetHiliteMode()
+					    & ~(1 << pHiliteBit));
+				}
+#endif
 				InvertRect(&inv_r);
 			}
 		}
 	}
 #endif
 
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
+#ifdef GEOMYS_THEMES
+	/* Restore normal text mode if dark theme used srcBic */
+	if (theme_is_dark() && !theme_is_color())
+		TextMode(srcOr);
+#endif
+
+	/* Restore port colors after themed row draw — prevents
+	 * theme colors leaking into subsequent draws (e.g. during
+	 * track_content_drag which calls this per-row) */
+	if (!g_in_full_draw)
+		theme_restore_colors();
+
+	if (!g_in_full_draw) {
+		SetClip(save_clip);
+		DisposeRgn(save_clip);
+	}
 }
 
 /* Draw a single text row by index.
@@ -528,7 +690,7 @@ content_draw_text_row(WindowPtr win, short line_index)
 	short y;
 	const char *line_start;
 	short line_len;
-	RgnHandle save_clip;
+	RgnHandle save_clip = 0L;
 
 	if (!g_page || g_page->page_type != PAGE_TEXT)
 		return;
@@ -545,9 +707,11 @@ content_draw_text_row(WindowPtr win, short line_index)
 	    line_index > g_scroll_pos + visible_rows(win))
 		return;
 
-	save_clip = NewRgn();
-	GetClip(save_clip);
-	ClipRect(&r);
+	if (!g_in_full_draw) {
+		save_clip = NewRgn();
+		GetClip(save_clip);
+		ClipRect(&r);
+	}
 
 	y = r.top + (line_index - g_scroll_pos + 1)
 	    * g_row_height;
@@ -555,7 +719,33 @@ content_draw_text_row(WindowPtr win, short line_index)
 	/* Erase this row */
 	SetRect(&erase_r, r.left, y - g_row_height,
 	    r.right, y);
+
+#ifdef GEOMYS_THEMES
+	{
+		const ThemeColors *t = theme_current();
+		short did_erase = 0;
+
+		if (t) {
+#ifdef GEOMYS_COLOR
+			if (g_has_color_qd) {
+				theme_set_bg(&t->bg);
+				theme_set_fg(&t->text);
+				EraseRect(&erase_r);
+				did_erase = 1;
+			} else
+#endif
+			if (t->is_dark) {
+				PaintRect(&erase_r);
+				TextMode(srcBic);
+				did_erase = 1;
+			}
+		}
+		if (!did_erase)
+			EraseRect(&erase_r);
+	}
+#else
 	EraseRect(&erase_r);
+#endif
 
 	TextFont(g_font_id);
 	TextSize(g_font_size);
@@ -639,14 +829,40 @@ content_draw_text_row(WindowPtr win, short line_index)
 			if (x2 > x1) {
 				SetRect(&inv_r, x1,
 				    y - g_row_height, x2, y);
+#ifdef GEOMYS_COLOR
+				if (g_has_color_qd &&
+				    !theme_is_dark()) {
+					/* Light themes: use HiliteMode
+					 * for system highlight color.
+					 * Dark themes: plain XOR works
+					 * better on colored bgs. */
+					LMSetHiliteMode(
+					    LMGetHiliteMode()
+					    & ~(1 << pHiliteBit));
+				}
+#endif
 				InvertRect(&inv_r);
 			}
 		}
 	}
 #endif
 
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
+#ifdef GEOMYS_THEMES
+	/* Restore normal text mode if dark theme used srcBic */
+	if (theme_is_dark() && !theme_is_color())
+		TextMode(srcOr);
+#endif
+
+	/* Restore port colors after themed row draw — prevents
+	 * theme colors leaking into subsequent draws (e.g. during
+	 * track_content_drag which calls this per-row) */
+	if (!g_in_full_draw)
+		theme_restore_colors();
+
+	if (!g_in_full_draw) {
+		SetClip(save_clip);
+		DisposeRgn(save_clip);
+	}
 }
 
 void
@@ -661,6 +877,10 @@ content_draw(WindowPtr win)
 #endif
 
 	content_get_rect(win, &r);
+
+#ifdef GEOMYS_THEMES
+	theme_reset_cache();
+#endif
 
 #ifdef GEOMYS_OFFSCREEN
 	use_offscreen = offscreen_is_ready() && !g_scrolling;
@@ -677,7 +897,19 @@ content_draw(WindowPtr win)
 	 * Full EraseRect at top causes visible flash. */
 
 	if (!g_page) {
+#ifdef GEOMYS_THEMES
+		{
+			const ThemeColors *t = theme_current();
+			if (t) {
+#ifdef GEOMYS_COLOR
+				if (g_has_color_qd)
+					theme_set_bg(&t->bg);
+#endif
+			}
+		}
+#endif
 		EraseRect(&r);
+		theme_restore_colors();
 		SetClip(save_clip);
 		DisposeRgn(save_clip);
 		return;
@@ -686,6 +918,8 @@ content_draw(WindowPtr win)
 	start_row = g_scroll_pos;
 	end_row = start_row + visible_rows(win) + 1;
 	last_y = r.top;
+
+	g_in_full_draw = 1;
 
 	if (g_page->page_type == PAGE_DIRECTORY) {
 		if (end_row > g_page->item_count)
@@ -715,14 +949,41 @@ content_draw(WindowPtr win)
 			    * g_row_height;
 	}
 
+	g_in_full_draw = 0;
+
 	/* Erase empty area below last row */
 	if (last_y < r.bottom) {
 		SetRect(&erase_r, r.left, last_y,
 		    r.right, r.bottom);
+#ifdef GEOMYS_THEMES
+		{
+			const ThemeColors *t = theme_current();
+			if (t) {
+#ifdef GEOMYS_COLOR
+				if (g_has_color_qd)
+					theme_set_bg(&t->bg);
+				else
+#endif
+				if (t->is_dark) {
+					PaintRect(&erase_r);
+					goto skip_tail_erase;
+				}
+			}
+		}
+#endif
 		EraseRect(&erase_r);
+#ifdef GEOMYS_THEMES
+	skip_tail_erase:
+		;
+#endif
 	}
 
 done:
+	g_in_full_draw = 0;
+	/* Restore port colors to black/white so themed colors
+	 * don't leak into chrome (nav bar, address bar, buttons) */
+	theme_restore_colors();
+
 	SetClip(save_clip);
 	DisposeRgn(save_clip);
 
@@ -732,25 +993,6 @@ done:
 		offscreen_end(win, &r);
 #endif
 
-	/* Redraw grow box over the scrollbar overlap pixels.
-	 * DrawGrowIcon redraws the grow icon and its frame,
-	 * which overwrites the scrollbar +1 overlap. */
-	{
-		Rect clip_r;
-		RgnHandle gc = NewRgn();
-
-		GetClip(gc);
-		SetRect(&clip_r,
-		    win->portRect.right - SCROLLBAR_WIDTH,
-		    win->portRect.bottom - SCROLLBAR_WIDTH,
-		    win->portRect.right + 1,
-		    win->portRect.bottom + 1);
-		ClipRect(&clip_r);
-		EraseRect(&clip_r);
-		DrawGrowIcon(win);
-		SetClip(gc);
-		DisposeRgn(gc);
-	}
 }
 
 #ifdef GEOMYS_CLIPBOARD

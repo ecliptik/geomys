@@ -27,6 +27,10 @@
 #include "clipboard.h"
 #endif
 #include "savefile.h"
+#ifdef GEOMYS_THEMES
+#include "theme.h"
+#include "color.h"
+#endif
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
@@ -34,6 +38,9 @@ static MenuHandle favorites_menu, options_menu;
 static MenuHandle window_menu;
 static MenuHandle font_submenu;
 static MenuHandle style_submenu;
+#ifdef GEOMYS_THEMES
+static MenuHandle theme_submenu;
+#endif
 
 /* main.c globals */
 extern GeomysPrefs g_prefs;
@@ -123,10 +130,58 @@ init_menus(void)
 		    g_prefs.font_id == 3 && g_prefs.font_size == 10);
 	}
 
+	/* Load and insert Theme hierarchical submenu */
+#ifdef GEOMYS_THEMES
+	theme_submenu = GetMenu(THEME_MENU_ID);
+	if (theme_submenu)
+		InsertMenu(theme_submenu, -1);
+
+	/* Set hierarchical menu marker for Theme in Options */
+	if (options_menu) {
+		SetItemCmd(options_menu, OPT_MENU_THEME, 0x1B);
+		SetItemMark(options_menu, OPT_MENU_THEME,
+		    THEME_MENU_ID);
+	}
+
+	/* Set initial theme checkmark */
+	if (theme_submenu) {
+		short t;
+		for (t = THEME_ITEM_LIGHT; t <= THEME_ITEM_LAST; t++)
+			CheckItem(theme_submenu, t, false);
+		/* Map theme_id to menu item (items are 1-indexed,
+		 * but separator at item 3 offsets color themes) */
+		{
+			short check_item;
+			if (g_prefs.theme_id <= THEME_DARK)
+				check_item = g_prefs.theme_id + 1;
+			else
+				check_item = g_prefs.theme_id + 2; /* +2 for separator */
+			if (check_item >= THEME_ITEM_LIGHT &&
+			    check_item <= THEME_ITEM_LAST)
+				CheckItem(theme_submenu, check_item, true);
+		}
+
+		/* Disable color themes on monochrome systems */
+#ifdef GEOMYS_COLOR
+		if (!g_has_color_qd)
+#endif
+		{
+			short ci;
+			for (ci = THEME_ITEM_SOLARIZED_L; ci <= THEME_ITEM_LAST; ci++)
+				DisableItem(theme_submenu, ci);
+		}
+	}
+#endif /* GEOMYS_THEMES */
+
 	/* Set initial Show Details checkmark */
 	if (options_menu)
 		CheckItem(options_menu, OPT_MENU_DETAILS,
 		    g_prefs.show_details != 0);
+
+	/* Set initial Status Bar checkmark */
+	if (options_menu)
+		CheckItem(options_menu, OPT_MENU_STATUS_BAR,
+		    g_prefs.show_status_bar != 0);
 
 	/* Favorites menu — managed by favorites.c */
 
@@ -151,7 +206,6 @@ update_menus(void)
 		else
 			EnableItem(file_menu, FILE_MENU_NEW_WIN);
 
-		EnableItem(file_menu, FILE_MENU_OPEN_URL);
 #ifdef GEOMYS_DOWNLOAD
 		{
 			if (g_gopher.page_type != PAGE_NONE &&
@@ -244,9 +298,6 @@ handle_file_menu(short item)
 	switch (item) {
 	case FILE_MENU_NEW_WIN:
 		do_new_window();
-		break;
-	case FILE_MENU_OPEN_URL:
-		do_open_url_dialog();
 		break;
 	case FILE_MENU_SAVE_AS:
 		do_save_page();
@@ -428,21 +479,15 @@ handle_menu(long menu_id)
 			    g_gopher.cur_type,
 			    g_gopher.cur_selector);
 
-			/* Get name from window title
-			 * (strip "Geomys - " prefix) */
+			/* Get name from window title */
 			GetWTitle(g_window, wtitle);
 			{
 				short len = wtitle[0];
-				char *p;
 
 				if (len >= (short)sizeof(name))
 					len = sizeof(name) - 1;
 				memcpy(name, wtitle + 1, len);
 				name[len] = '\0';
-				p = strstr(name, " - ");
-				if (p)
-					memmove(name, p + 3,
-					    strlen(p + 3) + 1);
 			}
 
 			/* Fallback to URL if name is empty */
@@ -484,6 +529,30 @@ handle_menu(long menu_id)
 				content_recalc_width(g_window);
 				content_draw(g_window);
 				SetPort(save);
+			}
+			break;
+		case OPT_MENU_STATUS_BAR:
+			g_prefs.show_status_bar =
+			    !g_prefs.show_status_bar;
+			if (options_menu)
+				CheckItem(options_menu,
+				    OPT_MENU_STATUS_BAR,
+				    g_prefs.show_status_bar != 0);
+			prefs_save(&g_prefs);
+			/* Resize all windows to reclaim/add status bar space */
+			{
+				short wi;
+				for (wi = 0; wi < GEOMYS_MAX_WINDOWS; wi++) {
+					BrowserSession *s = session_get(wi);
+					if (s && s->window) {
+						GrafPtr save;
+						GetPort(&save);
+						SetPort(s->window);
+						content_resize(s->window);
+						InvalRect(&s->window->portRect);
+						SetPort(save);
+					}
+				}
 			}
 			break;
 		}
@@ -577,6 +646,49 @@ handle_menu(long menu_id)
 			SetPort(save);
 		}
 		break;
+#ifdef GEOMYS_THEMES
+	case THEME_MENU_ID: {
+		short new_theme;
+
+		/* Map menu item to theme index (separator at item 3) */
+		if (item <= THEME_ITEM_DARK)
+			new_theme = item - 1;
+		else
+			new_theme = item - 2; /* -2 for separator */
+
+		if (new_theme >= 0 && new_theme < THEME_COUNT) {
+			g_prefs.theme_id = new_theme;
+			theme_set(new_theme);
+
+			/* Update checkmarks */
+			if (theme_submenu) {
+				short t;
+				for (t = THEME_ITEM_LIGHT; t <= THEME_ITEM_LAST; t++)
+					CheckItem(theme_submenu, t, t == item);
+			}
+
+			/* Save and redraw ALL windows */
+			prefs_save(&g_prefs);
+			{
+				short wi;
+				for (wi = 0; wi < GEOMYS_MAX_WINDOWS; wi++) {
+					BrowserSession *s = session_get(wi);
+					if (s && s->window) {
+						GrafPtr save;
+						GetPort(&save);
+						SetPort(s->window);
+						content_recalc_width(s->window);
+						content_update_scroll(s->window);
+						content_draw(s->window);
+						browser_draw_status(s->window);
+						SetPort(save);
+					}
+				}
+			}
+		}
+		break;
+	}
+#endif /* GEOMYS_THEMES */
 	default:
 		handled = false;
 		break;

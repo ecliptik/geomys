@@ -1,6 +1,6 @@
 # Geomys
 
-A [Gopher protocol](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh systems, targeting the Macintosh Plus. Implements [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) (Gopher) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) (Gopher URI scheme) with a full Macintosh GUI for System 6. Cross-compiled on Linux using [Retro68](https://github.com/autc04/Retro68).
+A [Gopher protocol](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh systems, targeting the Macintosh Plus. Implements [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) (Gopher) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) (Gopher URI scheme) with a full Macintosh GUI for System 6 and System 7. Cross-compiled on Linux using [Retro68](https://github.com/autc04/Retro68).
 
 This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
@@ -11,8 +11,9 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 ## Requirements
 
 - Macintosh Plus or later (4MB RAM, 68000 CPU)
-- System 6.0.8 with MacTCP
+- System 6.0.8 or System 7 with MacTCP
 - Network connection (Ethernet or compatible)
+- Color themes require Mac II or later with Color QuickDraw (monochrome themes work on all systems)
 
 ## Features
 
@@ -33,11 +34,13 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Font selection: Chicago 12, Monaco 9/12, Courier 10, Geneva 9/10
 - Save Page As (Cmd-S): save current page as TeachText-readable TEXT file
 - Text selection and copy: highlight text in content area or address bar, copy to clipboard (Cmd-C)
+- 9 built-in themes: Light, Dark, Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum
+- 256-color support on Mac II and later (Color QuickDraw); monochrome themes on Mac Plus
+- Themed content colors by Gopher item type (text, links, search, errors, external)
 - Horizontal scrollbar for wide content
 - Keyboard navigation: arrow keys, Page Up/Down, Home/End
 - Hand cursor on navigable items
 - Bottom status bar with connection info
-- Monochrome display
 - Menus: File, Edit, Favorites, Window, Options
 - Aligned with Apple Human Interface Guidelines (1992)
 
@@ -76,8 +79,8 @@ Output: `build/Geomys.dsk` (800K floppy image) and `build/Geomys.bin` (BinHex).
 
 | Preset | Windows | Features | SIZE (preferred) |
 |--------|---------|----------|-----------------|
-| Full (default) | 4 | All features | ~1024 KB |
-| Lite | 2 | Core + offscreen + favorites + clipboard | ~505 KB |
+| Full (default) | 4 | All features + color themes | ~1024 KB |
+| Lite | 2 | Core + offscreen + favorites + clipboard + mono themes | ~505 KB |
 | Minimal | 1 | Core only | ~297 KB |
 
 See [docs/BUILD.md](docs/BUILD.md) for feature flags and detailed instructions.

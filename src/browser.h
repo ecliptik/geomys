@@ -16,7 +16,7 @@ void browser_set_focus(short focus);
 
 /* Layout constants */
 #define NAV_BAR_HEIGHT    30
-#define STATUS_BAR_HEIGHT 15
+#define STATUSBAR_HEIGHT  15      /* fixed pixel height when visible */
 #define NAV_BTN_SIZE      20
 #define NAV_BTN_MARGIN     3
 #define NAV_BTN_Y          5   /* vertical offset within nav bar */
@@ -75,6 +75,9 @@ void browser_idle(void);
 /* Update cursor to I-beam when over address bar.
  * Returns true if mouse is over address bar. */
 Boolean browser_cursor_update(WindowPtr win, Point local_pt);
+
+/* Dynamic status bar height: STATUSBAR_HEIGHT when visible, 0 when hidden */
+short status_bar_height(void);
 
 /* Get content area rect (below nav bar, above status bar) */
 void browser_get_content_rect(WindowPtr win, Rect *r);

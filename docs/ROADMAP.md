@@ -222,6 +222,63 @@ Fixed FREF local icon ID byte order for preferences document icon.
 
 ---
 
+## v0.5.0 — 256-Color Themes
+
+### Phase 1: Color Infrastructure
+**Status: Complete**
+
+Color QuickDraw detection and theme data structures.
+
+- `color_detect()` via SysEnvirons — runtime Color QD check
+- `GEOMYS_COLOR` and `GEOMYS_THEMES` feature flags
+- `ThemeColors` struct with 15 color properties per theme
+
+### Phase 2: Theme Engine & Built-in Themes
+**Status: Complete**
+
+9 built-in themes with monochrome/color awareness.
+
+- Light, Dark (monochrome — all systems including Mac Plus)
+- Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum (color — Mac II+)
+- Theme headers compiled as const data, zero heap cost (~459 bytes)
+- Color caching to minimize RGBForeColor/RGBBackColor trap calls
+
+### Phase 3: Content Area Theming
+**Status: Complete**
+
+Theme colors applied to content rendering pipeline.
+
+- Directory listings: text, links, search, error, external items colored by type
+- Text pages: themed background and foreground colors
+- Monochrome dark mode via srcBic/PaintRect (flicker-free white-on-black)
+- Color rendering via RGBForeColor/RGBBackColor on Color QuickDraw systems
+- Selection rendering: themed sel_bg/sel_fg on color, InvertRect on mono
+- Offscreen buffer skipped on color systems (Phase 1 — direct drawing)
+
+### Phase 4: UI Integration
+**Status: Complete**
+
+Theme submenu and preferences persistence.
+
+- Options > Theme hierarchical submenu with 9 themes
+- Separator divides monochrome (Light/Dark) from color themes
+- Color themes dimmed on monochrome systems (Apple HIG compliant)
+- Theme preference saved and restored across sessions
+- Theme changes redraw all open windows
+- Chrome theming stubs for future enhancement
+
+### Phase 5: Build System
+**Status: Complete**
+
+Build presets and memory budget for color support.
+
+- Full preset: GEOMYS_COLOR=ON, GEOMYS_THEMES=ON, 768KB preferred
+- Lite preset: GEOMYS_COLOR=OFF, GEOMYS_THEMES=ON (mono themes only)
+- Minimal preset: both OFF
+- `--themes`/`--no-themes` CLI flags
+
+---
+
 ## Unreleased
 
 ### Text Page Scroll Optimization
@@ -253,10 +310,8 @@ Clipboard support for content area and address bar. Edit menu wired to focus con
 
 ## Future Features (Post-MVP)
 
-- **256-color support** — Color QuickDraw on System 7, automatic detection
+- **Chrome theming** — Themed nav bar, status bar, and address bar colors
 - **File downloads** — Save binary files (types 4, 5, 6, 9, d) to disk
 - **Image display** — Inline GIF/PNG viewing (types g, I, p)
-- **Multi-window browsing** — Multiple simultaneous Gopher sessions
 - **System 7 enhancements** — Preferences folder, Apple Events, Notification Manager
-- **Themes** — Classic, Platinum, Solarized, Tokyo Night, Green Screen
 - **Keyboard navigation** — Tab through links, Enter to follow

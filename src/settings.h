@@ -5,7 +5,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define PREFS_VERSION    3
+#define PREFS_VERSION    5
 #define MAX_FAVORITES    20
 
 /* Page display styles */
@@ -29,6 +29,10 @@ typedef struct {
 	/* --- v2 fields below --- */
 	short           page_style;     /* STYLE_TRADITIONAL/PLAIN/MARKDOWN */
 	short           show_details;   /* 1 = show metadata columns, 0 = names only */
+	/* --- v4 field: theme index (0=Light) --- */
+	short           theme_id;
+	/* --- v5 field: status bar visibility --- */
+	short           show_status_bar;  /* 1=show (default), 0=hide */
 	/* NOTE: always append new fields here, never insert above */
 } GeomysPrefs;
 

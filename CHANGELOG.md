@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] — System 7 Performance
+
+### Added
+- DNS hostname caching for faster repeated navigation to the same server
+
+### Fixed
+- Window close performance on System 7 (replaced blocking TCPClose with immediate TCPAbort)
+- Missing double buffering on System 7 (offscreen buffer was incorrectly disabled when Color QuickDraw detected)
+- SIZE resource flags for proper System 7 Process Manager integration (isHighLevelEventAware)
+
+### Changed
+- Drawing performance: removed redundant DrawGrowIcon, region, and color operations per frame
+- MultiFinder cooperation: tuned WaitNextEvent sleep times and CPU yielding during connections
+- Memory Manager initialization: MaxApplZone before Toolbox init, pre-allocated master pointers
+
+## [0.5.0] — 256-Color Themes
+
+### Added
+- 256-color support with runtime Color QuickDraw detection
+- 9 built-in themes: Light, Dark, Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum
+- Options > Theme submenu for theme selection with persistent preference
+- Monochrome themes (Light/Dark) work on all systems including Mac Plus
+- Color themes automatically available on Mac II and later with Color QuickDraw
+- Dark mode: flicker-free white-on-black rendering via srcBic transfer mode
+- Themed content colors by Gopher item type (text, links, search, errors, external)
+- Color caching for efficient RGBForeColor/RGBBackColor trap calls on 68000
+- `GEOMYS_COLOR` and `GEOMYS_THEMES` feature flags with build presets
+- Chrome theming stubs for future nav bar and status bar color support
+
+### Changed
+- Full build preset: GEOMYS_COLOR=ON by default, 768KB preferred partition
+- Lite build preset: monochrome themes only (Light/Dark)
+- Offscreen double buffer skipped on color systems (direct drawing)
+- Selection rendering: themed colors on Color QuickDraw systems
+- Preferences version bumped to 4 (adds theme_id field)
+
 ## [0.4.0] — Horizontal Scrolling
 
 ### Added

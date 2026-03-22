@@ -49,6 +49,8 @@ prefs_defaults(GeomysPrefs *prefs)
 	prefs->favorite_count = 0;
 	prefs->page_style = STYLE_TRADITIONAL;
 	prefs->show_details = 1;
+	prefs->theme_id = 0;  /* THEME_LIGHT */
+	prefs->show_status_bar = 1;  /* visible by default */
 }
 
 void

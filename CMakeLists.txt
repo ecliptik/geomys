@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.9)
-project(Geomys VERSION 0.3.0)
+project(Geomys VERSION 0.5.0)
 
 # --- Feature flags with defaults (all ON for full preset) ---
 option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     ON)
 option(GEOMYS_STATUS_BAR   "Enable status bar"                  ON)
 option(GEOMYS_FAVORITES    "Enable favorites system"            ON)
 option(GEOMYS_COLOR        "Enable 256-color support"           OFF)
+option(GEOMYS_THEMES       "Enable theme system"                ON)
 option(GEOMYS_DOWNLOAD     "Enable file downloads"              ON)
 option(GEOMYS_GOPHER_PLUS  "Enable Gopher+ protocol"           ON)
 option(GEOMYS_GLYPHS       "Enable Unicode glyph rendering"    ON)
@@ -74,6 +75,12 @@ endif()
 if(GEOMYS_DOWNLOAD)
     list(APPEND GEOMYS_SOURCES src/savefile.c)
 endif()
+if(GEOMYS_COLOR)
+    list(APPEND GEOMYS_SOURCES src/color.c)
+endif()
+if(GEOMYS_THEMES)
+    list(APPEND GEOMYS_SOURCES src/theme.c)
+endif()
 
 add_application(Geomys ${GEOMYS_SOURCES} resources/geomys.r)
 
@@ -96,6 +103,7 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_STYLES}>:GEOMYS_STYLES>
     $<$<BOOL:${GEOMYS_CACHE}>:GEOMYS_CACHE>
     $<$<BOOL:${GEOMYS_CLIPBOARD}>:GEOMYS_CLIPBOARD>
+    $<$<BOOL:${GEOMYS_THEMES}>:GEOMYS_THEMES>
     GEOMYS_MAX_WINDOWS=${GEOMYS_MAX_WINDOWS}
     CACHE_MAX=${CACHE_MAX}
 )

@@ -17,9 +17,14 @@
 #include "content.h"
 #include "main.h"
 #include "session.h"
+#include "settings.h"
+#include "theme.h"
+#include "color.h"
 #ifdef GEOMYS_CLIPBOARD
 #include "clipboard.h"
 #endif
+
+extern GeomysPrefs g_prefs;
 
 /* Module state */
 static TEHandle g_addr_te = 0L;
@@ -115,6 +120,9 @@ draw_nav_bar(WindowPtr win)
 {
 	Rect bar_r, frame_r;
 	short i;
+
+	/* TODO: Apply theme chrome colors when chrome theming is implemented.
+	 * Use theme_current()->chrome_bg and chrome_fg here. */
 
 	/* Draw nav bar background */
 	SetRect(&bar_r, 0, 0, win->portRect.right, NAV_BAR_HEIGHT);
@@ -260,24 +268,36 @@ draw_forward_icon(Rect *r, Boolean dim)
 	PenNormal();
 }
 
-/* Refresh: circular arrow with arrowhead */
+/* Refresh: bold circular arrow with filled arrowhead */
 static void
 draw_refresh_icon(Rect *r, Boolean dim)
 {
 	Rect arc_r;
 	short cx, cy;
+	PolyHandle poly;
 
 	cx = (r->left + r->right) / 2;
 	cy = (r->top + r->bottom) / 2;
 
-	SetRect(&arc_r, cx - 5, cy - 5, cx + 5, cy + 5);
 	if (dim) PenPat(&qd.gray);
+	PenSize(2, 2);
+	SetRect(&arc_r, cx - 5, cy - 5, cx + 5, cy + 5);
+	FrameArc(&arc_r, 45, 300);
 	PenSize(1, 1);
-	FrameArc(&arc_r, 30, 300);
-	/* Arrow head at top-right of arc */
-	MoveTo(cx + 5, cy - 1);
-	LineTo(cx + 5, cy - 5);
-	LineTo(cx + 1, cy - 5);
+
+	/* Filled arrowhead at arc start (~2 o'clock),
+	 * pointing down-left to follow clockwise flow */
+	poly = OpenPoly();
+	MoveTo(cx + 1, cy + 1);    /* tip: down-left */
+	LineTo(cx + 6, cy - 4);   /* upper-right wing */
+	LineTo(cx + 2, cy - 5);   /* upper-left wing */
+	LineTo(cx + 1, cy + 1);
+	ClosePoly();
+	if (dim)
+		FillPoly(poly, &qd.gray);
+	else
+		PaintPoly(poly);
+	KillPoly(poly);
 	PenNormal();
 }
 
@@ -325,31 +345,87 @@ draw_home_icon(Rect *r, Boolean dim)
 	PenNormal();
 }
 
+short
+status_bar_height(void)
+{
+	return g_prefs.show_status_bar ? STATUSBAR_HEIGHT : 0;
+}
+
 void
 browser_draw_status(WindowPtr win)
 {
 	Rect bar_r, clip_r;
 	Str255 ps;
 	short len;
-	RgnHandle save_clip;
+
+	/* If status bar is hidden, nothing to draw */
+	if (!g_prefs.show_status_bar)
+		return;
 
 	SetRect(&bar_r, 0,
-	    win->portRect.bottom - STATUS_BAR_HEIGHT - SCROLLBAR_WIDTH,
+	    win->portRect.bottom - STATUSBAR_HEIGHT - SCROLLBAR_WIDTH,
 	    win->portRect.right,
 	    win->portRect.bottom - SCROLLBAR_WIDTH);
+
+	/* Always reset port colors to defaults first */
+#ifdef GEOMYS_COLOR
+	if (g_has_color_qd) {
+		RGBColor black = { 0, 0, 0 };
+		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
+		RGBForeColor(&black);
+		RGBBackColor(&white);
+	} else {
+#endif
+		ForeColor(blackColor);
+		BackColor(whiteColor);
+#ifdef GEOMYS_COLOR
+	}
+#endif
 
 	/* Separator line above status bar.
 	 * Stop before scrollbar column (like Flynn) so the
 	 * line doesn't extend into the grow box area. */
+#ifdef GEOMYS_THEMES
+	if (theme_is_dark() && !theme_is_color())
+		ForeColor(whiteColor);
+#endif
 	MoveTo(0, bar_r.top);
 	LineTo(win->portRect.right - SCROLLBAR_WIDTH - 1,
 	    bar_r.top);
+#ifdef GEOMYS_THEMES
+	if (theme_is_dark() && !theme_is_color())
+		ForeColor(blackColor);
+#endif
 
 	/* Clear status bar text area (exclude scrollbar column) */
 	bar_r.top += 1;
 	SetRect(&clip_r, bar_r.left, bar_r.top,
 	    win->portRect.right - SCROLLBAR_WIDTH, bar_r.bottom);
+
+#ifdef GEOMYS_THEMES
+	{
+		const ThemeColors *t = theme_current();
+		if (t && t->is_dark && !theme_is_color()) {
+			/* Mono dark: use PaintRect (fills with
+			 * ForeColor=black pen) + srcBic for white
+			 * text — same pattern as content.c */
+			PaintRect(&clip_r);
+			TextMode(srcBic);
+		} else
+#ifdef GEOMYS_COLOR
+		if (t && g_has_color_qd) {
+			theme_set_fg(&t->chrome_fg);
+			theme_set_bg(&t->chrome_bg);
+			EraseRect(&clip_r);
+		} else
+#endif
+		{
+			EraseRect(&clip_r);
+		}
+	}
+#else
 	EraseRect(&clip_r);
+#endif
 
 	TextFont(3);  /* Geneva */
 	TextSize(9);
@@ -362,19 +438,27 @@ browser_draw_status(WindowPtr win)
 	MoveTo(6, win->portRect.bottom - SCROLLBAR_WIDTH - 4);
 	DrawString(ps);
 
-	/* Redraw grow box after status bar. */
-	save_clip = NewRgn();
-	GetClip(save_clip);
-	SetRect(&clip_r,
-	    win->portRect.right - SCROLLBAR_WIDTH,
-	    win->portRect.bottom - SCROLLBAR_WIDTH,
-	    win->portRect.right + 1,
-	    win->portRect.bottom + 1);
-	ClipRect(&clip_r);
-	EraseRect(&clip_r);
-	DrawGrowIcon(win);
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
+#ifdef GEOMYS_THEMES
+	/* Restore defaults after themed drawing */
+	if (theme_is_dark() && !theme_is_color())
+		TextMode(srcOr);
+#endif
+	/* Restore port colors — use RGB traps on Color QD to
+	 * ensure themed colors don't leak into chrome */
+#ifdef GEOMYS_COLOR
+	if (g_has_color_qd) {
+		RGBColor black = { 0, 0, 0 };
+		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
+		RGBForeColor(&black);
+		RGBBackColor(&white);
+	} else {
+#endif
+		ForeColor(blackColor);
+		BackColor(whiteColor);
+#ifdef GEOMYS_COLOR
+	}
+#endif
+
 }
 
 void
@@ -636,7 +720,7 @@ browser_get_content_rect(WindowPtr win, Rect *r)
 {
 	SetRect(r, 0, NAV_BAR_HEIGHT,
 	    win->portRect.right,
-	    win->portRect.bottom - STATUS_BAR_HEIGHT -
+	    win->portRect.bottom - status_bar_height() -
 	    SCROLLBAR_WIDTH);
 }
 

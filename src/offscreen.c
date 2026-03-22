@@ -31,6 +31,23 @@ offscreen_init(WindowPtr win)
 	short pixel_w, pixel_h, rb;
 	long size;
 
+#ifdef GEOMYS_COLOR
+	{
+		extern unsigned char g_has_color_qd;
+		if (g_has_color_qd) {
+			GDHandle gd = GetMainDevice();
+			if (gd && (*(*gd)->gdPMap)->pixelSize > 1) {
+				/* Actual color display — skip offscreen, draw direct.
+				 * Mac II+ is fast enough for row-by-row drawing. */
+				g_ready = 0;
+				return 0;
+			}
+			/* Monochrome display with Color QD (e.g. System 7)
+			 * — use offscreen buffer for flicker-free drawing. */
+		}
+	}
+#endif
+
 	if (g_offscreen_bits)
 		return 1;  /* already allocated */
 

@@ -31,6 +31,10 @@
 
 static Boolean tcp_initialized = false;
 
+/* Single-entry DNS cache to avoid redundant lookups */
+static char dns_cache_host[256];
+static unsigned long dns_cache_ip;
+
 static OSErr
 conn_ensure_tcp(void)
 {
@@ -124,26 +128,40 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 	if (ip != 0) {
 		conn->remote_ip = ip;
 	} else {
-		snprintf(status_msg, sizeof(status_msg),
-		    "Resolving %.50s\311", conn->host);
-		conn_status_update(status_win, status_msg);
+		/* Check single-entry DNS cache first */
+		if (dns_cache_ip != 0 &&
+		    strcmp(conn->host, dns_cache_host) == 0) {
+			conn->remote_ip = dns_cache_ip;
+		} else {
+			snprintf(status_msg, sizeof(status_msg),
+			    "Resolving %.50s\311", conn->host);
+			conn_status_update(status_win, status_msg);
 
-		{
-			short dns_err = dns_resolve(conn->host, &ip,
-			    conn->dns_server);
-			switch (dns_err) {
-			case DNS_OK:
-				conn->remote_ip = ip;
-				break;
-			case DNS_ERR_NXDOMAIN:
-				return conn_fail(conn,
-				    "Host not found");
-			case DNS_ERR_TIMEOUT:
-				return conn_fail(conn,
-				    "DNS lookup timed out");
-			default:
-				return conn_fail(conn,
-				    "DNS lookup failed");
+			{
+				short dns_err = dns_resolve(
+				    conn->host, &ip,
+				    conn->dns_server);
+				switch (dns_err) {
+				case DNS_OK:
+					conn->remote_ip = ip;
+					strncpy(dns_cache_host,
+					    conn->host,
+					    sizeof(dns_cache_host) - 1);
+					dns_cache_host[
+					    sizeof(dns_cache_host) - 1]
+					    = '\0';
+					dns_cache_ip = ip;
+					break;
+				case DNS_ERR_NXDOMAIN:
+					return conn_fail(conn,
+					    "Host not found");
+				case DNS_ERR_TIMEOUT:
+					return conn_fail(conn,
+					    "DNS lookup timed out");
+				default:
+					return conn_fail(conn,
+					    "DNS lookup failed");
+				}
 			}
 		}
 	}
@@ -171,6 +189,9 @@ conn_connect(Connection *conn, const char *host, short port,
 
 	if (!conn_resolve_host(conn, status_win))
 		return false;
+
+	/* Yield to Process Manager between DNS and TCP open */
+	{ EventRecord dummy; WaitNextEvent(0, &dummy, 0, 0L); }
 
 	conn->remote_port = conn->port;
 
@@ -289,7 +310,7 @@ conn_close(Connection *conn)
 		return;
 
 	if (conn->stream) {
-		_TCPClose(&conn->pb, conn->stream, 0L, 0L, false);
+		_TCPAbort(&conn->pb, conn->stream, 0L, 0L, false);
 		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
 		conn->stream = 0L;
 	}

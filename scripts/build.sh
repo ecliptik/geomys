@@ -11,6 +11,7 @@ GEOMYS_OFFSCREEN=ON
 GEOMYS_STATUS_BAR=ON
 GEOMYS_FAVORITES=ON
 GEOMYS_COLOR=OFF
+GEOMYS_THEMES=ON
 GEOMYS_DOWNLOAD=ON
 GEOMYS_GOPHER_PLUS=ON
 GEOMYS_GLYPHS=ON
@@ -30,6 +31,7 @@ apply_preset() {
             GEOMYS_STATUS_BAR=ON
             GEOMYS_FAVORITES=OFF
             GEOMYS_COLOR=OFF
+            GEOMYS_THEMES=OFF
             GEOMYS_DOWNLOAD=OFF
             GEOMYS_GOPHER_PLUS=OFF
             GEOMYS_GLYPHS=OFF
@@ -44,6 +46,7 @@ apply_preset() {
             GEOMYS_STATUS_BAR=ON
             GEOMYS_FAVORITES=ON
             GEOMYS_COLOR=OFF
+            GEOMYS_THEMES=ON
             GEOMYS_DOWNLOAD=OFF
             GEOMYS_GOPHER_PLUS=OFF
             GEOMYS_GLYPHS=OFF
@@ -57,7 +60,8 @@ apply_preset() {
             GEOMYS_OFFSCREEN=ON
             GEOMYS_STATUS_BAR=ON
             GEOMYS_FAVORITES=ON
-            GEOMYS_COLOR=OFF
+            GEOMYS_COLOR=ON
+            GEOMYS_THEMES=ON
             GEOMYS_DOWNLOAD=ON
             GEOMYS_GOPHER_PLUS=ON
             GEOMYS_GLYPHS=ON
@@ -119,6 +123,8 @@ while [[ $# -gt 0 ]]; do
         --no-styles)     GEOMYS_STYLES=OFF;          shift ;;
         --cache)         GEOMYS_CACHE=ON;            shift ;;
         --no-cache)      GEOMYS_CACHE=OFF;           shift ;;
+        --themes)        GEOMYS_THEMES=ON;            shift ;;
+        --no-themes)     GEOMYS_THEMES=OFF;           shift ;;
         --clipboard)     GEOMYS_CLIPBOARD=ON;        shift ;;
         --no-clipboard)  GEOMYS_CLIPBOARD=OFF;       shift ;;
         --max-windows)   GEOMYS_MAX_WINDOWS="$2";    shift 2 ;;
@@ -135,6 +141,11 @@ if [ "$GEOMYS_CP437" = "ON" ] && [ "$GEOMYS_GLYPHS" = "OFF" ]; then
     echo "Note: --cp437 requires --glyphs for full rendering, enabling it"
     GEOMYS_GLYPHS=ON
 fi
+# THEMES requires OFFSCREEN for flicker-free redraw
+if [ "$GEOMYS_THEMES" = "ON" ] && [ "$GEOMYS_OFFSCREEN" = "OFF" ]; then
+    echo "Note: --themes requires --offscreen for flicker-free redraw, enabling it"
+    GEOMYS_OFFSCREEN=ON
+fi
 
 # --- Compute SIZE resource partition ---
 compute_size() {
@@ -142,12 +153,17 @@ compute_size() {
 
     # Shared (global) memory costs
     local shared=0
-    [ "$GEOMYS_OFFSCREEN" = "ON" ] && shared=$(( shared + 22 ))
+    if [ "$GEOMYS_COLOR" = "ON" ]; then
+        [ "$GEOMYS_OFFSCREEN" = "ON" ] && shared=$(( shared + 171 ))
+    else
+        [ "$GEOMYS_OFFSCREEN" = "ON" ] && shared=$(( shared + 22 ))
+    fi
     [ "$GEOMYS_STATUS_BAR" = "ON" ] && shared=$(( shared + 1 ))
     [ "$GEOMYS_FAVORITES" = "ON" ] && shared=$(( shared + 3 ))
     [ "$GEOMYS_GLYPHS" = "ON" ] && shared=$(( shared + 6 ))
     [ "$GEOMYS_CP437" = "ON" ] && shared=$(( shared + 1 ))
     [ "$GEOMYS_GOPHER_PLUS" = "ON" ] && shared=$(( shared + 3 ))
+    [ "$GEOMYS_THEMES" = "ON" ] && shared=$(( shared + 2 ))
 
     # Per-session memory: items(80KB) + text(32KB) + tcp(12KB) + history(4KB) = 128KB
     local per_session=128
@@ -161,10 +177,17 @@ compute_size() {
 
     # Clamp — keep SIZE modest to avoid starving system heap
     # on 4MB Mac Plus. Original single-window: 384/256.
+    # Color builds need more headroom for offscreen GWorlds.
+    local max_pref=384
+    local max_min=256
+    if [ "$GEOMYS_COLOR" = "ON" ]; then
+        max_pref=768
+        max_min=640
+    fi
     [ $SIZE_PREFERRED -lt 256 ] && SIZE_PREFERRED=256 || true
     [ $SIZE_MINIMUM -lt 192 ] && SIZE_MINIMUM=192 || true
-    [ $SIZE_PREFERRED -gt 384 ] && SIZE_PREFERRED=384 || true
-    [ $SIZE_MINIMUM -gt 256 ] && SIZE_MINIMUM=256 || true
+    [ $SIZE_PREFERRED -gt $max_pref ] && SIZE_PREFERRED=$max_pref || true
+    [ $SIZE_MINIMUM -gt $max_min ] && SIZE_MINIMUM=$max_min || true
 }
 
 compute_size
@@ -223,6 +246,7 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_STYLES="$GEOMYS_STYLES" \
     -DGEOMYS_CACHE="$GEOMYS_CACHE" \
     -DGEOMYS_CLIPBOARD="$GEOMYS_CLIPBOARD" \
+    -DGEOMYS_THEMES="$GEOMYS_THEMES" \
     -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS"
 make "${MAKE_ARGS[@]}"
 
@@ -286,7 +310,7 @@ cp "$BUILD_DIR/Geomys.dsk" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.dsk"
 # --- Build summary ---
 ENABLED=""
 DISABLED=""
-for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache clipboard color download; do
+for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache clipboard color themes download; do
     case $feat in
         offscreen)    val=$GEOMYS_OFFSCREEN ;;
         statusbar)    val=$GEOMYS_STATUS_BAR ;;
@@ -298,6 +322,7 @@ for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache 
         cache)        val=$GEOMYS_CACHE ;;
         clipboard)    val=$GEOMYS_CLIPBOARD ;;
         color)        val=$GEOMYS_COLOR ;;
+        themes)       val=$GEOMYS_THEMES ;;
         download)     val=$GEOMYS_DOWNLOAD ;;
     esac
     if [ "$val" = "ON" ]; then

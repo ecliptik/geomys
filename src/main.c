@@ -36,6 +36,8 @@
 #ifdef GEOMYS_CACHE
 #include "cache.h"
 #endif
+#include "color.h"
+#include "theme.h"
 
 /* Globals */
 Boolean g_running = true;
@@ -57,7 +59,7 @@ static void handle_mouse_down(EventRecord *event);
 static void handle_key_down(EventRecord *event);
 static void handle_update(EventRecord *event);
 static void handle_activate(EventRecord *event);
-/* do_navigate_url and do_open_url_dialog declared in main.h */
+/* do_navigate_url declared in main.h */
 static void handle_nav_button(short btn_id);
 static void update_nav_buttons(void);
 static void navigate_history_entry(const HistoryEntry *e, short direction);
@@ -126,6 +128,13 @@ main(void)
 	/* Load preferences before menus so checkmarks are correct */
 	prefs_load(&g_prefs);
 
+#ifdef GEOMYS_COLOR
+	color_detect();
+#endif
+#ifdef GEOMYS_THEMES
+	theme_init(g_prefs.theme_id);
+#endif
+
 	init_menus();
 
 	/* Create first session with window, chrome, and content */
@@ -171,6 +180,11 @@ static void
 init_toolbox(void)
 {
 	SetApplLimit(LMGetApplLimit() - (1024 * 8));
+	MaxApplZone();
+	MoreMasters();
+	MoreMasters();
+	MoreMasters();
+	MoreMasters();
 	InitGraf(&qd.thePort);
 	InitFonts();
 	FlushEvents(everyEvent, 0);
@@ -179,7 +193,6 @@ init_toolbox(void)
 	TEInit();
 	InitDialogs(0L);
 	InitCursor();
-	MaxApplZone();
 }
 
 /*
@@ -199,8 +212,9 @@ create_session_window(BrowserSession *s)
 	SetRect(&bounds, 2, 42, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2);
 #endif
 
+	/* procID 8 = zoomDocProc: document window with zoom box + grow box */
 	s->window = NewWindow(0L, &bounds, "\pGeomys", true,
-	    documentProc, (WindowPtr)-1L, true, 0L);
+	    8, (WindowPtr)-1L, true, 0L);
 }
 
 /*
@@ -309,10 +323,10 @@ handle_page_loaded(void)
 
 		he = history_current();
 		if (he && he->title[0])
-			set_wtitlef(g_window, "Geomys - %s",
+			set_wtitlef(g_window, "%s",
 			    he->title);
 		else
-			set_wtitlef(g_window, "Geomys - %s",
+			set_wtitlef(g_window, "%s",
 			    g_gopher.cur_host);
 	}
 
@@ -356,7 +370,6 @@ handle_page_loaded(void)
 
 	content_draw(g_window);
 	content_update_scroll(g_window);
-	browser_draw_status(g_window);
 	browser_draw(g_window);
 	SetPort(save);
 
@@ -378,19 +391,19 @@ main_event_loop(void)
 		} else {
 			short si;
 
-			wait_ticks = 10L;
+			wait_ticks = 3L;
 			for (si = 0; si < GEOMYS_MAX_WINDOWS; si++) {
 				BrowserSession *bs = session_get(si);
 				if (bs && bs->gopher.receiving) {
-					wait_ticks = 0L;
+					wait_ticks = 1L;
 					break;
 				}
 			}
 #else
 		} else if (g_app_state == APP_STATE_LOADING) {
-			wait_ticks = 0L;
+			wait_ticks = 1L;
 		} else {
-			wait_ticks = 10L;
+			wait_ticks = 3L;
 #endif
 		}
 
@@ -734,62 +747,7 @@ do_navigate_url_titled(const char *url, const char *title)
 	}
 }
 
-/*
- * Open URL dialog (Cmd-L)
- */
-void
-do_open_url_dialog(void)
-{
-	DialogPtr dlg;
-	short item;
-	char cur_url[300];
-	Str255 pstr;
-	short item_type;
-	Handle item_h;
-	Rect item_rect;
 
-	dlg = GetNewDialog(DLOG_OPEN_URL_ID, 0L, (WindowPtr)-1L);
-	if (!dlg)
-		return;
-
-	/* Pre-fill with current URL */
-	browser_get_url(cur_url, sizeof(cur_url));
-	if (cur_url[0]) {
-		c2pstr(pstr, cur_url);
-		GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
-		SetDialogItemText(item_h, pstr);
-		SelectDialogItemText(dlg, 4, 0, 32767);
-	}
-
-	setup_default_button_outline(dlg, 5);
-
-	/* Loop until Connect or Cancel button clicked */
-	do {
-		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
-	} while (item != 1 && item != 2);
-
-	if (item == 1) {
-		char url[300];
-
-		/* Get URL from field */
-		GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
-		GetDialogItemText(item_h, pstr);
-		{
-			short len = pstr[0];
-			if (len >= (short)sizeof(url))
-				len = sizeof(url) - 1;
-			memcpy(url, pstr + 1, len);
-			url[len] = '\0';
-		}
-
-		DisposeDialog(dlg);
-
-		if (url[0])
-			do_navigate_url(url);
-	} else {
-		DisposeDialog(dlg);
-	}
-}
 
 /*
  * Search dialog — shown when clicking a Type 7 item
@@ -1012,9 +970,9 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		browser_set_status("Done (cached)");
 
 		if (e->title[0])
-			set_wtitlef(g_window, "Geomys - %s", e->title);
+			set_wtitlef(g_window, "%s", e->title);
 		else
-			set_wtitlef(g_window, "Geomys - %s", e->host);
+			set_wtitlef(g_window, "%s", e->host);
 
 		update_nav_buttons();
 
@@ -1219,6 +1177,36 @@ handle_mouse_down(EventRecord *event)
 				g_running = false;
 		}
 		break;
+	case inZoomIn:
+	case inZoomOut:
+		if (TrackBox(win, event->where, part)) {
+			GrafPtr save;
+#if GEOMYS_MAX_WINDOWS > 1
+			BrowserSession *gs, *orig;
+
+			gs = session_from_window(win);
+			orig = active_session;
+			if (gs && gs != active_session)
+				session_switch_to(gs);
+#endif
+			GetPort(&save);
+			SetPort(win);
+			EraseRect(&win->portRect);
+			ZoomWindow(win, part, win == FrontWindow());
+#ifdef GEOMYS_OFFSCREEN
+			offscreen_resize(win);
+#endif
+			content_resize(win);
+			InvalRect(&win->portRect);
+			SetPort(save);
+#if GEOMYS_MAX_WINDOWS > 1
+			if (gs)
+				session_save_state(gs);
+			if (gs && gs != orig && orig)
+				session_switch_to(orig);
+#endif
+		}
+		break;
 	case inGrow: {
 		long new_size;
 		Rect limit_rect;
@@ -1230,7 +1218,7 @@ handle_mouse_down(EventRecord *event)
 		    &limit_rect);
 		if (new_size != 0) {
 			GrafPtr save;
-#if GEOMYS_MAX_WINDOWS > 1 
+#if GEOMYS_MAX_WINDOWS > 1
 			BrowserSession *gs, *orig;
 
 			gs = session_from_window(win);

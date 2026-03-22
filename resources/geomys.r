@@ -7,7 +7,7 @@
 #include "Processes.r"
 
 resource 'MBAR' (128) {
-	{ 128, 129, 130, 131, 133, 132 }
+	{ 128, 129, 130, 131, 132, 133 }
 };
 
 resource 'MENU' (128, "Apple") {
@@ -22,7 +22,6 @@ resource 'MENU' (129, "File") {
 	{
 		"New Window", noIcon, "N", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Open URL\311", noIcon, "L", noMark, plain;
 		"Save Page As\311", noIcon, "S", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Close Window", noIcon, "W", noMark, plain;
@@ -60,8 +59,10 @@ resource 'MENU' (132, "Options") {
 		"-", noIcon, noKey, noMark, plain;
 		"Font", noIcon, noKey, noMark, plain;
 		"Page Style", noIcon, noKey, noMark, plain;
+		"Theme", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Show Details", noIcon, noKey, noMark, plain
+		"Show Details", noIcon, noKey, noMark, plain;
+		"Status Bar", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -91,6 +92,22 @@ resource 'MENU' (135, "Page Style") {
 		"Traditional", noIcon, noKey, noMark, plain;
 		"Plain", noIcon, noKey, noMark, plain;
 		"Markdown", noIcon, noKey, noMark, plain
+	}
+};
+
+resource 'MENU' (136, "Theme") {
+	136, textMenuProc, allEnabled, enabled, "Theme",
+	{
+		"Light", noIcon, noKey, noMark, plain;
+		"Dark", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Solarized Light", noIcon, noKey, noMark, plain;
+		"Solarized Dark", noIcon, noKey, noMark, plain;
+		"Tokyo Night Light", noIcon, noKey, noMark, plain;
+		"Tokyo Night Dark", noIcon, noKey, noMark, plain;
+		"Green Screen", noIcon, noKey, noMark, plain;
+		"Classic", noIcon, noKey, noMark, plain;
+		"Platinum", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -689,7 +706,7 @@ resource 'SIZE' (-1) {
 	dontGetFrontClicks,
 	ignoreChildDiedEvents,
 	is32BitCompatible,
-	notHighLevelEventAware,
+	isHighLevelEventAware,
 	onlyLocalHLEvents,
 	notStationeryAware,
 	dontUseTextEditServices,
