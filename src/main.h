@@ -73,9 +73,8 @@
 #define FONT_GENEVA10       6
 
 /* Page Style submenu items */
-#define STYLE_ITEM_TRADITIONAL  1
-#define STYLE_ITEM_PLAIN        2
-#define STYLE_ITEM_MARKDOWN     3
+#define STYLE_ITEM_TEXT   1
+#define STYLE_ITEM_ICONS  2
 
 /* Theme submenu items */
 #define THEME_ITEM_LIGHT           1

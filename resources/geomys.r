@@ -92,9 +92,8 @@ resource 'MENU' (134, "Font") {
 resource 'MENU' (135, "Page Style") {
 	135, textMenuProc, allEnabled, enabled, "Page Style",
 	{
-		"Traditional", noIcon, noKey, noMark, plain;
-		"Plain", noIcon, noKey, noMark, plain;
-		"Markdown", noIcon, noKey, noMark, plain
+		"Text", noIcon, noKey, noMark, plain;
+		"Icons", noIcon, noKey, noMark, plain
 	}
 };
 

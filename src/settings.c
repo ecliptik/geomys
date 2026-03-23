@@ -47,7 +47,7 @@ prefs_defaults(GeomysPrefs *prefs)
 	prefs->font_id = 4;    /* Monaco */
 	prefs->font_size = 9;
 	prefs->favorite_count = 0;
-	prefs->page_style = STYLE_TRADITIONAL;
+	prefs->page_style = STYLE_TEXT;
 	prefs->show_details = 1;
 	prefs->theme_id = 0;  /* THEME_LIGHT */
 	prefs->show_status_bar = 1;  /* visible by default */
@@ -108,8 +108,16 @@ prefs_load(GeomysPrefs *prefs)
 		prefs->dns_server[sizeof(prefs->dns_server) - 1] = '\0';
 	}
 
-	if (prefs->version != PREFS_VERSION)
-		prefs_defaults(prefs);
+	if (prefs->version != PREFS_VERSION) {
+		/* v5 -> v6: page styles changed from 3 to 2 */
+		if (prefs->version == 5) {
+			if (prefs->page_style > STYLE_ICONS)
+				prefs->page_style = STYLE_TEXT;
+			prefs->version = PREFS_VERSION;
+		} else {
+			prefs_defaults(prefs);
+		}
+	}
 }
 
 void

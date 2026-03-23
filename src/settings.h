@@ -5,13 +5,12 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define PREFS_VERSION    5
+#define PREFS_VERSION    6
 #define MAX_FAVORITES    20
 
 /* Page display styles */
-#define STYLE_TRADITIONAL  0  /* Monaco 9, type labels, monospaced */
-#define STYLE_PLAIN        1  /* Geneva 9, underlined links, no labels */
-#define STYLE_MARKDOWN     2  /* Geneva 9/Chicago 12, bullets, bold headers */
+#define STYLE_TEXT   0  /* Text labels: DIR, TXT, ?, etc. */
+#define STYLE_ICONS  1  /* Bitmap icons per Gopher type */
 
 typedef struct {
 	char    name[64];
@@ -27,7 +26,7 @@ typedef struct {
 	short           favorite_count;
 	GopherFavorite  favorites[MAX_FAVORITES];
 	/* --- v2 fields below --- */
-	short           page_style;     /* STYLE_TRADITIONAL/PLAIN/MARKDOWN */
+	short           page_style;     /* STYLE_TEXT/STYLE_ICONS */
 	short           show_details;   /* 1 = show metadata columns, 0 = names only */
 	/* --- v4 field: theme index (0=Light) --- */
 	short           theme_id;

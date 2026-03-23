@@ -106,12 +106,10 @@ init_menus(void)
 
 	/* Set initial style checkmark based on prefs */
 	if (style_submenu) {
-		CheckItem(style_submenu, STYLE_ITEM_TRADITIONAL,
-		    g_prefs.page_style == STYLE_TRADITIONAL);
-		CheckItem(style_submenu, STYLE_ITEM_PLAIN,
-		    g_prefs.page_style == STYLE_PLAIN);
-		CheckItem(style_submenu, STYLE_ITEM_MARKDOWN,
-		    g_prefs.page_style == STYLE_MARKDOWN);
+		CheckItem(style_submenu, STYLE_ITEM_TEXT,
+		    g_prefs.page_style == STYLE_TEXT);
+		CheckItem(style_submenu, STYLE_ITEM_ICONS,
+		    g_prefs.page_style == STYLE_ICONS);
 	}
 
 	/* Set initial font checkmark based on prefs */
@@ -652,24 +650,19 @@ handle_menu(long menu_id)
 		break;
 	case STYLE_MENU_ID:
 		switch (item) {
-		case STYLE_ITEM_TRADITIONAL:
-			g_prefs.page_style = STYLE_TRADITIONAL;
+		case STYLE_ITEM_TEXT:
+			g_prefs.page_style = STYLE_TEXT;
 			break;
-		case STYLE_ITEM_PLAIN:
-			g_prefs.page_style = STYLE_PLAIN;
-			break;
-		case STYLE_ITEM_MARKDOWN:
-			g_prefs.page_style = STYLE_MARKDOWN;
+		case STYLE_ITEM_ICONS:
+			g_prefs.page_style = STYLE_ICONS;
 			break;
 		}
 		/* Update checkmarks */
 		if (style_submenu) {
-			CheckItem(style_submenu, STYLE_ITEM_TRADITIONAL,
-			    item == STYLE_ITEM_TRADITIONAL);
-			CheckItem(style_submenu, STYLE_ITEM_PLAIN,
-			    item == STYLE_ITEM_PLAIN);
-			CheckItem(style_submenu, STYLE_ITEM_MARKDOWN,
-			    item == STYLE_ITEM_MARKDOWN);
+			CheckItem(style_submenu, STYLE_ITEM_TEXT,
+			    item == STYLE_ITEM_TEXT);
+			CheckItem(style_submenu, STYLE_ITEM_ICONS,
+			    item == STYLE_ITEM_ICONS);
 		}
 		/* Save and redraw */
 		prefs_save(&g_prefs);

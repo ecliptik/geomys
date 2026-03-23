@@ -45,6 +45,7 @@ set(GEOMYS_SOURCES
     src/dns.c
     src/gopher.c
     src/gopher_types.c
+    src/gopher_icons.c
     src/macutil.c
     src/sysutil.c
     src/session.c

@@ -21,6 +21,7 @@
 #include "session.h"
 #include "theme.h"
 #include "color.h"
+#include "gopher_icons.h"
 #ifdef GEOMYS_OFFSCREEN
 #include "offscreen.h"
 #endif
@@ -498,29 +499,12 @@ content_draw_row(WindowPtr win, short row_index)
 		/* Format line with style prefix using name
 		 * portion only */
 		switch (g_prefs.page_style) {
-		case STYLE_PLAIN:
+		case STYLE_ICONS:
 			snprintf(line, sizeof(line),
-			    "  %.*s", name_len, disp);
+			    "      %.*s",
+			    name_len, disp);
 			break;
-		case STYLE_MARKDOWN:
-			if (item->type == GOPHER_INFO)
-				snprintf(line, sizeof(line),
-				    "  %.*s", name_len, disp);
-			else if (item->type == GOPHER_SEARCH)
-				snprintf(line, sizeof(line),
-				    " ?  %.*s",
-				    name_len, disp);
-			else if (gopher_type_navigable(
-			    item->type))
-				snprintf(line, sizeof(line),
-				    " \xA5  %.*s",
-				    name_len, disp);
-			else
-				snprintf(line, sizeof(line),
-				    "    %.*s",
-				    name_len, disp);
-			break;
-		default: /* STYLE_TRADITIONAL */
+		default: /* STYLE_TEXT */
 			if (item->type == GOPHER_INFO)
 				snprintf(line, sizeof(line),
 				    "      %.*s",
@@ -554,13 +538,14 @@ content_draw_row(WindowPtr win, short row_index)
 		 * label color, then name in link color. */
 #if defined(GEOMYS_THEMES) && defined(GEOMYS_COLOR)
 		if (g_has_color_qd &&
-		    g_prefs.page_style == STYLE_TRADITIONAL &&
 		    item->type != GOPHER_INFO) {
 			const ThemeColors *lt =
 			    theme_current();
-			if (lt) {
-				/* Label prefix is 5 chars:
-				 * " DIR " or " TXT+" etc */
+			if (lt && g_prefs.page_style ==
+			    STYLE_TEXT) {
+				/* Text style: label prefix in
+				 * label color, name in link
+				 * color */
 				short lbl_len = 5;
 				Str255 lps;
 
@@ -610,6 +595,34 @@ content_draw_row(WindowPtr win, short row_index)
 					    len - lbl_len);
 					DrawString(ps);
 				}
+			} else if (lt) {
+				/* Icons style: all text in
+				 * link color */
+				GopherItem *ci =
+				    &g_page->items[
+				    row_index];
+				if (ci->type ==
+				    GOPHER_ERROR)
+					theme_set_fg(
+					    &lt->link_error);
+				else if (ci->type ==
+				    GOPHER_SEARCH)
+					theme_set_fg(
+					    &lt->link_search);
+				else if (
+				    gopher_type_navigable(
+				    ci->type))
+					theme_set_fg(
+					    &lt->link);
+				else
+					theme_set_fg(
+					    &lt->
+					    link_external);
+				ps[0] = len;
+				memcpy(ps + 1, line, len);
+				MoveTo(r.left + 4 -
+				    g_hscroll_pos, y - 2);
+				DrawString(ps);
 			} else {
 				ps[0] = len;
 				memcpy(ps + 1, line, len);
@@ -625,6 +638,45 @@ content_draw_row(WindowPtr win, short row_index)
 			MoveTo(r.left + 4 - g_hscroll_pos,
 			    y - 2);
 			DrawString(ps);
+		}
+
+		/* Draw icon for Icons style */
+		if (g_prefs.page_style == STYLE_ICONS &&
+		    item->type != GOPHER_INFO) {
+			const GopherIcon *gi;
+			gi = gopher_icon_for_type(
+			    item->type);
+			if (gi) {
+				short ix, iy, inv;
+				ix = r.left + 4 -
+				    g_hscroll_pos;
+				iy = y - g_row_height +
+				    (g_row_height -
+				    gi->height) / 2;
+				inv = 0;
+#ifdef GEOMYS_THEMES
+				/* Mono dark: use srcBic to
+				 * draw white icons on black
+				 * background */
+				if (theme_is_dark() &&
+				    !theme_is_color())
+					inv = 1;
+#if defined(GEOMYS_COLOR)
+				if (g_has_color_qd) {
+					const ThemeColors
+					    *lt =
+					    theme_current();
+					if (lt) {
+						theme_set_fg(
+						    &lt->label);
+						inv = 0;
+					}
+				}
+#endif
+#endif
+				gopher_icon_draw(gi,
+				    ix, iy, inv);
+			}
 		}
 
 		/* Draw metadata right-aligned when Show
@@ -697,16 +749,11 @@ content_draw_row(WindowPtr win, short row_index)
 		}
 	}
 
-	/* Underline for hover, or always for navigable
-	 * items in Plain style */
+	/* Underline on hover */
 	{
 		short show_underline;
 
 		show_underline = (row_index == g_hover_row);
-		if (g_prefs.page_style == STYLE_PLAIN &&
-		    item->type != GOPHER_INFO &&
-		    gopher_type_navigable(item->type))
-			show_underline = 1;
 
 		if (show_underline) {
 			/* line now contains only prefix + name
@@ -1371,29 +1418,12 @@ content_row_text(short row, char *buf, short bufsiz)
 		    split_pos : dlen;
 
 		switch (g_prefs.page_style) {
-		case STYLE_PLAIN:
+		case STYLE_ICONS:
 			len = snprintf(buf, bufsiz,
-			    "  %.*s", name_len, disp);
+			    "      %.*s",
+			    name_len, disp);
 			break;
-		case STYLE_MARKDOWN:
-			if (item->type == GOPHER_INFO)
-				len = snprintf(buf, bufsiz,
-				    "  %.*s", name_len, disp);
-			else if (item->type == GOPHER_SEARCH)
-				len = snprintf(buf, bufsiz,
-				    " ?  %.*s",
-				    name_len, disp);
-			else if (gopher_type_navigable(
-			    item->type))
-				len = snprintf(buf, bufsiz,
-				    " \xA5  %.*s",
-				    name_len, disp);
-			else
-				len = snprintf(buf, bufsiz,
-				    "    %.*s",
-				    name_len, disp);
-			break;
-		default: /* STYLE_TRADITIONAL */
+		default: /* STYLE_TEXT */
 			if (item->type == GOPHER_INFO)
 				len = snprintf(buf, bufsiz,
 				    "      %.*s",
@@ -2664,36 +2694,12 @@ content_calc_max_width(WindowPtr win)
 			    split_pos : dlen;
 
 			switch (g_prefs.page_style) {
-			case STYLE_PLAIN:
+			case STYLE_ICONS:
 				snprintf(line, sizeof(line),
-				    "  %.*s",
+				    "      %.*s",
 				    name_len, disp);
 				break;
-			case STYLE_MARKDOWN:
-				if (item->type == GOPHER_INFO)
-					snprintf(line,
-					    sizeof(line),
-					    "  %.*s",
-					    name_len, disp);
-				else if (item->type ==
-				    GOPHER_SEARCH)
-					snprintf(line,
-					    sizeof(line),
-					    " ?  %.*s",
-					    name_len, disp);
-				else if (gopher_type_navigable(
-				    item->type))
-					snprintf(line,
-					    sizeof(line),
-					    " \xA5  %.*s",
-					    name_len, disp);
-				else
-					snprintf(line,
-					    sizeof(line),
-					    "    %.*s",
-					    name_len, disp);
-				break;
-			default:
+			default: /* STYLE_TEXT */
 				if (item->type == GOPHER_INFO)
 					snprintf(line,
 					    sizeof(line),
