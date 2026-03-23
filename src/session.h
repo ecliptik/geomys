@@ -28,28 +28,35 @@
 #define CASCADE_OFFSET  20
 
 typedef struct BrowserSession {
-	/* Window */
+	/* Pointers first — frequently dereferenced, 4 bytes each.
+	 * Keeps hot fields within 16-bit displacement range for
+	 * faster 68000 d16(An) addressing. */
 	WindowPtr       window;
 	ControlHandle   scrollbar;
 	ControlHandle   hscrollbar;         /* horizontal scrollbar */
+	TEHandle        addr_te;
 
-	/* Gopher engine state */
+	/* Gopher engine state — large, frequently accessed */
 	GopherState     gopher;
 
-	/* Navigation history */
+	/* Navigation history — large array */
 	HistoryEntry    history[HISTORY_MAX];
-	short           history_count;
-	short           history_pos;
 
-	/* Browser chrome state */
-	TEHandle        addr_te;
-	char            status[80];
-	short           btn_state[NAV_BTN_COUNT];
+	/* Browser chrome — Rects and arrays */
 	Rect            btn_rects[NAV_BTN_COUNT];
 	Rect            addr_rect;
-	short           focus;
+	char            status[80];
+	short           btn_state[NAV_BTN_COUNT];
 
-	/* Content area state */
+#ifdef GEOMYS_CLIPBOARD
+	/* Selection state */
+	Selection       sel;
+#endif
+
+	/* Shorts — grouped to minimize padding */
+	short           history_count;
+	short           history_pos;
+	short           focus;
 	short           scroll_pos;
 	short           hscroll_pos;        /* horizontal pixel offset */
 	short           content_max_width;  /* widest line in pixels */
@@ -57,18 +64,13 @@ typedef struct BrowserSession {
 	short           row_height;
 	short           font_id;
 	short           font_size;
-
+	short           cell_width;         /* cached CharWidth('M') */
+	short           cell_baseline;      /* cached font ascent */
 #ifdef GEOMYS_CLIPBOARD
-	/* Selection state */
-	Selection       sel;
 	short           win_active;
 #endif
-
-	/* Application state */
 	short           app_state;
 	short           pending_scroll;
-
-	/* Session slot index (0..GEOMYS_MAX_WINDOWS-1) */
 	short           id;
 } BrowserSession;
 

@@ -26,7 +26,7 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 
 **User Interface**
 - Full Macintosh GUI with mouse support
-- Multi-window browsing: up to 4 simultaneous windows with background loading
+- Multi-window browsing: up to 4 simultaneous windows with background loading and Notification Manager alerts
 - Web browser-style experience: address bar, back/forward/refresh/home buttons
 - Window menu for switching between open windows
 - Page styles: Traditional, Plain, Markdown
@@ -36,12 +36,15 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Text selection and copy: highlight text in content area or address bar, copy to clipboard (Cmd-C)
 - 9 built-in themes: Light, Dark, Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum
 - 256-color support on Mac II and later (Color QuickDraw); monochrome themes on Mac Plus
+- Themed chrome: nav bar, buttons, address bar, and status bar colored per theme
 - Themed content colors by Gopher item type (text, links, search, errors, external)
+- Color icon family (icl4, icl8, ics4, ics8) for Finder on color systems
 - Horizontal scrollbar for wide content
 - Keyboard navigation: arrow keys, Page Up/Down, Home/End
 - Hand cursor on navigable items
 - Bottom status bar with connection info
 - Menus: File, Edit, Favorites, Window, Options
+- Movable modal dialogs on System 7 (fixed position on System 6)
 - Aligned with Apple Human Interface Guidelines (1992)
 
 **Networking**
@@ -49,6 +52,9 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Built-in DNS resolver
 - Local page cache for instant back/forward with scroll position preservation
 - Per-window history, scroll position, and text selection
+- Dirty-row tracking and shadow buffer for optimized redraws
+- GWorld color offscreen buffer for flicker-free color rendering
+- Background session throttling for idle windows
 - Works well within 4MB of RAM
 
 **Character Support**

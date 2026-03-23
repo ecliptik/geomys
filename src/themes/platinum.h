@@ -26,7 +26,7 @@ static const ThemeColors theme_platinum = {
 	{ 0x00, 0x00, 0x00 },  /* sel_fg: black */
 
 	/* Chrome */
-	{ 0x99, 0x99, 0x99 },  /* chrome_bg: darker gray */
+	{ 0xCC, 0xCC, 0xCC },  /* chrome_bg: Platinum gray (matches content bg) */
 	{ 0x00, 0x00, 0x00 },  /* chrome_fg: black */
 	{ 0xFF, 0xFF, 0xFF },  /* addr_bg: white */
 	{ 0x00, 0x00, 0x00 },  /* addr_fg: black */

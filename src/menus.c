@@ -230,6 +230,9 @@ update_menus(void)
 	 * or based on focus for clipboard operations */
 	if (edit_menu) {
 		if (da_active) {
+			/* DA controls Undo — show "Undo" (HIG p.113) */
+			SetMenuItemText(edit_menu, EDIT_MENU_UNDO,
+			    "\pUndo");
 			EnableItem(edit_menu, EDIT_MENU_UNDO);
 			EnableItem(edit_menu, EDIT_MENU_CUT);
 			EnableItem(edit_menu, EDIT_MENU_COPY);
@@ -238,6 +241,9 @@ update_menus(void)
 			EnableItem(edit_menu, EDIT_MENU_SELALL);
 #ifdef GEOMYS_CLIPBOARD
 		} else if (browser_get_focus() == FOCUS_ADDR_BAR) {
+			/* No undo for address bar — "Can't Undo" per HIG */
+			SetMenuItemText(edit_menu, EDIT_MENU_UNDO,
+			    "\pCan\325t Undo");
 			DisableItem(edit_menu, EDIT_MENU_UNDO);
 			if (browser_has_selection()) {
 				EnableItem(edit_menu, EDIT_MENU_CUT);
@@ -251,6 +257,8 @@ update_menus(void)
 			EnableItem(edit_menu, EDIT_MENU_PASTE);
 			EnableItem(edit_menu, EDIT_MENU_SELALL);
 		} else if (browser_get_focus() == FOCUS_CONTENT) {
+			SetMenuItemText(edit_menu, EDIT_MENU_UNDO,
+			    "\pCan\325t Undo");
 			DisableItem(edit_menu, EDIT_MENU_UNDO);
 			DisableItem(edit_menu, EDIT_MENU_CUT);
 			if (content_has_selection())
@@ -262,6 +270,8 @@ update_menus(void)
 			EnableItem(edit_menu, EDIT_MENU_SELALL);
 #endif
 		} else {
+			SetMenuItemText(edit_menu, EDIT_MENU_UNDO,
+			    "\pCan\325t Undo");
 			DisableItem(edit_menu, EDIT_MENU_UNDO);
 			DisableItem(edit_menu, EDIT_MENU_CUT);
 			DisableItem(edit_menu, EDIT_MENU_COPY);
@@ -677,6 +687,7 @@ handle_menu(long menu_id)
 						GrafPtr save;
 						GetPort(&save);
 						SetPort(s->window);
+						content_mark_all_dirty();
 						content_recalc_width(s->window);
 						content_update_scroll(s->window);
 						content_draw(s->window);

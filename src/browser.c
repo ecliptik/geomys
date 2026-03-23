@@ -26,6 +26,45 @@
 
 extern GeomysPrefs g_prefs;
 
+/*
+ * set_system_chrome_colors - set port fg/bg to the system's window
+ * content colors from the window color table (wctb). On System 7+
+ * with Color QuickDraw, this respects user customization via the
+ * Color control panel. Falls back to black-on-white on System 6.
+ */
+#ifdef GEOMYS_COLOR
+static void
+set_system_chrome_colors(WindowPtr win)
+{
+	AuxWinHandle awh;
+	CTabHandle ctab;
+	short i, ct_size;
+
+	if (!g_has_color_qd)
+		return;
+
+	if (GetAuxWin(win, &awh) && awh) {
+		ctab = (*awh)->awCTable;
+		if (!ctab)
+			return;
+		ct_size = (*ctab)->ctSize;
+
+		/* Search color table by value field —
+		 * entries aren't necessarily in order */
+		for (i = 0; i <= ct_size; i++) {
+			if ((*ctab)->ctTable[i].value ==
+			    wContentColor)
+				RGBBackColor(
+				    &(*ctab)->ctTable[i].rgb);
+			else if ((*ctab)->ctTable[i].value ==
+			    wTextColor)
+				RGBForeColor(
+				    &(*ctab)->ctTable[i].rgb);
+		}
+	}
+}
+#endif
+
 /* Module state */
 static TEHandle g_addr_te = 0L;
 static char g_status[80];
@@ -121,8 +160,10 @@ draw_nav_bar(WindowPtr win)
 	Rect bar_r, frame_r;
 	short i;
 
-	/* TODO: Apply theme chrome colors when chrome theming is implemented.
-	 * Use theme_current()->chrome_bg and chrome_fg here. */
+	/* Use system window content color for chrome background */
+#ifdef GEOMYS_COLOR
+	set_system_chrome_colors(win);
+#endif
 
 	/* Draw nav bar background */
 	SetRect(&bar_r, 0, 0, win->portRect.right, NAV_BAR_HEIGHT);
@@ -170,6 +211,16 @@ draw_nav_bar(WindowPtr win)
 		SetClip(save_clip);
 		DisposeRgn(save_clip);
 	}
+
+	/* Restore default port colors */
+#ifdef GEOMYS_COLOR
+	if (g_has_color_qd) {
+		RGBColor black = { 0, 0, 0 };
+		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
+		RGBForeColor(&black);
+		RGBBackColor(&white);
+	}
+#endif
 }
 
 static void
@@ -362,70 +413,28 @@ browser_draw_status(WindowPtr win)
 	if (!g_prefs.show_status_bar)
 		return;
 
+	/* Use system window content color for chrome background */
+#ifdef GEOMYS_COLOR
+	set_system_chrome_colors(win);
+#endif
+
 	SetRect(&bar_r, 0,
 	    win->portRect.bottom - STATUSBAR_HEIGHT - SCROLLBAR_WIDTH,
 	    win->portRect.right,
 	    win->portRect.bottom - SCROLLBAR_WIDTH);
 
-	/* Always reset port colors to defaults first */
-#ifdef GEOMYS_COLOR
-	if (g_has_color_qd) {
-		RGBColor black = { 0, 0, 0 };
-		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
-		RGBForeColor(&black);
-		RGBBackColor(&white);
-	} else {
-#endif
-		ForeColor(blackColor);
-		BackColor(whiteColor);
-#ifdef GEOMYS_COLOR
-	}
-#endif
-
 	/* Separator line above status bar.
 	 * Stop before scrollbar column (like Flynn) so the
 	 * line doesn't extend into the grow box area. */
-#ifdef GEOMYS_THEMES
-	if (theme_is_dark() && !theme_is_color())
-		ForeColor(whiteColor);
-#endif
 	MoveTo(0, bar_r.top);
 	LineTo(win->portRect.right - SCROLLBAR_WIDTH - 1,
 	    bar_r.top);
-#ifdef GEOMYS_THEMES
-	if (theme_is_dark() && !theme_is_color())
-		ForeColor(blackColor);
-#endif
 
 	/* Clear status bar text area (exclude scrollbar column) */
 	bar_r.top += 1;
 	SetRect(&clip_r, bar_r.left, bar_r.top,
 	    win->portRect.right - SCROLLBAR_WIDTH, bar_r.bottom);
-
-#ifdef GEOMYS_THEMES
-	{
-		const ThemeColors *t = theme_current();
-		if (t && t->is_dark && !theme_is_color()) {
-			/* Mono dark: use PaintRect (fills with
-			 * ForeColor=black pen) + srcBic for white
-			 * text — same pattern as content.c */
-			PaintRect(&clip_r);
-			TextMode(srcBic);
-		} else
-#ifdef GEOMYS_COLOR
-		if (t && g_has_color_qd) {
-			theme_set_fg(&t->chrome_fg);
-			theme_set_bg(&t->chrome_bg);
-			EraseRect(&clip_r);
-		} else
-#endif
-		{
-			EraseRect(&clip_r);
-		}
-	}
-#else
 	EraseRect(&clip_r);
-#endif
 
 	TextFont(3);  /* Geneva */
 	TextSize(9);
@@ -438,27 +447,15 @@ browser_draw_status(WindowPtr win)
 	MoveTo(6, win->portRect.bottom - SCROLLBAR_WIDTH - 4);
 	DrawString(ps);
 
-#ifdef GEOMYS_THEMES
-	/* Restore defaults after themed drawing */
-	if (theme_is_dark() && !theme_is_color())
-		TextMode(srcOr);
-#endif
-	/* Restore port colors — use RGB traps on Color QD to
-	 * ensure themed colors don't leak into chrome */
+	/* Restore default port colors */
 #ifdef GEOMYS_COLOR
 	if (g_has_color_qd) {
 		RGBColor black = { 0, 0, 0 };
 		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
 		RGBForeColor(&black);
 		RGBBackColor(&white);
-	} else {
-#endif
-		ForeColor(blackColor);
-		BackColor(whiteColor);
-#ifdef GEOMYS_COLOR
 	}
 #endif
-
 }
 
 void

@@ -44,6 +44,14 @@ Boolean g_running = true;
 Boolean g_suspended = false;
 GeomysPrefs g_prefs;
 
+/* Saved system key repeat settings (restored on quit) */
+static short saved_key_thresh;
+static short saved_key_rep_thresh;
+
+/* Notification Manager — alert user when page loads in background */
+static NMRec g_nm_rec;
+static Boolean g_nm_posted = false;
+
 /* g_window, g_app_state, g_gopher are macros in main.h
  * pointing to active_session fields.
  * g_pending_scroll is also per-session: */
@@ -193,6 +201,14 @@ init_toolbox(void)
 	TEInit();
 	InitDialogs(0L);
 	InitCursor();
+
+	/* Save system key repeat and set fast repeat for keyboard nav.
+	 * Default PRAM is often ~18 ticks (300ms) between repeats.
+	 * We set 2 ticks (33ms) ≈ 30 cps for responsive scrolling. */
+	saved_key_thresh = LMGetKeyThresh();
+	saved_key_rep_thresh = LMGetKeyRepThresh();
+	LMSetKeyThresh(12);		/* 200ms initial delay */
+	LMSetKeyRepThresh(2);		/* 33ms repeat = ~30 cps */
 }
 
 /*
@@ -213,8 +229,14 @@ create_session_window(BrowserSession *s)
 #endif
 
 	/* procID 8 = zoomDocProc: document window with zoom box + grow box */
-	s->window = NewWindow(0L, &bounds, "\pGeomys", true,
-	    8, (WindowPtr)-1L, true, 0L);
+	/* Use NewCWindow on color systems for CGrafPort, NewWindow on B&W */
+	if (g_has_color_qd) {
+		s->window = NewCWindow(0L, &bounds, "\pGeomys", true,
+		    8, (WindowPtr)-1L, true, 0L);
+	} else {
+		s->window = NewWindow(0L, &bounds, "\pGeomys", true,
+		    8, (WindowPtr)-1L, true, 0L);
+	}
 }
 
 /*
@@ -346,6 +368,19 @@ handle_page_loaded(void)
 		    g_gopher.text_len);
 	browser_set_status(uri);
 
+	/* Post notification if loading completed in background */
+	if (g_suspended && !g_nm_posted) {
+		memset(&g_nm_rec, 0, sizeof(g_nm_rec));
+		g_nm_rec.qType = 8;	/* nmType */
+		g_nm_rec.nmMark = 1;
+		g_nm_rec.nmSound = (Handle)-1;
+		g_nm_rec.nmIcon = 0L;
+		g_nm_rec.nmStr = 0L;
+		g_nm_rec.nmResp = 0L;	/* nil — we handle removal on resume */
+		NMInstall(&g_nm_rec);
+		g_nm_posted = true;
+	}
+
 	/* Cache the loaded page */
 #ifdef GEOMYS_CACHE
 	cache_store(active_session->id,
@@ -433,11 +468,27 @@ main_event_loop(void)
 					    !bs->gopher.receiving)
 						continue;
 
-					/* Active session: poll and
-					 * draw normally */
+					/* Active session: batch
+				 * TCP reads with draw
+				 * deadline to avoid
+				 * parse-draw-parse-draw */
 					if (bs == orig) {
-						if (gopher_idle(
-						    &g_gopher)) {
+						unsigned long dd;
+						short dc = 0;
+						Boolean nd = false;
+
+						dd = TickCount() + 4;
+						while (g_gopher.receiving
+						    && dc < 16) {
+							if (gopher_idle(
+							    &g_gopher))
+								nd = true;
+							dc++;
+							if (TickCount()
+							    >= dd)
+								break;
+						}
+						if (nd) {
 							GrafPtr sp;
 
 							GetPort(&sp);
@@ -483,9 +534,25 @@ main_event_loop(void)
 				}
 			}
 #else
-			/* Poll Gopher connection for data */
+			/* Poll Gopher connection for data.
+			 * Batch TCP reads with 4-tick draw
+			 * deadline to prevent per-read redraws
+			 * on large directories. */
 			if (g_gopher.receiving) {
-				if (gopher_idle(&g_gopher)) {
+				unsigned long draw_deadline;
+				short drain_count = 0;
+				Boolean needs_draw = false;
+
+				draw_deadline = TickCount() + 4;
+				while (g_gopher.receiving
+				    && drain_count < 16) {
+					if (gopher_idle(&g_gopher))
+						needs_draw = true;
+					drain_count++;
+					if (TickCount() >= draw_deadline)
+						break;
+				}
+				if (needs_draw) {
 					GrafPtr save;
 
 					GetPort(&save);
@@ -554,10 +621,16 @@ main_event_loop(void)
 			break;
 		case app4Evt:
 			if (HiWord(event.message) & (1 << 8)) {
-				if (event.message & 1)
+				if (event.message & 1) {
+					/* Resume */
 					g_suspended = false;
-				else
+					if (g_nm_posted) {
+						NMRemove(&g_nm_rec);
+						g_nm_posted = false;
+					}
+				} else {
 					g_suspended = true;
+				}
 			}
 			break;
 		case kHighLevelEvent:
@@ -584,6 +657,16 @@ main_event_loop(void)
 				session_destroy(s);
 		}
 	}
+
+	/* Remove any pending notification */
+	if (g_nm_posted) {
+		NMRemove(&g_nm_rec);
+		g_nm_posted = false;
+	}
+
+	/* Restore system key repeat settings */
+	LMSetKeyThresh(saved_key_thresh);
+	LMSetKeyRepThresh(saved_key_rep_thresh);
 
 	ExitToShell();
 }
@@ -772,6 +855,7 @@ do_search_dialog(const char *title, const char *host,
 		browser_activate(true);
 		return;
 	}
+	center_dialog_on_screen(dlg);
 
 	/* Set label with search item name */
 	snprintf(label, sizeof(label), "Search %.60s:", title);
@@ -1065,6 +1149,7 @@ do_home_page_dialog(void)
 	dlg = GetNewDialog(DLOG_HOME_PAGE_ID, 0L, (WindowPtr)-1L);
 	if (!dlg)
 		return;
+	center_dialog_on_screen(dlg);
 
 	/* Pre-fill URL */
 	c2pstr(pstr, g_prefs.home_url);
@@ -1315,12 +1400,13 @@ handle_update(EventRecord *event)
 	BeginUpdate(win);
 
 	if (s) {
-#if GEOMYS_MAX_WINDOWS > 1 
+#if GEOMYS_MAX_WINDOWS > 1
 		BrowserSession *orig = active_session;
 
 		if (s != active_session)
 			session_switch_to(s);
 #endif
+		content_mark_all_dirty();
 		browser_draw(win);
 		content_draw(win);
 		content_update_scroll(win);

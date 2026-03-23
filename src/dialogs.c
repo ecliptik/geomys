@@ -124,13 +124,54 @@ setup_default_button_outline(DialogPtr dlg, short outline_item)
 	    (Handle)draw_default_button, &item_rect);
 }
 
+/* ---- Dialog centering ---- */
+
+/*
+ * Center a dialog on the main screen.
+ * Works on both System 6 (screenBits) and System 7+.
+ */
+void
+center_dialog_on_screen(DialogPtr dlg)
+{
+	Rect dlg_r, scr;
+	short w, h, left, top;
+
+	dlg_r = ((WindowPtr)dlg)->portRect;
+	w = dlg_r.right - dlg_r.left;
+	h = dlg_r.bottom - dlg_r.top;
+
+	scr = qd.screenBits.bounds;
+	/* Account for menu bar (~20px) */
+	scr.top += 20;
+
+	left = scr.left + (scr.right - scr.left - w) / 2;
+	top = scr.top + (scr.bottom - scr.top - h) / 3;  /* 1/3 from top */
+
+	MoveWindow((WindowPtr)dlg, left, top, false);
+}
+
 /* ---- Standard dialog filter ---- */
 
-/* Simple dialog filter for Return=OK, Cmd+.=Cancel */
+/*
+ * Dialog filter for Return=OK, Cmd+.=Cancel.
+ * Also handles update events for windows behind movable modals.
+ */
 pascal Boolean
 std_dlg_filter(DialogPtr dlg, EventRecord *evt, short *item)
 {
 	(void)dlg;
+
+	/* Handle update events for windows behind movable modals */
+	if (evt->what == updateEvt) {
+		WindowPtr win = (WindowPtr)evt->message;
+
+		if (win != (WindowPtr)dlg) {
+			BeginUpdate(win);
+			EndUpdate(win);
+			return true;
+		}
+	}
+
 	if (evt->what == keyDown) {
 		char key = evt->message & charCodeMask;
 		if (key == '\r' || key == '\n' || key == 0x03) {
@@ -166,6 +207,8 @@ do_about(void)
 	dlg = GetNewDialog(DLOG_ABOUT_ID, 0L, (WindowPtr)-1L);
 	if (!dlg)
 		return;
+
+	center_dialog_on_screen(dlg);
 
 	/* Set machine type in item 4 */
 	get_machine_name(machine, sizeof(machine));

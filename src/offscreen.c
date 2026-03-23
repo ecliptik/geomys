@@ -8,6 +8,9 @@
  *
  * Memory: ~22KB for 512x342 (64 rowBytes * 342 rows).
  * Reference: Flynn terminal_ui.c SetPortBits pattern.
+ *
+ * When GEOMYS_COLOR is enabled and the display has depth > 1,
+ * uses GWorld for full-depth offscreen rendering (~171KB at 8-bit).
  */
 
 #ifdef GEOMYS_OFFSCREEN
@@ -15,9 +18,20 @@
 #include <Quickdraw.h>
 #include <Windows.h>
 #include <Memory.h>
+#include <Multiverse.h>
 #include <string.h>
 
 #include "offscreen.h"
+
+#ifdef GEOMYS_COLOR
+#include "color.h"
+
+/* GWorld color offscreen state */
+static GWorldPtr g_color_gworld;    /* color offscreen GWorld */
+static CGrafPtr  g_saved_port;      /* saved port for GWorld */
+static GDHandle  g_saved_gd;        /* saved device for GWorld */
+static short     g_use_gworld;      /* 1 if using GWorld path */
+#endif
 
 static BitMap  g_offscreen;      /* offscreen bitmap descriptor */
 static Ptr     g_offscreen_bits; /* pixel data (NewPtr) */
@@ -32,19 +46,43 @@ offscreen_init(WindowPtr win)
 	long size;
 
 #ifdef GEOMYS_COLOR
-	{
-		extern unsigned char g_has_color_qd;
-		if (g_has_color_qd) {
-			GDHandle gd = GetMainDevice();
-			if (gd && (*(*gd)->gdPMap)->pixelSize > 1) {
-				/* Actual color display — skip offscreen, draw direct.
-				 * Mac II+ is fast enough for row-by-row drawing. */
-				g_ready = 0;
-				return 0;
+	if (g_has_color_qd) {
+		GDHandle gd = GetMainDevice();
+		if (gd && (*(*gd)->gdPMap)->pixelSize > 1) {
+			/* Color display — use GWorld for
+			 * full-depth offscreen rendering */
+			Rect bounds = win->portRect;
+			QDErr err;
+
+			err = NewGWorld(&g_color_gworld, 0,
+			    &bounds, 0L, 0L, 0);
+			if (err == noErr && g_color_gworld) {
+				PixMapHandle ipm;
+				CGrafPtr sp;
+				GDHandle sd;
+				Rect r;
+
+				/* Clear GWorld to white */
+				ipm = GetGWorldPixMap(
+				    g_color_gworld);
+				if (LockPixels(ipm)) {
+					GetGWorld(&sp, &sd);
+					SetGWorld(
+					    g_color_gworld, 0L);
+					r = bounds;
+					EraseRect(&r);
+					SetGWorld(sp, sd);
+					UnlockPixels(ipm);
+				}
+				g_use_gworld = 1;
+				g_ready = 1;
+				g_active = 0;
+				return 1;
 			}
-			/* Monochrome display with Color QD (e.g. System 7)
-			 * — use offscreen buffer for flicker-free drawing. */
+			/* GWorld alloc failed — fall through
+			 * to 1-bit path as fallback */
 		}
+		/* Mono display with Color QD — use 1-bit buffer */
 	}
 #endif
 
@@ -78,6 +116,13 @@ offscreen_init(WindowPtr win)
 void
 offscreen_cleanup(void)
 {
+#ifdef GEOMYS_COLOR
+	if (g_color_gworld) {
+		DisposeGWorld(g_color_gworld);
+		g_color_gworld = 0L;
+		g_use_gworld = 0;
+	}
+#endif
 	if (g_offscreen_bits) {
 		DisposePtr(g_offscreen_bits);
 		g_offscreen_bits = 0L;
@@ -93,6 +138,29 @@ offscreen_begin(WindowPtr win)
 
 	if (!g_ready || g_active)
 		return;
+
+#ifdef GEOMYS_COLOR
+	if (g_use_gworld && g_color_gworld) {
+		PixMapHandle pm;
+		Rect gw_bounds;
+
+		/* Verify GWorld covers the window */
+		pm = GetGWorldPixMap(g_color_gworld);
+		gw_bounds = (*pm)->bounds;
+		win_w = win->portRect.right - win->portRect.left;
+		win_h = win->portRect.bottom - win->portRect.top;
+		if (win_w > (gw_bounds.right - gw_bounds.left) ||
+		    win_h > (gw_bounds.bottom - gw_bounds.top))
+			return;  /* GWorld too small, skip */
+
+		if (LockPixels(pm)) {
+			GetGWorld(&g_saved_port, &g_saved_gd);
+			SetGWorld(g_color_gworld, 0L);
+			g_active = 1;
+		}
+		return;
+	}
+#endif
 
 	/* Validate buffer is large enough for this window.
 	 * If the window was resized larger than the buffer,
@@ -123,6 +191,24 @@ offscreen_end(WindowPtr win, const Rect *blit_rect)
 	if (!g_active)
 		return;
 
+#ifdef GEOMYS_COLOR
+	if (g_use_gworld && g_color_gworld) {
+		PixMapHandle pm;
+
+		pm = GetGWorldPixMap(g_color_gworld);
+		SetGWorld(g_saved_port, g_saved_gd);
+		g_active = 0;
+
+		/* Blit GWorld to window */
+		CopyBits((BitMap *)*pm,
+		    &((GrafPtr)win)->portBits,
+		    blit_rect, blit_rect,
+		    srcCopy, 0L);
+		UnlockPixels(pm);
+		return;
+	}
+#endif
+
 	/* Restore real portBits */
 	SetPortBits(&g_saved_bits);
 	g_active = 0;
@@ -145,6 +231,54 @@ offscreen_resize(WindowPtr win)
 	short pixel_w, pixel_h, rb;
 	long size;
 	Ptr new_bits;
+
+#ifdef GEOMYS_COLOR
+	if (g_use_gworld && g_color_gworld) {
+		Rect bounds = win->portRect;
+		QDErr err;
+		GWorldPtr new_gw;
+
+		/* Check if GWorld bounds cover the window */
+		{
+			PixMapHandle pm;
+			Rect gw_bounds;
+
+			pm = GetGWorldPixMap(g_color_gworld);
+			gw_bounds = (*pm)->bounds;
+			if ((bounds.right - bounds.left) <=
+			    (gw_bounds.right - gw_bounds.left) &&
+			    (bounds.bottom - bounds.top) <=
+			    (gw_bounds.bottom - gw_bounds.top))
+				return;  /* big enough */
+		}
+
+		/* Reallocate GWorld with new size */
+		err = NewGWorld(&new_gw, 0, &bounds,
+		    0L, 0L, 0);
+		if (err == noErr && new_gw) {
+			CGrafPtr sp;
+			GDHandle sd;
+			PixMapHandle npm;
+			Rect r;
+
+			DisposeGWorld(g_color_gworld);
+			g_color_gworld = new_gw;
+
+			/* Clear new GWorld to white to
+			 * prevent garbage pixel blit */
+			npm = GetGWorldPixMap(new_gw);
+			if (LockPixels(npm)) {
+				GetGWorld(&sp, &sd);
+				SetGWorld(new_gw, 0L);
+				r = bounds;
+				EraseRect(&r);
+				SetGWorld(sp, sd);
+				UnlockPixels(npm);
+			}
+		}
+		return;
+	}
+#endif
 
 	if (!g_ready)
 		return;

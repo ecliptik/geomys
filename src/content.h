@@ -126,6 +126,10 @@ void content_select_all(WindowPtr win);
 void content_clear_selection(WindowPtr win);
 #endif
 
+/* Dirty-row tracking: mark rows needing redraw */
+void content_mark_dirty(short row);
+void content_mark_all_dirty(void);
+
 /* Save/restore content area state to/from a session struct */
 struct BrowserSession;
 void content_save_state(struct BrowserSession *s);

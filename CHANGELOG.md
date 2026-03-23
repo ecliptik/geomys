@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] — System 7 Enhancements
+
+### Added
+- NewCWindow for color systems: proper CGrafPort on Mac II+ (NewWindow fallback on B&W)
+- GWorld color offscreen buffer for flicker-free rendering on color displays (~171KB at 8-bit)
+- Notification Manager: diamond mark and system alert sound when background page load completes (System 7)
+- Movable modal dialogs on System 7 (Search, Open URL, Home Page, Favorites, Edit Favorite)
+- Dialog auto-centering on screen (System 6 and System 7)
+- Color icon family for Finder: icl4, icl8, ics4, ics8 resources
+- Dirty-row tracking: skip unchanged rows during redraw
+- Shadow buffer: detect identical row content to avoid redundant drawing
+- System chrome colors via GetAuxWin: reads window color table for chrome areas
+- Font metrics caching per session (avoids CharWidth recomputation on window switch)
+- Background session throttling for idle windows
+- "Can't Undo" menu item (dimmed) per Apple HIG p.113
+
+### Changed
+- Key repeat tuning: 200ms initial delay, 33ms repeat (~30 cps) for snappier keyboard navigation
+- Process chunking: batch TCP reads with 4-tick draw deadline for faster page loads
+- Partial CopyBits: blit only dirty row regions instead of full content area
+- Selection highlighting uses theme sel_bg/sel_fg colors for proper inverse theming on color
+- Selection drag rendering: XOR delta eliminates monochrome flash during text selection
+- BrowserSession struct field ordering optimized for 68000 d16(An) addressing
+
+### Fixed
+- GWorld offscreen buffer cleared on allocation and resize (prevents pixel corruption)
+- Shadow buffer invalidated on resize, theme switch, font change, and system update events
+- Tokyo Light theme: removed purple tint from background color (neutral gray)
+- Platinum theme: lightened chrome background to match content area
+- Key repeat settings restored to system defaults on quit
+
 ## [0.5.1] — System 7 Performance
 
 ### Added

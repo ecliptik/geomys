@@ -98,6 +98,7 @@ favorites_add(GeomysPrefs *prefs, const char *name,
 	dlg = GetNewDialog(DLOG_EDIT_FAV_ID, 0L, (WindowPtr)-1L);
 	if (!dlg)
 		return;
+	center_dialog_on_screen(dlg);
 
 	/* Pre-fill name */
 	c2pstr(pstr, name);
@@ -232,6 +233,7 @@ favorites_manage(GeomysPrefs *prefs)
 	dlg = GetNewDialog(DLOG_FAVORITES_ID, 0L, (WindowPtr)-1L);
 	if (!dlg)
 		return;
+	center_dialog_on_screen(dlg);
 
 	setup_default_button_outline(dlg, 6);
 
@@ -263,6 +265,7 @@ favorites_manage(GeomysPrefs *prefs)
 				edlg = GetNewDialog(DLOG_EDIT_FAV_ID,
 				    0L, (WindowPtr)-1L);
 				if (edlg) {
+					center_dialog_on_screen(edlg);
 					setup_default_button_outline(
 					    edlg, 7);
 					SelectDialogItemText(
@@ -338,6 +341,7 @@ favorites_manage(GeomysPrefs *prefs)
 				edlg = GetNewDialog(DLOG_EDIT_FAV_ID,
 				    0L, (WindowPtr)-1L);
 				if (edlg) {
+					center_dialog_on_screen(edlg);
 					/* Pre-fill fields */
 					c2pstr(eps,
 					    prefs->favorites[

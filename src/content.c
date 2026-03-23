@@ -38,6 +38,8 @@ static GopherState *g_page = 0L;    /* current page to render */
 static short g_row_height = ROW_HEIGHT_DEFAULT;  /* dynamic row height */
 static short g_font_id = 4;         /* current font (Monaco) */
 static short g_font_size = 9;       /* current font size */
+static short g_cell_width = 6;      /* cached CharWidth('M') */
+static short g_cell_baseline = 9;   /* cached font ascent */
 static CursHandle g_hand_cursor = 0L;  /* hand cursor for links */
 #ifdef GEOMYS_CLIPBOARD
 static CursHandle g_ibeam_cursor = 0L; /* I-beam cursor for text */
@@ -45,6 +47,21 @@ static CursHandle g_ibeam_cursor = 0L; /* I-beam cursor for text */
 static short g_scrolling = 0;          /* 1 during scroll action — skip offscreen */
 static short g_hover_row = -1;         /* currently highlighted row, -1 = none */
 static short g_in_full_draw = 0;       /* 1 during content_draw loop — skip per-row clip/restore */
+
+/* Dirty-row tracking: skip redrawing rows that haven't changed */
+static unsigned char g_dirty[512];     /* per-row dirty flag */
+static short g_dirty_all = 1;          /* 1 = redraw all rows */
+
+/* Shadow buffer: per-row state for change detection */
+#define SHADOW_MAX_ROWS  64   /* max visible rows tracked */
+typedef struct {
+	short item_index;     /* absolute row index drawn here */
+	short hover_flag;     /* was this row hovered? */
+	short sel_start;      /* selection start col (-1 = none) */
+	short sel_end;        /* selection end col */
+} ShadowRow;
+static ShadowRow g_shadow[SHADOW_MAX_ROWS];
+static short g_shadow_valid;  /* 1 if shadow state is populated */
 
 #ifdef GEOMYS_CLIPBOARD
 /* Selection state */
@@ -79,6 +96,20 @@ count_rows(void)
 	if (g_page->page_type == PAGE_TEXT)
 		return g_page->text_line_count;
 	return 0;
+}
+
+void
+content_mark_dirty(short row)
+{
+	if (row >= 0 && row < 512)
+		g_dirty[row] = 1;
+}
+
+void
+content_mark_all_dirty(void)
+{
+	g_dirty_all = 1;
+	g_shadow_valid = 0;
 }
 
 /* How many rows fit in the visible content area */
@@ -169,6 +200,8 @@ content_set_page(GopherState *gs)
 	g_hscroll_pos = 0;
 	g_content_max_width = 0;
 	g_hover_row = -1;
+	content_mark_all_dirty();
+	g_shadow_valid = 0;
 #ifdef GEOMYS_CLIPBOARD
 	/* Clear selection on page change */
 	g_sel.active = 0;
@@ -259,6 +292,92 @@ cp437_translate(char *dst, const char *src, short len)
 	return out;
 }
 #endif /* GEOMYS_CP437 */
+
+/*
+ * draw_selection_rect - highlight a selection region using
+ * theme sel_bg/sel_fg on color systems, or InvertRect on mono.
+ * Fills the rect with sel_bg, then redraws the row text clipped
+ * to the selection rect using sel_fg for true inverse theming.
+ */
+#ifdef GEOMYS_CLIPBOARD
+static void
+draw_selection_rect(Rect *inv_r, short row_index,
+    short y, WindowPtr win)
+{
+#ifdef GEOMYS_THEMES
+#ifdef GEOMYS_COLOR
+	if (g_has_color_qd) {
+		const ThemeColors *st = theme_current();
+		if (st) {
+			RgnHandle save_clip;
+			Rect cr;
+			const char *text = 0L;
+			short text_len = 0;
+			short text_x;
+
+			/* Fill selection background */
+			theme_set_bg(&st->sel_bg);
+			EraseRect(inv_r);
+			theme_set_fg(&st->sel_fg);
+
+			/* Get row text */
+			if (g_page &&
+			    g_page->page_type == PAGE_DIRECTORY &&
+			    row_index >= 0 &&
+			    row_index < g_page->item_count) {
+				text = g_page->items[row_index]
+				    .display;
+				text_len = strlen(text);
+			} else if (g_page &&
+			    g_page->page_type == PAGE_TEXT &&
+			    row_index >= 0 &&
+			    row_index < g_page->text_line_count) {
+				long off = g_page->text_lines[
+				    row_index];
+				if (row_index + 1 <
+				    g_page->text_line_count)
+					text_len = (short)(
+					    g_page->text_lines[
+					    row_index + 1] - off
+					    - 1);
+				else
+					text_len = strlen(
+					    g_page->text_buf +
+					    off);
+				text = g_page->text_buf + off;
+				/* Strip trailing CR/LF */
+				while (text_len > 0 &&
+				    (text[text_len - 1] == '\r' ||
+				    text[text_len - 1] == '\n'))
+					text_len--;
+			}
+
+			/* Redraw text clipped to selection */
+			if (text && text_len > 0) {
+				save_clip = NewRgn();
+				GetClip(save_clip);
+				ClipRect(inv_r);
+
+				content_get_rect(win, &cr);
+				text_x = cr.left + 4 -
+				    g_hscroll_pos;
+				MoveTo(text_x, y - 2);
+				DrawText((Ptr)text, 0, text_len);
+
+				SetClip(save_clip);
+				DisposeRgn(save_clip);
+			}
+
+			theme_reset_cache();
+			return;
+		}
+	}
+#endif
+#endif
+	/* Mono fallback: plain inversion */
+	InvertRect(inv_r);
+}
+#endif /* GEOMYS_CLIPBOARD */
 
 /* Draw a single directory row.
  * Self-contained — sets clip, font, erases, draws.
@@ -644,19 +763,9 @@ content_draw_row(WindowPtr win, short row_index)
 			if (x2 > x1) {
 				SetRect(&inv_r, x1,
 				    y - g_row_height, x2, y);
-#ifdef GEOMYS_COLOR
-				if (g_has_color_qd &&
-				    !theme_is_dark()) {
-					/* Light themes: use HiliteMode
-					 * for system highlight color.
-					 * Dark themes: plain XOR works
-					 * better on colored bgs. */
-					LMSetHiliteMode(
-					    LMGetHiliteMode()
-					    & ~(1 << pHiliteBit));
-				}
-#endif
-				InvertRect(&inv_r);
+				draw_selection_rect(
+				    &inv_r, row_index,
+				    y, win);
 			}
 		}
 	}
@@ -829,19 +938,9 @@ content_draw_text_row(WindowPtr win, short line_index)
 			if (x2 > x1) {
 				SetRect(&inv_r, x1,
 				    y - g_row_height, x2, y);
-#ifdef GEOMYS_COLOR
-				if (g_has_color_qd &&
-				    !theme_is_dark()) {
-					/* Light themes: use HiliteMode
-					 * for system highlight color.
-					 * Dark themes: plain XOR works
-					 * better on colored bgs. */
-					LMSetHiliteMode(
-					    LMGetHiliteMode()
-					    & ~(1 << pHiliteBit));
-				}
-#endif
-				InvertRect(&inv_r);
+				draw_selection_rect(
+				    &inv_r, line_index,
+				    y, win);
 			}
 		}
 	}
@@ -874,7 +973,21 @@ content_draw(WindowPtr win)
 	short last_y;
 #ifdef GEOMYS_OFFSCREEN
 	short use_offscreen;
+	short dirty_lo = 32767;  /* lowest drawn row (screen pos) */
+	short dirty_hi = -1;     /* highest drawn row (screen pos) */
 #endif
+
+	/* If no explicit dirty marks, treat as full redraw.
+	 * This ensures callers that don't mark dirty still
+	 * get correct behavior (backward compatible). */
+	if (!g_dirty_all) {
+		short any = 0, di;
+		for (di = 0; di < 512; di++) {
+			if (g_dirty[di]) { any = 1; break; }
+		}
+		if (!any)
+			g_dirty_all = 1;
+	}
 
 	content_get_rect(win, &r);
 
@@ -925,8 +1038,96 @@ content_draw(WindowPtr win)
 		if (end_row > g_page->item_count)
 			end_row = g_page->item_count;
 
-		for (i = start_row; i < end_row; i++)
-			content_draw_row(win, i);
+		for (i = start_row; i < end_row; i++) {
+			short slot = i - start_row;
+			short need_draw;
+
+			need_draw = g_dirty_all ||
+			    (i < 512 && g_dirty[i]);
+
+			/* Shadow buffer check — skip if row
+			 * state is unchanged from last draw */
+			if (need_draw && g_shadow_valid &&
+			    slot < SHADOW_MAX_ROWS) {
+				ShadowRow cur;
+				cur.item_index = i;
+				cur.hover_flag =
+				    (i == g_hover_row);
+				cur.sel_start = -1;
+				cur.sel_end = -1;
+#ifdef GEOMYS_CLIPBOARD
+				if (g_sel.active) {
+					short sr, sc, er, ec;
+					sr = g_sel.anchor_row;
+					sc = g_sel.anchor_col;
+					er = g_sel.extent_row;
+					ec = g_sel.extent_col;
+					sel_normalize(&sr, &sc,
+					    &er, &ec);
+					if (i >= sr && i <= er) {
+						cur.sel_start =
+						    (i == sr) ?
+						    sc : 0;
+						cur.sel_end =
+						    (i == er) ?
+						    ec : 32767;
+					}
+				}
+#endif
+				if (cur.item_index ==
+				    g_shadow[slot].item_index &&
+				    cur.hover_flag ==
+				    g_shadow[slot].hover_flag &&
+				    cur.sel_start ==
+				    g_shadow[slot].sel_start &&
+				    cur.sel_end ==
+				    g_shadow[slot].sel_end)
+					need_draw = 0;
+			}
+
+			if (need_draw) {
+				content_draw_row(win, i);
+#ifdef GEOMYS_OFFSCREEN
+				if (slot < dirty_lo)
+					dirty_lo = slot;
+				if (slot > dirty_hi)
+					dirty_hi = slot;
+#endif
+				/* Update shadow */
+				if (slot < SHADOW_MAX_ROWS) {
+					g_shadow[slot].item_index
+					    = i;
+					g_shadow[slot].hover_flag
+					    = (i == g_hover_row);
+					g_shadow[slot].sel_start
+					    = -1;
+					g_shadow[slot].sel_end
+					    = -1;
+#ifdef GEOMYS_CLIPBOARD
+					if (g_sel.active) {
+						short sr, sc, er, ec;
+						sr = g_sel.anchor_row;
+						sc = g_sel.anchor_col;
+						er = g_sel.extent_row;
+						ec = g_sel.extent_col;
+						sel_normalize(&sr, &sc,
+						    &er, &ec);
+						if (i >= sr && i <= er) {
+							g_shadow[slot]
+							    .sel_start
+							    = (i == sr)
+							    ? sc : 0;
+							g_shadow[slot]
+							    .sel_end
+							    = (i == er)
+							    ? ec
+							    : 32767;
+						}
+					}
+#endif
+				}
+			}
+		}
 
 		if (end_row > start_row)
 			last_y = r.top + (end_row - start_row)
@@ -941,8 +1142,94 @@ content_draw(WindowPtr win)
 		if (end_row > text_end)
 			end_row = text_end;
 
-		for (i = start_row; i < end_row; i++)
-			content_draw_text_row(win, i);
+		for (i = start_row; i < end_row; i++) {
+			short slot = i - start_row;
+			short need_draw;
+
+			need_draw = g_dirty_all ||
+			    (i < 512 && g_dirty[i]);
+
+			/* Shadow buffer check for text rows */
+			if (need_draw && g_shadow_valid &&
+			    slot < SHADOW_MAX_ROWS) {
+				ShadowRow cur;
+				cur.item_index = i;
+				cur.hover_flag = 0;
+				cur.sel_start = -1;
+				cur.sel_end = -1;
+#ifdef GEOMYS_CLIPBOARD
+				if (g_sel.active) {
+					short sr, sc, er, ec;
+					sr = g_sel.anchor_row;
+					sc = g_sel.anchor_col;
+					er = g_sel.extent_row;
+					ec = g_sel.extent_col;
+					sel_normalize(&sr, &sc,
+					    &er, &ec);
+					if (i >= sr && i <= er) {
+						cur.sel_start =
+						    (i == sr) ?
+						    sc : 0;
+						cur.sel_end =
+						    (i == er) ?
+						    ec : 32767;
+					}
+				}
+#endif
+				if (cur.item_index ==
+				    g_shadow[slot].item_index &&
+				    cur.hover_flag ==
+				    g_shadow[slot].hover_flag &&
+				    cur.sel_start ==
+				    g_shadow[slot].sel_start &&
+				    cur.sel_end ==
+				    g_shadow[slot].sel_end)
+					need_draw = 0;
+			}
+
+			if (need_draw) {
+				content_draw_text_row(win, i);
+#ifdef GEOMYS_OFFSCREEN
+				if (slot < dirty_lo)
+					dirty_lo = slot;
+				if (slot > dirty_hi)
+					dirty_hi = slot;
+#endif
+				/* Update shadow */
+				if (slot < SHADOW_MAX_ROWS) {
+					g_shadow[slot].item_index
+					    = i;
+					g_shadow[slot].hover_flag
+					    = 0;
+					g_shadow[slot].sel_start
+					    = -1;
+					g_shadow[slot].sel_end
+					    = -1;
+#ifdef GEOMYS_CLIPBOARD
+					if (g_sel.active) {
+						short sr, sc, er, ec;
+						sr = g_sel.anchor_row;
+						sc = g_sel.anchor_col;
+						er = g_sel.extent_row;
+						ec = g_sel.extent_col;
+						sel_normalize(&sr, &sc,
+						    &er, &ec);
+						if (i >= sr && i <= er) {
+							g_shadow[slot]
+							    .sel_start
+							    = (i == sr)
+							    ? sc : 0;
+							g_shadow[slot]
+							    .sel_end
+							    = (i == er)
+							    ? ec
+							    : 32767;
+						}
+					}
+#endif
+				}
+			}
+		}
 
 		if (end_row > start_row)
 			last_y = r.top + (end_row - start_row)
@@ -953,6 +1240,11 @@ content_draw(WindowPtr win)
 
 	/* Erase empty area below last row */
 	if (last_y < r.bottom) {
+#ifdef GEOMYS_OFFSCREEN
+		/* Tail erase extends the dirty region to
+		 * cover the bottom — force full blit */
+		dirty_hi = 32767;
+#endif
 		SetRect(&erase_r, r.left, last_y,
 		    r.right, r.bottom);
 #ifdef GEOMYS_THEMES
@@ -980,6 +1272,20 @@ content_draw(WindowPtr win)
 
 done:
 	g_in_full_draw = 0;
+
+	/* Clear dirty flags after drawing */
+	if (g_dirty_all) {
+		memset(g_dirty, 0, sizeof(g_dirty));
+		g_dirty_all = 0;
+	} else {
+		short di;
+		for (di = start_row; di < end_row && di < 512; di++)
+			g_dirty[di] = 0;
+	}
+
+	/* Mark shadow as valid after a complete draw pass */
+	g_shadow_valid = 1;
+
 	/* Restore port colors to black/white so themed colors
 	 * don't leak into chrome (nav bar, address bar, buttons) */
 	theme_restore_colors();
@@ -988,9 +1294,28 @@ done:
 	DisposeRgn(save_clip);
 
 #ifdef GEOMYS_OFFSCREEN
-	/* Blit offscreen content to screen before drawing grow box */
-	if (use_offscreen)
-		offscreen_end(win, &r);
+	/* Blit offscreen content to screen.
+	 * Partial blit: if <= 20 rows drawn, blit only
+	 * the union rect of dirty rows. Otherwise full. */
+	if (use_offscreen) {
+		if (dirty_hi >= 0 &&
+		    (dirty_hi - dirty_lo + 1) <= 20) {
+			Rect partial;
+			SetRect(&partial, r.left,
+			    r.top + dirty_lo * g_row_height,
+			    r.right,
+			    r.top + (dirty_hi + 1) *
+			    g_row_height);
+			/* Clamp to content rect */
+			if (partial.top < r.top)
+				partial.top = r.top;
+			if (partial.bottom > r.bottom)
+				partial.bottom = r.bottom;
+			offscreen_end(win, &partial);
+		} else {
+			offscreen_end(win, &r);
+		}
+	}
 #endif
 
 }
@@ -1338,12 +1663,53 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 			sel_normalize(&new_sr, &new_sc,
 			    &new_er, &new_ec);
 
-			/* Redraw changed rows */
+			/* Redraw only rows where selection
+			 * state actually changed — skip rows
+			 * that are identically selected in both
+			 * old and new ranges to avoid flash */
 			lo = old_sr < new_sr ?
 			    old_sr : new_sr;
 			hi = old_er > new_er ?
 			    old_er : new_er;
 			for (rr = lo; rr <= hi; rr++) {
+				short old_in, new_in;
+				short osc, oec, nsc, nec;
+
+				/* Was this row in old sel? */
+				old_in = (rr >= old_sr &&
+				    rr <= old_er);
+				/* Is it in new sel? */
+				new_in = (rr >= new_sr &&
+				    rr <= new_er);
+
+				if (!old_in && !new_in)
+					continue;
+
+				/* Compute old col range */
+				if (old_in) {
+					osc = (rr == old_sr) ?
+					    old_sc : 0;
+					oec = (rr == old_er) ?
+					    old_ec : 32767;
+				} else {
+					osc = 0; oec = 0;
+				}
+
+				/* Compute new col range */
+				if (new_in) {
+					nsc = (rr == new_sr) ?
+					    new_sc : 0;
+					nec = (rr == new_er) ?
+					    new_ec : 32767;
+				} else {
+					nsc = 0; nec = 0;
+				}
+
+				/* Skip if identical */
+				if (old_in == new_in &&
+				    osc == nsc && oec == nec)
+					continue;
+
 				if (g_page->page_type ==
 				    PAGE_DIRECTORY)
 					content_draw_row(
@@ -1634,6 +2000,7 @@ content_scroll_click(WindowPtr win, Point local_pt, short part)
 		TrackControl(g_scrollbar, local_pt, 0L);
 		g_scroll_pos = GetControlValue(g_scrollbar);
 		g_hover_row = -1;
+		content_mark_all_dirty();
 
 		/* Redraw after thumb release */
 		GetPort(&save);
@@ -1684,6 +2051,7 @@ scroll_action(ControlHandle ctl, short part)
 	delta = new_pos - g_scroll_pos;
 	g_scroll_pos = new_pos;
 	g_hover_row = -1;  /* clear hover on scroll */
+	content_mark_all_dirty();
 	SetControlValue(ctl, new_pos);
 
 	GetPort(&save);
@@ -1738,6 +2106,7 @@ content_resize(WindowPtr win)
 {
 	Rect sb_rect, content_r;
 
+	content_mark_all_dirty();
 	browser_get_content_rect(win, &content_r);
 
 	/* Reposition vertical scrollbar — extends alongside
@@ -1792,6 +2161,7 @@ content_scroll_to_top(void)
 {
 	g_scroll_pos = 0;
 	g_hscroll_pos = 0;
+	content_mark_all_dirty();
 	if (g_scrollbar)
 		SetControlValue(g_scrollbar, 0);
 	if (g_hscrollbar)
@@ -1849,6 +2219,7 @@ content_vscroll_by(short delta)
 
 	g_scroll_pos = new_pos;
 	SetControlValue(g_scrollbar, new_pos);
+	content_mark_all_dirty();
 
 	win = (*g_scrollbar)->contrlOwner;
 	GetPort(&save);
@@ -1884,6 +2255,7 @@ content_update_font(void)
 
 	g_font_id = g_prefs.font_id;
 	g_font_size = g_prefs.font_size;
+	content_mark_all_dirty();
 
 	/* Measure row height from font metrics */
 	GetPort(&save);
@@ -1895,6 +2267,8 @@ content_update_font(void)
 		g_row_height = fi.ascent + fi.descent + fi.leading;
 		if (g_row_height < 10)
 			g_row_height = 10;
+		g_cell_width = CharWidth('M');
+		g_cell_baseline = fi.ascent;
 		SetPort(save);
 	}
 }
@@ -1953,10 +2327,14 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		short old_hover = g_hover_row;
 
 		g_hover_row = new_hover;
-		if (old_hover >= 0)
+		if (old_hover >= 0) {
+			content_mark_dirty(old_hover);
 			content_draw_row(win, old_hover);
-		if (new_hover >= 0)
+		}
+		if (new_hover >= 0) {
+			content_mark_dirty(new_hover);
 			content_draw_row(win, new_hover);
+		}
 	}
 
 	/* Update cursor */
@@ -2042,6 +2420,7 @@ content_clear_selection(WindowPtr win)
 		GetPort(&save);
 		SetPort(win);
 		for (i = old_start; i <= old_end; i++) {
+			content_mark_dirty(i);
 			if (g_page->page_type == PAGE_DIRECTORY)
 				content_draw_row(win, i);
 			else if (g_page->page_type == PAGE_TEXT)
@@ -2086,6 +2465,7 @@ content_select_all(WindowPtr win)
 	    buf, sizeof(buf));
 	g_sel.word_mode = 0;
 	g_hover_row = -1;
+	content_mark_all_dirty();
 
 	if (win) {
 		GrafPtr save;
@@ -2330,6 +2710,7 @@ hscroll_action(ControlHandle ctl, short part)
 
 	g_hscroll_pos = new_pos;
 	SetControlValue(ctl, new_pos);
+	content_mark_all_dirty();
 
 	GetPort(&save);
 	SetPort(win);
@@ -2417,6 +2798,7 @@ content_hscroll_to(short pos)
 
 	g_hscroll_pos = pos;
 	SetControlValue(g_hscrollbar, pos);
+	content_mark_all_dirty();
 
 	win = (*g_hscrollbar)->contrlOwner;
 	GetPort(&save);
@@ -2443,6 +2825,7 @@ content_hscroll_click(WindowPtr win, Point local_pt, short part)
 		TrackControl(g_hscrollbar, local_pt, 0L);
 		g_hscroll_pos =
 		    GetControlValue(g_hscrollbar);
+		content_mark_all_dirty();
 
 		/* Redraw after thumb release */
 		GetPort(&save);
@@ -2471,6 +2854,8 @@ content_save_state(struct BrowserSession *s)
 	s->row_height = g_row_height;
 	s->font_id = g_font_id;
 	s->font_size = g_font_size;
+	s->cell_width = g_cell_width;
+	s->cell_baseline = g_cell_baseline;
 #ifdef GEOMYS_CLIPBOARD
 	s->sel = g_sel;
 	s->win_active = g_win_active;
@@ -2490,6 +2875,8 @@ content_load_state(struct BrowserSession *s)
 	g_row_height = s->row_height;
 	g_font_id = s->font_id;
 	g_font_size = s->font_size;
+	g_cell_width = s->cell_width;
+	g_cell_baseline = s->cell_baseline;
 #ifdef GEOMYS_CLIPBOARD
 	g_sel = s->sel;
 	g_win_active = s->win_active;

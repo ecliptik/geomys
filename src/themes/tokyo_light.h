@@ -11,7 +11,7 @@ static const ThemeColors theme_tokyo_light = {
 	0,              /* is_dark */
 
 	/* Content area */
-	{ 0xCC, 0xCC, 0xFF },  /* bg: #E1E2E7 → #CCCCFF */
+	{ 0xCC, 0xCC, 0xCC },  /* bg: #E1E2E7 → #CCCCCC (neutral gray, no purple tint) */
 	{ 0x33, 0x66, 0xCC },  /* text: fg #3760BF → #3366CC */
 	{ 0x33, 0x66, 0xFF },  /* link: blue #2E7DE9 → #3366FF */
 	{ 0x00, 0x99, 0x66 },  /* link_search: teal #118C74 → #009966 */
