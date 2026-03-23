@@ -67,6 +67,7 @@ static short g_shadow_valid;  /* 1 if shadow state is populated */
 /* Selection state */
 static Selection g_sel;
 static short g_win_active = 1;  /* window active flag for selection dimming */
+static char g_sel_text_buf[256]; /* temp buffer for selection redraw */
 
 /* Forward declarations for selection helpers */
 short content_row_text(short row, char *buf, short bufsiz);
@@ -320,36 +321,21 @@ draw_selection_rect(Rect *inv_r, short row_index,
 			EraseRect(inv_r);
 			theme_set_fg(&st->sel_fg);
 
-			/* Get row text */
-			if (g_page &&
-			    g_page->page_type == PAGE_DIRECTORY &&
-			    row_index >= 0 &&
-			    row_index < g_page->item_count) {
-				text = g_page->items[row_index]
-				    .display;
-				text_len = strlen(text);
-			} else if (g_page &&
-			    g_page->page_type == PAGE_TEXT &&
-			    row_index >= 0 &&
-			    row_index < g_page->text_line_count) {
-				long off = g_page->text_lines[
-				    row_index];
-				if (row_index + 1 <
-				    g_page->text_line_count)
-					text_len = (short)(
-					    g_page->text_lines[
-					    row_index + 1] - off
-					    - 1);
-				else
-					text_len = strlen(
-					    g_page->text_buf +
-					    off);
-				text = g_page->text_buf + off;
-				/* Strip trailing CR/LF */
-				while (text_len > 0 &&
-				    (text[text_len - 1] == '\r' ||
-				    text[text_len - 1] == '\n'))
-					text_len--;
+			/* Get row text (formatted with prefix
+			 * to match draw logic) */
+			{
+				char row_buf[256];
+
+				text_len = content_row_text(
+				    row_index, row_buf,
+				    sizeof(row_buf));
+				if (text_len > 0) {
+					memcpy(g_sel_text_buf,
+					    row_buf, text_len);
+					g_sel_text_buf[text_len]
+					    = '\0';
+					text = g_sel_text_buf;
+				}
 			}
 
 			/* Redraw text clipped to selection */
