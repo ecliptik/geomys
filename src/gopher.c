@@ -159,7 +159,10 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	gs->cur_selector[sizeof(gs->cur_selector) - 1] = '\0';
 
 	/* Send selector */
-	conn_send_selector(&gs->conn, selector);
+	if (conn_send_selector(&gs->conn, selector) != noErr) {
+		conn_close(&gs->conn);
+		return false;
+	}
 	gs->selector_sent = true;
 	gs->receiving = true;
 	return true;

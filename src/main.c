@@ -804,9 +804,20 @@ do_navigate_url_titled(const char *url, const char *title)
 
 	if (!gopher_navigate(&g_gopher, host, port, type, selector)) {
 		GrafPtr save;
+		const HistoryEntry *he;
 
 		/* Navigate failed — old page preserved, force redraw */
 		g_app_state = APP_STATE_IDLE;
+
+		/* Restore title bar from current history entry */
+		he = history_current();
+		if (he && he->title[0])
+			set_wtitlef(g_window, "%s", he->title);
+		else if (he)
+			set_wtitlef(g_window, "%s", he->host);
+		else
+			set_wtitlef(g_window, "Geomys");
+
 		browser_set_status("Connection failed");
 		GetPort(&save);
 		SetPort(g_window);
@@ -918,6 +929,35 @@ do_search_dialog(const char *title, const char *host,
 				    GOPHER_SEARCH, selector,
 				    search_title, query);
 				update_nav_buttons();
+			} else {
+				/* Navigate failed — restore state */
+				g_app_state = APP_STATE_IDLE;
+
+				/* Restore title bar */
+				{
+					const HistoryEntry *he =
+					    history_current();
+					if (he && he->title[0])
+						set_wtitlef(g_window,
+						    "%s", he->title);
+					else if (he)
+						set_wtitlef(g_window,
+						    "%s", he->host);
+					else
+						set_wtitlef(g_window,
+						    "Geomys");
+				}
+
+				browser_set_status("Search failed");
+				{
+					GrafPtr save;
+					GetPort(&save);
+					SetPort(g_window);
+					content_draw(g_window);
+					content_update_scroll(g_window);
+					browser_draw_status(g_window);
+					SetPort(save);
+				}
 			}
 		}
 	} else {
@@ -1119,6 +1159,18 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 
 		g_app_state = APP_STATE_IDLE;
 		g_pending_scroll = -1;
+
+		/* Restore title bar */
+		{
+			const HistoryEntry *cur = history_current();
+			if (cur && cur->title[0])
+				set_wtitlef(g_window, "%s", cur->title);
+			else if (cur)
+				set_wtitlef(g_window, "%s", cur->host);
+			else
+				set_wtitlef(g_window, "Geomys");
+		}
+
 		browser_set_status("Connection failed");
 		GetPort(&save);
 		SetPort(g_window);

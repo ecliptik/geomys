@@ -29,6 +29,9 @@
 /* TCP connection state for TIME_WAIT */
 #define TCP_STATE_TIME_WAIT 14
 
+/* Receive timeout: 30 seconds (30 * 60 ticks at 60Hz) */
+#define CONN_TIMEOUT_TICKS  (30L * 60L)
+
 static Boolean tcp_initialized = false;
 
 /* Single-entry DNS cache to avoid redundant lookups */
@@ -229,6 +232,7 @@ conn_connect(Connection *conn, const char *host, short port,
 
 	InitCursor();
 	conn->state = CONN_STATE_RECEIVING;
+	conn->start_tick = TickCount();
 	conn->read_len = 0;
 	return true;
 }
@@ -263,6 +267,14 @@ conn_idle(Connection *conn)
 
 	if (conn->state != CONN_STATE_RECEIVING)
 		return;
+
+	/* Check for receive timeout */
+	if (conn->start_tick &&
+	    (TickCount() - conn->start_tick > CONN_TIMEOUT_TICKS)) {
+		conn_close(conn);
+		conn->state = CONN_STATE_ERROR;
+		return;
+	}
 
 	err = _TCPStatus(&conn->pb, conn->stream, &status,
 	    0L, 0L, false);
@@ -321,6 +333,7 @@ conn_close(Connection *conn)
 	}
 
 	conn->read_len = 0;
+	conn->start_tick = 0;
 	conn->state = CONN_STATE_IDLE;
 }
 

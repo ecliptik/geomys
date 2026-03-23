@@ -38,6 +38,7 @@ typedef struct {
 	char        read_buf[TCP_READ_BUFSIZ];
 	short       read_len;
 	unsigned long pending_data;
+	unsigned long start_tick;   /* TickCount at receive start for timeout */
 	char        host[256];
 	short       port;
 	ip_addr     dns_server;

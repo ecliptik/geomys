@@ -181,8 +181,8 @@ compute_size() {
     local max_pref=384
     local max_min=256
     if [ "$GEOMYS_COLOR" = "ON" ]; then
-        max_pref=768
-        max_min=640
+        max_pref=1024
+        max_min=896
     fi
     [ $SIZE_PREFERRED -lt 256 ] && SIZE_PREFERRED=256 || true
     [ $SIZE_MINIMUM -lt 192 ] && SIZE_MINIMUM=192 || true

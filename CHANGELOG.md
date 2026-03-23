@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] — Loading Regression Fixes
+
+### Fixed
+- Window title bar stuck on "Loading..." after navigation failure — title now properly restored to previous page
+- Search dialog (Type 7) not recovering from failed navigation — app state and title now properly reset
+- Added 30-second connection receive timeout to prevent indefinite loading hangs on unresponsive servers
+- TCP send selector failure now properly detected and reported instead of silently hanging
+- Increased SIZE resource for multi-window color builds to prevent memory exhaustion after several navigations
+
 ## [0.6.0] — System 7 Enhancements
 
 ### Added
