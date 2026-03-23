@@ -215,15 +215,20 @@ init_toolbox(void)
  * create_session_window - Create the Mac window for a session.
  * Uses cascading position for multi-window builds.
  */
+static short g_cascade_count = 0;
+
 static void
 create_session_window(BrowserSession *s)
 {
 	Rect bounds;
-#if GEOMYS_MAX_WINDOWS > 1 
-	short offset = s->id * CASCADE_OFFSET;
+#if GEOMYS_MAX_WINDOWS > 1
+	short offset = (g_cascade_count % 4) * CASCADE_OFFSET;
+	short w = SCREEN_WIDTH - 4;
+	short h = SCREEN_HEIGHT - 44;
 
+	g_cascade_count++;
 	SetRect(&bounds, 2 + offset, 42 + offset,
-	    SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2);
+	    2 + offset + w, 42 + offset + h);
 #else
 	SetRect(&bounds, 2, 42, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2);
 #endif
@@ -287,15 +292,16 @@ do_new_window(void)
 
 	s = session_new();
 	if (!s) {
-		/* Memory pressure or max windows reached */
 		if (session_count() >= GEOMYS_MAX_WINDOWS)
 			ParamText(
-			    "\pMaximum number of windows reached.",
+			    "\pMaximum number of windows "
+			    "reached.",
 			    "\p", "\p", "\p");
 		else
 			ParamText(
-			    "\pNot enough memory to open "
-			    "a new window.",
+			    "\pNot enough memory. Try "
+			    "closing other windows or "
+			    "applications.",
 			    "\p", "\p", "\p");
 		StopAlert(128, 0L);
 		return;
@@ -305,7 +311,8 @@ do_new_window(void)
 	if (!s->window) {
 		session_destroy(s);
 		ParamText(
-		    "\pNot enough memory to open a new window.",
+		    "\pNot enough memory. Try closing "
+		    "other windows or applications.",
 		    "\p", "\p", "\p");
 		StopAlert(128, 0L);
 		return;
@@ -339,6 +346,7 @@ handle_page_loaded(void)
 	GrafPtr save;
 
 	g_app_state = APP_STATE_IDLE;
+	InitCursor();
 
 	{
 		const HistoryEntry *he;
@@ -358,15 +366,20 @@ handle_page_loaded(void)
 	    g_gopher.cur_type, g_gopher.cur_selector);
 	browser_set_url(uri);
 
-	if (g_gopher.page_type == PAGE_DIRECTORY)
-		snprintf(uri, sizeof(uri),
-		    "Done \xD0 %d items",
-		    g_gopher.item_count);
-	else
-		snprintf(uri, sizeof(uri),
-		    "Done \xD0 %ld bytes",
-		    g_gopher.text_len);
-	browser_set_status(uri);
+	if (g_gopher.conn.timed_out) {
+		browser_set_status("Connection timed out");
+		g_gopher.conn.timed_out = false;
+	} else {
+		if (g_gopher.page_type == PAGE_DIRECTORY)
+			snprintf(uri, sizeof(uri),
+			    "Done \xD0 %d items",
+			    g_gopher.item_count);
+		else
+			snprintf(uri, sizeof(uri),
+			    "Done \xD0 %ld bytes",
+			    g_gopher.text_len);
+		browser_set_status(uri);
+	}
 
 	/* Post notification if loading completed in background */
 	if (g_suspended && !g_nm_posted) {
@@ -490,6 +503,20 @@ main_event_loop(void)
 						}
 						if (nd) {
 							GrafPtr sp;
+							char pg[80];
+
+							if (g_gopher.page_type
+							    == PAGE_DIRECTORY)
+								snprintf(pg,
+								    sizeof(pg),
+								    "Loading\311 %d items",
+								    g_gopher.item_count);
+							else
+								snprintf(pg,
+								    sizeof(pg),
+								    "Loading\311 %ld bytes",
+								    g_gopher.text_len);
+							browser_set_status(pg);
 
 							GetPort(&sp);
 							SetPort(
@@ -497,6 +524,8 @@ main_event_loop(void)
 							content_draw(
 							    g_window);
 							content_update_scroll(
+							    g_window);
+							browser_draw_status(
 							    g_window);
 							SetPort(sp);
 						}
@@ -554,12 +583,27 @@ main_event_loop(void)
 				}
 				if (needs_draw) {
 					GrafPtr save;
+					char prog[80];
+
+					if (g_gopher.page_type ==
+					    PAGE_DIRECTORY)
+						snprintf(prog,
+						    sizeof(prog),
+						    "Loading\311 %d items",
+						    g_gopher.item_count);
+					else
+						snprintf(prog,
+						    sizeof(prog),
+						    "Loading\311 %ld bytes",
+						    g_gopher.text_len);
+					browser_set_status(prog);
 
 					GetPort(&save);
 					SetPort(g_window);
 					content_draw(g_window);
 					content_update_scroll(
 					    g_window);
+					browser_draw_status(g_window);
 					SetPort(save);
 				}
 				if (!g_gopher.receiving)
@@ -737,8 +781,53 @@ handle_key_down(EventRecord *event)
 		return;
 	}
 
+	/* Tab / Shift-Tab — cycle focus between address bar and content */
+	if (key == 0x09) {
+		if (event->modifiers & shiftKey) {
+			if (browser_get_focus() == FOCUS_CONTENT) {
+				browser_set_focus(FOCUS_ADDR_BAR);
+				browser_activate(true);
+			} else {
+				browser_set_focus(FOCUS_CONTENT);
+				browser_activate(false);
+			}
+		} else {
+			if (browser_get_focus() == FOCUS_ADDR_BAR) {
+				browser_set_focus(FOCUS_CONTENT);
+				browser_activate(false);
+			} else {
+				browser_set_focus(FOCUS_ADDR_BAR);
+				browser_activate(true);
+			}
+		}
+		return;
+	}
+
 	/* Arrow / Page / Home / End — scroll content when not in addr bar */
 	if (browser_get_focus() != FOCUS_ADDR_BAR) {
+		/* Up/Down: link selection on directory pages, scroll on text */
+		if (key == 0x1E || key == 0x1F) {
+			if (g_gopher.page_type == PAGE_DIRECTORY) {
+				if (key == 0x1E)
+					content_select_prev(g_window);
+				else
+					content_select_next(g_window);
+				return;
+			}
+		}
+
+		/* Return: follow selected link */
+		if ((key == '\r' || key == '\n' || key == 0x03) &&
+		    content_get_selected_row() >= 0 &&
+		    g_gopher.page_type == PAGE_DIRECTORY) {
+			short sel_row = content_get_selected_row();
+
+			content_clear_kbd_selection(g_window);
+			content_click_row(g_window, &g_gopher,
+			    sel_row);
+			return;
+		}
+
 		switch (key) {
 		case 0x1C:  /* Left arrow */
 			content_hscroll_by(-content_hscroll_step());
@@ -822,9 +911,12 @@ do_navigate_url_titled(const char *url, const char *title)
 		SetPort(save);
 	}
 
+	SetCursor(*GetCursor(watchCursor));
 	if (!gopher_navigate(&g_gopher, host, port, type, selector)) {
 		GrafPtr save;
 		const HistoryEntry *he;
+
+		InitCursor();
 
 		/* Navigate failed — old page preserved, force redraw */
 		g_app_state = APP_STATE_IDLE;
@@ -959,6 +1051,7 @@ do_search_dialog(const char *title, const char *host,
 			    "Loading %.50s\311", host);
 			browser_set_status(uri);
 
+			SetCursor(*GetCursor(watchCursor));
 			if (gopher_navigate(&g_gopher, host, port,
 			    GOPHER_DIRECTORY, full_sel)) {
 #ifdef GEOMYS_CACHE
@@ -975,6 +1068,8 @@ do_search_dialog(const char *title, const char *host,
 				    search_title, query);
 				update_nav_buttons();
 			} else {
+				InitCursor();
+
 				/* Navigate failed — restore state */
 				g_app_state = APP_STATE_IDLE;
 
@@ -1288,10 +1383,13 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 			sel = nav_sel;
 		}
 
+		SetCursor(*GetCursor(watchCursor));
 		if (!gopher_navigate(&g_gopher, e->host, e->port,
 		    (e->type == GOPHER_SEARCH) ?
 		    GOPHER_DIRECTORY : e->type, sel)) {
 		GrafPtr save;
+
+		InitCursor();
 
 		/* Undo the history move */
 		if (direction < 0)
@@ -1324,6 +1422,35 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	}
 
 	update_nav_buttons();
+}
+
+/*
+ * navigate_history_to - Jump directly to a history position.
+ * Used by Window menu history list.
+ */
+void
+navigate_history_to(short index)
+{
+	const HistoryEntry *e;
+	short cur = history_current_index();
+	short direction;
+
+	e = history_get(index);
+	if (!e || index == cur)
+		return;
+
+	history_set_scroll(content_get_scroll_pos());
+
+	/* Move position to target */
+	direction = (index < cur) ? -1 : 1;
+	while (history_current_index() != index) {
+		if (direction < 0)
+			history_back();
+		else
+			history_forward();
+	}
+
+	navigate_history_entry(e, direction);
 }
 
 /*

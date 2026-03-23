@@ -48,6 +48,7 @@ static CursHandle g_ibeam_cursor = 0L; /* I-beam cursor for text */
 #endif
 static short g_scrolling = 0;          /* 1 during scroll action — skip offscreen */
 static short g_hover_row = -1;         /* currently highlighted row, -1 = none */
+static short g_selected_row = -1;      /* keyboard-selected row, -1 = none */
 static short g_in_full_draw = 0;       /* 1 during content_draw loop — skip per-row clip/restore */
 
 /* Dirty-row tracking: skip redrawing rows that haven't changed */
@@ -812,6 +813,20 @@ content_draw_row(WindowPtr win, short row_index)
 		}
 	}
 #endif
+
+	/* Keyboard selection focus ring */
+	if (row_index == g_selected_row) {
+		PenState pen_save;
+		Rect ring_r;
+
+		GetPenState(&pen_save);
+		PenSize(1, 1);
+		PenPat(&qd.gray);
+		SetRect(&ring_r, r.left + 1, y - g_row_height,
+		    r.right - 1, y);
+		FrameRect(&ring_r);
+		SetPenState(&pen_save);
+	}
 
 #ifdef GEOMYS_THEMES
 	/* Restore normal text mode if dark theme used srcBic */
@@ -1833,6 +1848,41 @@ do_directory_navigate(WindowPtr win, GopherState *gs,
 #endif /* GEOMYS_CLIPBOARD */
 
 Boolean
+content_click_row(WindowPtr win, GopherState *gs, short row)
+{
+#ifdef GEOMYS_CLIPBOARD
+	return do_directory_navigate(win, gs, row);
+#else
+	GopherItem *item;
+
+	if (!gs || row < 0 || row >= gs->item_count)
+		return false;
+	item = &gs->items[row];
+	if (item->type == GOPHER_INFO)
+		return false;
+	if (item->type == GOPHER_SEARCH) {
+		do_search_dialog(item->display,
+		    item->host, item->port, item->selector);
+		content_draw(win);
+		return true;
+	}
+	if (gopher_type_navigable(item->type)) {
+		char uri[300];
+
+		gopher_build_uri(uri, sizeof(uri),
+		    item->host, item->port,
+		    item->type, item->selector);
+		do_navigate_url_titled(uri, item->host);
+		return true;
+	}
+	do_type_message(item->type, item->display,
+	    item->host, item->port);
+	content_draw(win);
+	return true;
+#endif
+}
+
+Boolean
 content_click(WindowPtr win, Point local_pt, GopherState *gs)
 {
 	Rect r;
@@ -1842,6 +1892,10 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 	content_get_rect(win, &r);
 	if (!PtInRect(local_pt, &r))
 		return false;
+
+	/* Clear keyboard selection on mouse click */
+	if (g_selected_row >= 0)
+		content_clear_kbd_selection(win);
 
 	browser_set_focus(FOCUS_CONTENT);
 #ifdef GEOMYS_CLIPBOARD
@@ -2192,6 +2246,7 @@ content_scroll_to_top(void)
 {
 	g_scroll_pos = 0;
 	g_hscroll_pos = 0;
+	g_selected_row = -1;
 	content_mark_all_dirty();
 	if (g_scrollbar)
 		SetControlValue(g_scrollbar, 0);
@@ -2980,6 +3035,130 @@ content_hscroll_click(WindowPtr win, Point local_pt, short part)
 }
 
 /*
+ * Keyboard link navigation — find next/prev navigable row.
+ * Skips GOPHER_INFO items. Returns new selected row or -1.
+ */
+static short
+find_navigable_row(short from, short dir)
+{
+	short total, i;
+
+	if (!g_page || g_page->page_type != PAGE_DIRECTORY)
+		return -1;
+
+	total = g_page->item_count;
+	i = from + dir;
+	while (i >= 0 && i < total) {
+		if (g_page->items[i].type != GOPHER_INFO)
+			return i;
+		i += dir;
+	}
+	return -1;
+}
+
+short
+content_get_selected_row(void)
+{
+	return g_selected_row;
+}
+
+void
+content_clear_kbd_selection(WindowPtr win)
+{
+	short old = g_selected_row;
+
+	if (old < 0)
+		return;
+	g_selected_row = -1;
+	content_mark_dirty(old);
+	if (win) {
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+		content_draw_row(win, old);
+		SetPort(save);
+	}
+}
+
+short
+content_select_next(WindowPtr win)
+{
+	short old = g_selected_row;
+	short next;
+
+	if (!g_page || g_page->page_type != PAGE_DIRECTORY)
+		return -1;
+
+	next = find_navigable_row(old < 0 ? -1 : old, 1);
+	if (next < 0)
+		return g_selected_row;
+
+	g_selected_row = next;
+	content_mark_dirty(next);
+	if (old >= 0)
+		content_mark_dirty(old);
+
+	/* Auto-scroll to keep selection visible */
+	if (next < g_scroll_pos)
+		content_set_scroll_pos(next);
+	else if (next >= g_scroll_pos + visible_rows(win))
+		content_set_scroll_pos(next - visible_rows(win) + 1);
+	else if (win) {
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+		if (old >= 0)
+			content_draw_row(win, old);
+		content_draw_row(win, next);
+		SetPort(save);
+	}
+	return next;
+}
+
+short
+content_select_prev(WindowPtr win)
+{
+	short old = g_selected_row;
+	short prev;
+
+	if (!g_page || g_page->page_type != PAGE_DIRECTORY)
+		return -1;
+
+	if (old < 0) {
+		/* No selection — find last navigable row */
+		prev = find_navigable_row(g_page->item_count, -1);
+	} else {
+		prev = find_navigable_row(old, -1);
+	}
+	if (prev < 0)
+		return g_selected_row;
+
+	g_selected_row = prev;
+	content_mark_dirty(prev);
+	if (old >= 0)
+		content_mark_dirty(old);
+
+	/* Auto-scroll to keep selection visible */
+	if (prev < g_scroll_pos)
+		content_set_scroll_pos(prev);
+	else if (prev >= g_scroll_pos + visible_rows(win))
+		content_set_scroll_pos(prev - visible_rows(win) + 1);
+	else if (win) {
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+		if (old >= 0)
+			content_draw_row(win, old);
+		content_draw_row(win, prev);
+		SetPort(save);
+	}
+	return prev;
+}
+
+/*
  * Save/restore content area statics to/from session struct.
  * Used during session switching (GEOMYS_MAX_WINDOWS > 1).
  */
@@ -2992,6 +3171,7 @@ content_save_state(struct BrowserSession *s)
 	s->hscroll_pos = g_hscroll_pos;
 	s->content_max_width = g_content_max_width;
 	s->hover_row = g_hover_row;
+	s->selected_row = g_selected_row;
 	s->row_height = g_row_height;
 	s->font_id = g_font_id;
 	s->font_size = g_font_size;
@@ -3013,6 +3193,7 @@ content_load_state(struct BrowserSession *s)
 	g_content_max_width = s->content_max_width;
 	g_page = &s->gopher;
 	g_hover_row = s->hover_row;
+	g_selected_row = s->selected_row;
 	g_row_height = s->row_height;
 	g_font_id = s->font_id;
 	g_font_size = s->font_size;

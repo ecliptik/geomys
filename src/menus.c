@@ -27,6 +27,10 @@
 #include "clipboard.h"
 #endif
 #include "savefile.h"
+#include "history.h"
+#ifdef GEOMYS_PRINT
+#include "print.h"
+#endif
 #ifdef GEOMYS_THEMES
 #include "theme.h"
 #include "color.h"
@@ -217,6 +221,18 @@ update_menus(void)
 #else
 		DisableItem(file_menu, FILE_MENU_SAVE_AS);
 #endif
+
+#ifdef GEOMYS_PRINT
+		EnableItem(file_menu, FILE_MENU_PAGE_SETUP);
+		if (g_gopher.page_type != PAGE_NONE &&
+		    g_app_state == APP_STATE_IDLE)
+			EnableItem(file_menu, FILE_MENU_PRINT);
+		else
+			DisableItem(file_menu, FILE_MENU_PRINT);
+#else
+		DisableItem(file_menu, FILE_MENU_PAGE_SETUP);
+		DisableItem(file_menu, FILE_MENU_PRINT);
+#endif
 		if (g_window)
 			EnableItem(file_menu, FILE_MENU_CLOSE);
 		else
@@ -239,10 +255,19 @@ update_menus(void)
 			EnableItem(edit_menu, EDIT_MENU_SELALL);
 #ifdef GEOMYS_CLIPBOARD
 		} else if (browser_get_focus() == FOCUS_ADDR_BAR) {
-			/* No undo for address bar — "Can't Undo" per HIG */
-			SetMenuItemText(edit_menu, EDIT_MENU_UNDO,
-			    "\pCan\325t Undo");
-			DisableItem(edit_menu, EDIT_MENU_UNDO);
+			if (browser_can_undo()) {
+				SetMenuItemText(edit_menu,
+				    EDIT_MENU_UNDO,
+				    browser_is_redo() ?
+				    "\pRedo" : "\pUndo");
+				EnableItem(edit_menu, EDIT_MENU_UNDO);
+			} else {
+				SetMenuItemText(edit_menu,
+				    EDIT_MENU_UNDO,
+				    "\pCan\325t Undo");
+				DisableItem(edit_menu,
+				    EDIT_MENU_UNDO);
+			}
 			if (browser_has_selection()) {
 				EnableItem(edit_menu, EDIT_MENU_CUT);
 				EnableItem(edit_menu, EDIT_MENU_COPY);
@@ -328,6 +353,14 @@ handle_file_menu(short item)
 	case FILE_MENU_SAVE_AS:
 		do_save_page();
 		break;
+#ifdef GEOMYS_PRINT
+	case FILE_MENU_PAGE_SETUP:
+		do_page_setup();
+		break;
+	case FILE_MENU_PRINT:
+		do_print();
+		break;
+#endif
 	case FILE_MENU_CLOSE:
 		if (active_session)
 			session_destroy_and_fixup(active_session);
@@ -350,6 +383,9 @@ handle_edit_menu(short item)
 #ifdef GEOMYS_CLIPBOARD
 	if (browser_get_focus() == FOCUS_ADDR_BAR) {
 		switch (item) {
+		case EDIT_MENU_UNDO:
+			browser_edit_undo();
+			break;
 		case EDIT_MENU_CUT:
 			browser_edit_cut();
 			break;
@@ -390,10 +426,13 @@ handle_edit_menu(short item)
 }
 
 #if GEOMYS_MAX_WINDOWS > 1
+/* First history item number in Window menu (0 = no history shown) */
+static short g_win_history_start = 0;
+
 /*
  * update_window_menu - Rebuild the Window menu dynamically.
  * Shows "N of M Windows" header, then lists each open window
- * with a checkmark on the active session.
+ * with a checkmark on the active session, then history entries.
  */
 static void
 update_window_menu(void)
@@ -401,6 +440,8 @@ update_window_menu(void)
 	short i, item_num;
 	char label[80];
 	Str255 ps;
+
+	g_win_history_start = 0;
 
 	if (!window_menu)
 		return;
@@ -430,7 +471,6 @@ update_window_menu(void)
 		if (s->window) {
 			GetWTitle(s->window, wtitle);
 			if (wtitle[0] == 0) {
-				/* Fallback for untitled windows */
 				c2pstr(wtitle, "Geomys");
 			}
 		} else {
@@ -447,11 +487,54 @@ update_window_menu(void)
 		    s == active_session);
 		item_num++;
 	}
+
+	/* Append history entries for active window */
+	{
+		short hcount = history_count();
+		short cur_pos = history_current_index();
+		short shown = 0;
+
+		if (hcount > 0) {
+			AppendMenu(window_menu, "\p(-");
+			item_num++;
+			AppendMenu(window_menu, "\pHistory");
+			DisableItem(window_menu, item_num);
+			item_num++;
+			g_win_history_start = item_num;
+
+			/* Most recent first */
+			for (i = hcount - 1;
+			    i >= 0 && shown < 10; i--, shown++) {
+				const HistoryEntry *he;
+				char hlabel[80];
+
+				he = history_get(i);
+				if (!he)
+					continue;
+
+				if (he->title[0])
+					strncpy(hlabel, he->title,
+					    sizeof(hlabel) - 1);
+				else
+					strncpy(hlabel, he->host,
+					    sizeof(hlabel) - 1);
+				hlabel[sizeof(hlabel) - 1] = '\0';
+
+				c2pstr(ps, hlabel);
+				AppendMenu(window_menu, "\p ");
+				SetMenuItemText(window_menu,
+				    item_num, ps);
+				CheckItem(window_menu, item_num,
+				    i == cur_pos);
+				item_num++;
+			}
+		}
+	}
 }
 
 /*
  * handle_window_menu - Handle click on a Window menu item.
- * Items 3+ correspond to session windows.
+ * Items 3+ correspond to session windows, then history entries.
  */
 static void
 handle_window_menu(short item)
@@ -460,6 +543,17 @@ handle_window_menu(short item)
 
 	if (item < WIN_MENU_FIRST_WIN)
 		return;
+
+	/* Check if this is a history item */
+	if (g_win_history_start > 0 && item >= g_win_history_start) {
+		short hcount = history_count();
+		short menu_offset = item - g_win_history_start;
+		short hist_idx = hcount - 1 - menu_offset;
+
+		if (hist_idx >= 0 && hist_idx < hcount)
+			navigate_history_to(hist_idx);
+		return;
+	}
 
 	/* Map menu item to session */
 	item_num = WIN_MENU_FIRST_WIN;
@@ -470,7 +564,6 @@ handle_window_menu(short item)
 			continue;
 
 		if (item_num == item) {
-			/* Switch to this session's window */
 			if (s->window)
 				SelectWindow(s->window);
 			return;

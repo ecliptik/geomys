@@ -24,6 +24,9 @@ resource 'MENU' (129, "File") {
 		"-", noIcon, noKey, noMark, plain;
 		"Save Page As\311", noIcon, "S", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
+		"Page Setup\311", noIcon, noKey, noMark, plain;
+		"Print\311", noIcon, "P", noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
 		"Close Window", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Quit", noIcon, "Q", noMark, plain
@@ -297,7 +300,7 @@ resource 'DITL' (133, "Home Page") {
 
 		/* 4: URL field */
 		{15, 105, 31, 325},
-		EditText { enabled, "gopher://sdf.org" };
+		EditText { enabled, "" };
 
 		/* 5: Use Blank checkbox */
 		{45, 15, 61, 200},

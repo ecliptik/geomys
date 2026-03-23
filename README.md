@@ -22,7 +22,7 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - All canonical types (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, g, I, T)
 - Non-canonical types (d, h, i, p, r, s)
 - [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol support (`+ADMIN`, `+VIEWS` parsing)
-- Default home page: `gopher://sdf.org` (user-changeable)
+- Blank default home page (user-changeable via Options > Home Page)
 
 **User Interface**
 - Full Macintosh GUI with mouse support
@@ -32,6 +32,7 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Page styles: Traditional, Plain, Markdown
 - Show Details toggle: show/hide server metadata (dates, sizes) in directory listings
 - Font selection: Chicago 12, Monaco 9/12, Courier 10, Geneva 9/10
+- Print support: Page Setup and Print (Cmd-P) for printing pages via Printing Manager
 - Save Page As (Cmd-S): save current page as TeachText-readable TEXT file
 - Text selection and copy: highlight text in content area or address bar, copy to clipboard (Cmd-C)
 - 9 built-in themes: Light, Dark, Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum
@@ -41,9 +42,13 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Color icon family (icl4, icl8, ics4, ics8) for Finder on color systems
 - Horizontal scrollbar for wide content
 - Find in Page (Cmd-F) with Find Again (Cmd-G): case-insensitive text search with match highlighting
-- Keyboard navigation: arrow keys, Page Up/Down, Home/End, Cmd-L (address bar), Cmd-R (refresh)
+- Keyboard link navigation: Up/Down selects links, Return follows selected link, Tab cycles focus
+- Keyboard scrolling: arrow keys, Page Up/Down, Home/End, Cmd-L (address bar), Cmd-R (refresh)
+- Address bar undo/redo (Cmd-Z)
+- Watch cursor during page loads
 - Hand cursor on navigable items
-- Bottom status bar with connection info
+- Window cascade positioning for multi-window
+- Bottom status bar with connection info and loading progress
 - Menus: File, Edit, Favorites, Window, Options
 - Movable modal dialogs on System 7 (fixed position on System 6)
 - Aligned with Apple Human Interface Guidelines (1992)

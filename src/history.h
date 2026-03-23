@@ -58,6 +58,12 @@ void history_set_scroll(short scroll_pos);
 /* Get scroll position from a history entry */
 short history_get_scroll(const HistoryEntry *e);
 
+/* Number of entries in history */
+short history_count(void);
+
+/* Get entry by index (0 = oldest). Returns NULL if out of range. */
+const HistoryEntry *history_get(short index);
+
 /* Save/restore history state to/from a session struct */
 struct BrowserSession;
 void history_save_state(struct BrowserSession *s);

@@ -39,6 +39,7 @@ typedef struct {
 	short       read_len;
 	unsigned long pending_data;
 	unsigned long start_tick;   /* TickCount at receive start for timeout */
+	Boolean     timed_out;     /* set when receive timeout fires */
 	char        host[256];
 	short       port;
 	ip_addr     dns_server;

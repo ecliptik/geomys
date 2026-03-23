@@ -61,6 +61,7 @@ typedef struct BrowserSession {
 	short           hscroll_pos;        /* horizontal pixel offset */
 	short           content_max_width;  /* widest line in pixels */
 	short           hover_row;
+	short           selected_row;
 	short           row_height;
 	short           font_id;
 	short           font_size;

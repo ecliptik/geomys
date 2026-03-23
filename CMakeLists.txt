@@ -14,6 +14,7 @@ option(GEOMYS_CP437        "Enable CP437 character set"         ON)
 option(GEOMYS_STYLES       "Enable page format styles"          ON)
 option(GEOMYS_CACHE        "Enable local page caching"          ON)
 option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
+option(GEOMYS_PRINT        "Enable printing support"            ON)
 
 # Maximum simultaneous windows (1 = single-window, zero overhead)
 if(NOT DEFINED GEOMYS_MAX_WINDOWS)
@@ -76,6 +77,9 @@ endif()
 if(GEOMYS_DOWNLOAD)
     list(APPEND GEOMYS_SOURCES src/savefile.c)
 endif()
+if(GEOMYS_PRINT)
+    list(APPEND GEOMYS_SOURCES src/print.c)
+endif()
 if(GEOMYS_COLOR)
     list(APPEND GEOMYS_SOURCES src/color.c)
 endif()
@@ -105,6 +109,7 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_CACHE}>:GEOMYS_CACHE>
     $<$<BOOL:${GEOMYS_CLIPBOARD}>:GEOMYS_CLIPBOARD>
     $<$<BOOL:${GEOMYS_THEMES}>:GEOMYS_THEMES>
+    $<$<BOOL:${GEOMYS_PRINT}>:GEOMYS_PRINT>
     GEOMYS_MAX_WINDOWS=${GEOMYS_MAX_WINDOWS}
     CACHE_MAX=${CACHE_MAX}
 )

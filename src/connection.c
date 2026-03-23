@@ -117,12 +117,21 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 	{
 		OSErr tcp_err = conn_ensure_tcp();
 		if (tcp_err != noErr)
-			return conn_fail(conn, "MacTCP is not available");
+			return conn_fail(conn,
+			    "MacTCP is not available. "
+			    "Verify MacTCP is installed in "
+			    "your System Folder.");
 	}
 
-	if (!conn_validate_host(conn->host))
-		return conn_fail(conn,
-		    "Invalid hostname or IP address");
+	if (!conn_validate_host(conn->host)) {
+		char msg[180];
+
+		snprintf(msg, sizeof(msg),
+		    "Invalid address \xD4%.60s\xD5. "
+		    "Check for typos or extra spaces.",
+		    conn->host);
+		return conn_fail(conn, msg);
+	}
 
 	conn->state = CONN_STATE_RESOLVING;
 	SetCursor(*GetCursor(watchCursor));
@@ -155,15 +164,36 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 					    = '\0';
 					dns_cache_ip = ip;
 					break;
-				case DNS_ERR_NXDOMAIN:
-					return conn_fail(conn,
-					    "Host not found");
-				case DNS_ERR_TIMEOUT:
-					return conn_fail(conn,
-					    "DNS lookup timed out");
-				default:
-					return conn_fail(conn,
-					    "DNS lookup failed");
+				case DNS_ERR_NXDOMAIN: {
+					char msg[180];
+					snprintf(msg, sizeof(msg),
+					    "The server \xD4%.50s\xD5 "
+					    "could not be found. "
+					    "Check the address for "
+					    "typos.",
+					    conn->host);
+					return conn_fail(conn, msg);
+				}
+				case DNS_ERR_TIMEOUT: {
+					char msg[180];
+					snprintf(msg, sizeof(msg),
+					    "DNS lookup for "
+					    "\xD4%.50s\xD5 timed out. "
+					    "Verify your network "
+					    "connection.",
+					    conn->host);
+					return conn_fail(conn, msg);
+				}
+				default: {
+					char msg[180];
+					snprintf(msg, sizeof(msg),
+					    "DNS lookup for "
+					    "\xD4%.50s\xD5 failed. "
+					    "Verify your network "
+					    "connection.",
+					    conn->host);
+					return conn_fail(conn, msg);
+				}
 				}
 			}
 		}
@@ -204,7 +234,9 @@ conn_connect(Connection *conn, const char *host, short port,
 
 	conn->rcv_buf = NewPtr(TCP_RCV_BUFSIZ);
 	if (!conn->rcv_buf)
-		return conn_fail(conn, "Out of memory");
+		return conn_fail(conn,
+		    "Not enough memory. Try closing "
+		    "other windows or applications.");
 
 	err = _TCPCreate(&conn->pb, &conn->stream, conn->rcv_buf,
 	    TCP_RCV_BUFSIZ, 0L, 0L, 0L, false);
@@ -212,7 +244,8 @@ conn_connect(Connection *conn, const char *host, short port,
 		DisposePtr(conn->rcv_buf);
 		conn->rcv_buf = 0L;
 		return conn_fail(conn,
-		    "Failed to create TCP stream");
+		    "Failed to create TCP stream. "
+		    "Verify MacTCP is configured.");
 	}
 
 	conn->state = CONN_STATE_CONNECTING;
@@ -223,16 +256,24 @@ conn_connect(Connection *conn, const char *host, short port,
 	    &conn->local_ip, &conn->local_port,
 	    0L, 0L, false);
 	if (err != noErr) {
+		char msg[180];
+
 		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
 		DisposePtr(conn->rcv_buf);
 		conn->rcv_buf = 0L;
 		conn->stream = 0L;
-		return conn_fail(conn, "Failed to connect");
+		snprintf(msg, sizeof(msg),
+		    "Could not connect to \xD4%.50s\xD5 "
+		    "on port %d. The server may be "
+		    "down or unreachable.",
+		    conn->host, conn->port);
+		return conn_fail(conn, msg);
 	}
 
 	InitCursor();
 	conn->state = CONN_STATE_RECEIVING;
 	conn->start_tick = TickCount();
+	conn->timed_out = false;
 	conn->read_len = 0;
 	return true;
 }
@@ -272,6 +313,7 @@ conn_idle(Connection *conn)
 	if (conn->start_tick &&
 	    (TickCount() - conn->start_tick > CONN_TIMEOUT_TICKS)) {
 		conn_close(conn);
+		conn->timed_out = true;
 		conn->state = CONN_STATE_ERROR;
 		return;
 	}

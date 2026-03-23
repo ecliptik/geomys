@@ -90,6 +90,11 @@ void browser_edit_paste(void);
 void browser_edit_clear(void);
 void browser_edit_select_all(void);
 Boolean browser_has_selection(void);
+
+/* Address bar undo */
+void browser_edit_undo(void);
+Boolean browser_can_undo(void);
+Boolean browser_is_redo(void);
 #endif
 
 /* Save/restore browser chrome state to/from a session struct */

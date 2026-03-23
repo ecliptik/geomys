@@ -29,13 +29,16 @@
 #define APPLE_MENU_ABOUT    1
 
 /* File menu items */
-#define FILE_MENU_NEW_WIN   1
+#define FILE_MENU_NEW_WIN    1
 /* separator = 2 */
-#define FILE_MENU_SAVE_AS   3
+#define FILE_MENU_SAVE_AS    3
 /* separator = 4 */
-#define FILE_MENU_CLOSE     5
-/* separator = 6 */
-#define FILE_MENU_QUIT      7
+#define FILE_MENU_PAGE_SETUP 5
+#define FILE_MENU_PRINT      6
+/* separator = 7 */
+#define FILE_MENU_CLOSE      8
+/* separator = 9 */
+#define FILE_MENU_QUIT       10
 
 /* Edit menu items */
 #define EDIT_MENU_UNDO      1
@@ -102,8 +105,8 @@
 #define SCREEN_HEIGHT       342
 
 /* Default Gopher home page */
-#define DEFAULT_HOME_HOST   "sdf.org"
-#define DEFAULT_HOME_URL    "gopher://sdf.org"
+#define DEFAULT_HOME_HOST   ""
+#define DEFAULT_HOME_URL    ""
 
 /* Application state */
 #define APP_STATE_IDLE      0
@@ -119,6 +122,7 @@ void do_type_message(char type, const char *display,
     const char *host, short port);
 void do_home_page_dialog(void);
 void do_find_dialog(void);
+void navigate_history_to(short index);
 
 /* Globals (defined in main.c) */
 extern Boolean g_running;

@@ -139,6 +139,15 @@ void content_select_all(WindowPtr win);
 void content_clear_selection(WindowPtr win);
 #endif
 
+/* Keyboard link navigation */
+short content_get_selected_row(void);
+void content_clear_kbd_selection(WindowPtr win);
+short content_select_next(WindowPtr win);
+short content_select_prev(WindowPtr win);
+
+/* Navigate a row programmatically (for keyboard Return) */
+Boolean content_click_row(WindowPtr win, GopherState *gs, short row);
+
 /* Dirty-row tracking: mark rows needing redraw */
 void content_mark_dirty(short row);
 void content_mark_all_dirty(void);

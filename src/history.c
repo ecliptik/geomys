@@ -129,6 +129,20 @@ history_get_scroll(const HistoryEntry *e)
 	return e->scroll_pos;
 }
 
+short
+history_count(void)
+{
+	return g_count;
+}
+
+const HistoryEntry *
+history_get(short index)
+{
+	if (index < 0 || index >= g_count)
+		return 0L;
+	return &g_history[index];
+}
+
 /*
  * Save/restore history module statics to/from session struct.
  * Used during session switching (GEOMYS_MAX_WINDOWS > 1).

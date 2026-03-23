@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] — HIG Improvements
+
+### Added
+- Watch cursor during page loads: watch cursor shown while connecting, resolving, and receiving data
+- Tab key focus cycling: Tab/Shift-Tab cycles between address bar and content area
+- Keyboard link navigation: Up/Down arrows select navigable links on directory pages, Return follows selected link
+- Focus ring (gray dotted outline) on keyboard-selected row
+- Window cascade positioning: new windows offset diagonally instead of stacking directly on top
+- Address bar undo/redo: single-level Undo (Cmd-Z) for address bar text, toggles to Redo after undo
+- Undo/Redo menu label toggles dynamically per HIG p.113
+- Loading progress indicator: status bar shows live "Loading... N items" or "Loading... N bytes" during page fetch
+- Improved error messages: connection errors now include the hostname, suggested fixes, and use Mac curly quotes
+- Timeout status: "Connection timed out" shown in status bar when receive timeout fires
+- History list in Window menu: last 10 visited pages shown below window list, checkmark on current page
+- Direct history navigation: click any history entry to jump to it
+- Print support: Page Setup and Print (Cmd-P) in File menu for printing current page content
+- `GEOMYS_PRINT` feature flag with conditional compilation
+
+### Changed
+- Default home page changed to blank (was `gopher://sdf.org`); users can set their own via Options > Home Page
+- File menu reorganized: Page Setup and Print added between Save Page As and Close Window
+- New window memory error messages include actionable guidance ("Try closing other windows or applications")
+- Save file error messages include probable cause ("The disk may be full or locked")
+- DNS and connection errors include the hostname and suggest checking the address or network
+
 ## [0.7.0] — Find in Page & Keyboard Shortcuts
 
 ### Added

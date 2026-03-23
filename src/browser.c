@@ -73,6 +73,33 @@ static Rect g_btn_rects[NAV_BTN_COUNT];
 static Rect g_addr_rect;
 static short g_focus = FOCUS_ADDR_BAR;  /* which UI element has focus */
 
+#ifdef GEOMYS_CLIPBOARD
+/* Undo buffer — single-level toggle (undo/redo) */
+static char g_undo_buf[256];
+static short g_undo_len = 0;
+static Boolean g_undo_valid = false;
+static Boolean g_undo_is_redo = false;
+
+static void
+undo_snapshot(void)
+{
+	Handle text;
+	short len;
+
+	if (!g_addr_te)
+		return;
+
+	text = (*g_addr_te)->hText;
+	len = (*g_addr_te)->teLength;
+	if (len > (short)sizeof(g_undo_buf) - 1)
+		len = sizeof(g_undo_buf) - 1;
+	memcpy(g_undo_buf, *text, len);
+	g_undo_len = len;
+	g_undo_valid = true;
+	g_undo_is_redo = false;
+}
+#endif
+
 short
 browser_get_focus(void)
 {
@@ -474,6 +501,10 @@ browser_set_url(const char *url)
 	if (!g_addr_te)
 		return;
 
+#ifdef GEOMYS_CLIPBOARD
+	undo_snapshot();
+#endif
+
 	/* Select all and replace */
 	TESetSelect(0, 32767, g_addr_te);
 	len = strlen(url);
@@ -648,6 +679,9 @@ browser_key(WindowPtr win, EventRecord *event)
 	if (key == '\r' || key == '\n' || key == 0x03)
 		return true;  /* signal to caller to navigate */
 
+#ifdef GEOMYS_CLIPBOARD
+	undo_snapshot();
+#endif
 	TEKey(key, g_addr_te);
 	return false;
 }
@@ -770,6 +804,7 @@ browser_edit_cut(void)
 {
 	if (!g_addr_te)
 		return;
+	undo_snapshot();
 	TECut(g_addr_te);
 	te_to_system_scrap();
 }
@@ -788,6 +823,7 @@ browser_edit_paste(void)
 {
 	if (!g_addr_te)
 		return;
+	undo_snapshot();
 	system_to_te_scrap();
 	TEPaste(g_addr_te);
 }
@@ -797,6 +833,7 @@ browser_edit_clear(void)
 {
 	if (!g_addr_te)
 		return;
+	undo_snapshot();
 	TEDelete(g_addr_te);
 }
 
@@ -814,6 +851,48 @@ browser_has_selection(void)
 	if (!g_addr_te)
 		return false;
 	return (*g_addr_te)->selStart != (*g_addr_te)->selEnd;
+}
+
+void
+browser_edit_undo(void)
+{
+	char swap[256];
+	short swap_len;
+	Handle text;
+	short len;
+
+	if (!g_addr_te || !g_undo_valid)
+		return;
+
+	/* Save current text for redo */
+	text = (*g_addr_te)->hText;
+	len = (*g_addr_te)->teLength;
+	if (len > (short)sizeof(swap) - 1)
+		len = sizeof(swap) - 1;
+	memcpy(swap, *text, len);
+	swap_len = len;
+
+	/* Replace with undo buffer */
+	TESetSelect(0, 32767, g_addr_te);
+	TEDelete(g_addr_te);
+	TEInsert(g_undo_buf, g_undo_len, g_addr_te);
+
+	/* Swap: old text becomes new undo buffer (for redo) */
+	memcpy(g_undo_buf, swap, swap_len);
+	g_undo_len = swap_len;
+	g_undo_is_redo = !g_undo_is_redo;
+}
+
+Boolean
+browser_can_undo(void)
+{
+	return g_undo_valid;
+}
+
+Boolean
+browser_is_redo(void)
+{
+	return g_undo_is_redo;
 }
 #endif /* GEOMYS_CLIPBOARD */
 

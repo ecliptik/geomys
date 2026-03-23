@@ -216,7 +216,9 @@ do_save_page(void)
 		    'TEXT', smSystemScript);
 		if (err != noErr) {
 			show_error_alert(
-			    "Could not create file.");
+			    "Could not create file. "
+			    "The disk may be full or "
+			    "locked.");
 			return;
 		}
 
@@ -225,7 +227,9 @@ do_save_page(void)
 		    &refNum);
 		if (err != noErr) {
 			show_error_alert(
-			    "Could not open file for writing.");
+			    "Could not open file for "
+			    "writing. It may be in use "
+			    "by another application.");
 			return;
 		}
 
@@ -238,7 +242,9 @@ do_save_page(void)
 		FlushVol(0L, sf_reply.sfFile.vRefNum);
 
 		if (err != noErr)
-			show_error_alert("Error writing file.");
+			show_error_alert(
+			    "Error writing file. "
+			    "The disk may be full.");
 	} else {
 		/* System 6: SFPutFile with SFReply */
 		SFReply reply;
@@ -261,7 +267,9 @@ do_save_page(void)
 		    'ttxt', 'TEXT');
 		if (err != noErr) {
 			show_error_alert(
-			    "Could not create file.");
+			    "Could not create file. "
+			    "The disk may be full or "
+			    "locked.");
 			return;
 		}
 
@@ -270,7 +278,9 @@ do_save_page(void)
 		    &refNum);
 		if (err != noErr) {
 			show_error_alert(
-			    "Could not open file for writing.");
+			    "Could not open file for "
+			    "writing. It may be in use "
+			    "by another application.");
 			return;
 		}
 
@@ -283,7 +293,9 @@ do_save_page(void)
 		FlushVol(0L, reply.vRefNum);
 
 		if (err != noErr)
-			show_error_alert("Error writing file.");
+			show_error_alert(
+			    "Error writing file. "
+			    "The disk may be full.");
 	}
 }
 
