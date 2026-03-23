@@ -40,7 +40,8 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Themed content colors by Gopher item type (text, links, search, errors, external)
 - Color icon family (icl4, icl8, ics4, ics8) for Finder on color systems
 - Horizontal scrollbar for wide content
-- Keyboard navigation: arrow keys, Page Up/Down, Home/End
+- Find in Page (Cmd-F) with Find Again (Cmd-G): case-insensitive text search with match highlighting
+- Keyboard navigation: arrow keys, Page Up/Down, Home/End, Cmd-L (address bar), Cmd-R (refresh)
 - Hand cursor on navigable items
 - Bottom status bar with connection info
 - Menus: File, Edit, Favorites, Window, Options

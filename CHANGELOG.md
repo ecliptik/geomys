@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] — Find in Page & Keyboard Shortcuts
+
+### Added
+- Find in Page (Cmd-F): case-insensitive text search across directory listings and text pages
+- Find Again (Cmd-G): repeat search from last match, wraps around
+- Find dialog pre-fills previous search query
+- Match highlighting using selection system
+- Cmd-L: focus address bar and select all text (classic Netscape "Open Location")
+- Cmd-R: refresh/reload current page
+
 ## [0.6.1] — Loading Regression Fixes
 
 ### Fixed

@@ -671,6 +671,9 @@ main_event_loop(void)
 	ExitToShell();
 }
 
+/* Forward declaration for keyboard refresh shortcut */
+static void handle_nav_button(short btn_id);
+
 /*
  * handle_key_down - process keyDown events
  */
@@ -699,6 +702,23 @@ handle_key_down(EventRecord *event)
 				navigate_history_entry(
 				    history_forward(), 1);
 			}
+			return;
+		}
+
+		/* Cmd-L = focus address bar (select all) */
+		if (key == 'l') {
+			browser_set_focus(FOCUS_ADDR_BAR);
+			browser_activate(true);
+#ifdef GEOMYS_CLIPBOARD
+			browser_edit_select_all();
+#endif
+			return;
+		}
+
+		/* Cmd-R = refresh current page */
+		if (key == 'r') {
+			if (g_gopher.cur_host[0])
+				handle_nav_button(NAV_BTN_REFRESH);
 			return;
 		}
 
