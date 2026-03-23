@@ -95,10 +95,11 @@ favorites_add(GeomysPrefs *prefs, const char *name,
 		return;
 	}
 
-	dlg = GetNewDialog(DLOG_EDIT_FAV_ID, 0L, (WindowPtr)-1L);
+	dlg = GetNewDialog(DLOG_EDIT_FAV_ID, 0L, 0L);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
 
 	/* Pre-fill name */
 	c2pstr(pstr, name);
@@ -230,10 +231,11 @@ favorites_manage(GeomysPrefs *prefs)
 	GrafPtr save;
 	Boolean done = false;
 
-	dlg = GetNewDialog(DLOG_FAVORITES_ID, 0L, (WindowPtr)-1L);
+	dlg = GetNewDialog(DLOG_FAVORITES_ID, 0L, 0L);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
 
 	setup_default_button_outline(dlg, 6);
 

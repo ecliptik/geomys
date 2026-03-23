@@ -861,12 +861,16 @@ do_search_dialog(const char *title, const char *host,
 	/* Deactivate address bar so modal dialog gets keystrokes */
 	browser_activate(false);
 
-	dlg = GetNewDialog(DLOG_SEARCH_ID, 0L, (WindowPtr)-1L);
+	/* Create dialog behind all windows so it doesn't
+	 * draw at the DLOG resource position first —
+	 * avoids white rectangle artifact on color displays */
+	dlg = GetNewDialog(DLOG_SEARCH_ID, 0L, 0L);
 	if (!dlg) {
 		browser_activate(true);
 		return;
 	}
 	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
 
 	/* Set label with search item name */
 	snprintf(label, sizeof(label), "Search %.60s:", title);
@@ -900,8 +904,21 @@ do_search_dialog(const char *title, const char *host,
 		DisposeDialog(dlg);
 		browser_activate(true);
 
+		/* Invalidate window behind dismissed dialog.
+		 * InvalRect queues an updateEvt so handle_update
+		 * does a full redraw (content_mark_all_dirty +
+		 * browser_draw + content_draw). */
+		{
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
+
 		if (query[0]) {
 			char search_title[100];
+			char uri[300];
 
 			/* Append query to selector with tab */
 			snprintf(full_sel, sizeof(full_sel),
@@ -913,6 +930,14 @@ do_search_dialog(const char *title, const char *host,
 
 			g_app_state = APP_STATE_LOADING;
 			content_scroll_to_top();
+
+			/* Show loading state in title bar
+			 * and status bar */
+			set_wtitlef(g_window, "Loading %.50s\311",
+			    host);
+			snprintf(uri, sizeof(uri),
+			    "Loading %.50s\311", host);
+			browser_set_status(uri);
 
 			if (gopher_navigate(&g_gopher, host, port,
 			    GOPHER_DIRECTORY, full_sel)) {
@@ -963,6 +988,15 @@ do_search_dialog(const char *title, const char *host,
 	} else {
 		DisposeDialog(dlg);
 		browser_activate(true);
+
+		/* Invalidate window behind dismissed dialog */
+		{
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
 	}
 }
 
@@ -1198,10 +1232,11 @@ do_home_page_dialog(void)
 	Str255 pstr;
 	Boolean use_blank;
 
-	dlg = GetNewDialog(DLOG_HOME_PAGE_ID, 0L, (WindowPtr)-1L);
+	dlg = GetNewDialog(DLOG_HOME_PAGE_ID, 0L, 0L);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
 
 	/* Pre-fill URL */
 	c2pstr(pstr, g_prefs.home_url);

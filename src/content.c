@@ -985,8 +985,14 @@ content_draw(WindowPtr win)
 		for (di = 0; di < 512; di++) {
 			if (g_dirty[di]) { any = 1; break; }
 		}
-		if (!any)
+		if (!any) {
 			g_dirty_all = 1;
+			/* No explicit dirty marks — caller wants a
+			 * full redraw.  Invalidate shadow to prevent
+			 * stale slot data from skipping new rows
+			 * (e.g. after page transition during load). */
+			g_shadow_valid = 0;
+		}
 	}
 
 	content_get_rect(win, &r);

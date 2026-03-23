@@ -204,11 +204,12 @@ do_about(void)
 	Rect item_rect;
 	Str255 pstr;
 
-	dlg = GetNewDialog(DLOG_ABOUT_ID, 0L, (WindowPtr)-1L);
+	dlg = GetNewDialog(DLOG_ABOUT_ID, 0L, 0L);
 	if (!dlg)
 		return;
 
 	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
 
 	/* Set machine type in item 4 */
 	get_machine_name(machine, sizeof(machine));
