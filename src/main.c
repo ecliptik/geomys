@@ -1000,6 +1000,94 @@ do_search_dialog(const char *title, const char *host,
 	}
 }
 
+#ifdef GEOMYS_CLIPBOARD
+/*
+ * Find in Page dialog — Edit > Find (Cmd+F)
+ */
+void
+do_find_dialog(void)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+	const char *prev_query;
+
+	/* Deactivate address bar so modal dialog gets keystrokes */
+	browser_activate(false);
+
+	dlg = GetNewDialog(DLOG_FIND_ID, 0L, 0L);
+	if (!dlg) {
+		browser_activate(true);
+		return;
+	}
+	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
+
+	/* Pre-fill with previous query if any */
+	prev_query = content_find_query();
+	if (prev_query && prev_query[0]) {
+		c2pstr(pstr, prev_query);
+		GetDialogItem(dlg, 4, &item_type, &item_h,
+		    &item_rect);
+		SetDialogItemText(item_h, pstr);
+	}
+
+	setup_default_button_outline(dlg, 5);
+	SelectDialogItemText(dlg, 4, 0, 32767);
+
+	/* Loop until Find or Cancel button clicked */
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter,
+		    &item);
+	} while (item != 1 && item != 2);
+
+	if (item == 1) {
+		char query[64];
+
+		GetDialogItem(dlg, 4, &item_type, &item_h,
+		    &item_rect);
+		GetDialogItemText(item_h, pstr);
+		{
+			short len = pstr[0];
+			if (len >= (short)sizeof(query))
+				len = sizeof(query) - 1;
+			memcpy(query, pstr + 1, len);
+			query[len] = '\0';
+		}
+
+		DisposeDialog(dlg);
+		browser_activate(true);
+
+		/* Invalidate window behind dismissed dialog */
+		{
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
+
+		if (query[0])
+			content_find(query);
+	} else {
+		DisposeDialog(dlg);
+		browser_activate(true);
+
+		/* Invalidate window behind dismissed dialog */
+		{
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
+	}
+}
+#endif /* GEOMYS_CLIPBOARD */
+
 /*
  * Show a message for non-navigable Gopher types
  */

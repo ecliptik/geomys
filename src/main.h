@@ -46,6 +46,9 @@
 #define EDIT_MENU_CLEAR     6
 /* separator = 7 */
 #define EDIT_MENU_SELALL    8
+/* separator = 9 */
+#define EDIT_MENU_FIND      10
+#define EDIT_MENU_FIND_AGAIN 11
 
 /* Favorites menu items */
 #define FAV_MENU_MANAGE     1
@@ -93,6 +96,7 @@
 #define DLOG_HOME_PAGE_ID   133
 #define DLOG_FAVORITES_ID   134
 #define DLOG_EDIT_FAV_ID    135
+#define DLOG_FIND_ID        137
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -115,6 +119,7 @@ void do_search_dialog(const char *title, const char *host,
 void do_type_message(char type, const char *display,
     const char *host, short port);
 void do_home_page_dialog(void);
+void do_find_dialog(void);
 
 /* Globals (defined in main.c) */
 extern Boolean g_running;

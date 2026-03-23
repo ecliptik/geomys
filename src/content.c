@@ -10,6 +10,7 @@
 #include <Multiverse.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "content.h"
 #include "browser.h"
@@ -68,6 +69,11 @@ static short g_shadow_valid;  /* 1 if shadow state is populated */
 static Selection g_sel;
 static short g_win_active = 1;  /* window active flag for selection dimming */
 static char g_sel_text_buf[256]; /* temp buffer for selection redraw */
+
+/* Find in page state */
+static char g_find_query[64];     /* last search term */
+static short g_find_last_row;     /* row of last match (-1 = none) */
+static short g_find_active;       /* 1 = have an active search */
 
 /* Forward declarations for selection helpers */
 short content_row_text(short row, char *buf, short bufsiz);
@@ -209,6 +215,9 @@ content_set_page(GopherState *gs)
 	g_sel.selecting = 0;
 	g_sel.word_mode = 0;
 	g_sel.last_click_ticks = 0;
+	/* Reset find state on page change */
+	g_find_active = 0;
+	g_find_last_row = -1;
 #endif
 }
 
@@ -2467,6 +2476,140 @@ content_select_all(WindowPtr win)
 		content_draw(win);
 		SetPort(save);
 	}
+}
+
+/*
+ * Case-insensitive substring search.
+ * Returns pointer into haystack on match, NULL otherwise.
+ */
+static const char *
+ci_strstr(const char *haystack, const char *needle)
+{
+	short nlen, i;
+
+	nlen = strlen(needle);
+	if (nlen == 0)
+		return haystack;
+
+	for (; *haystack; haystack++) {
+		for (i = 0; i < nlen; i++) {
+			if (tolower((unsigned char)haystack[i]) !=
+			    tolower((unsigned char)needle[i]))
+				break;
+		}
+		if (i == nlen)
+			return haystack;
+	}
+	return 0L;
+}
+
+/*
+ * content_find - search for query in page content.
+ * Case-insensitive substring search starting from
+ * g_find_last_row + 1, wrapping around.
+ * On match: scrolls to row, highlights match, returns true.
+ * On no match: beeps, shows status message, returns false.
+ */
+Boolean
+content_find(const char *query)
+{
+	short total, start, i, row;
+	char buf[256];
+	const char *match;
+	short qlen, col;
+
+	if (!query || !query[0])
+		return false;
+
+	total = count_rows();
+	if (total == 0)
+		return false;
+
+	/* Save query for Find Again */
+	strncpy(g_find_query, query, sizeof(g_find_query) - 1);
+	g_find_query[sizeof(g_find_query) - 1] = '\0';
+	g_find_active = 1;
+
+	/* Start searching from last match + 1, or top */
+	start = (g_find_last_row >= 0) ?
+	    g_find_last_row + 1 : 0;
+	if (start >= total)
+		start = 0;
+
+	qlen = strlen(query);
+
+	/* Search with wrap-around */
+	for (i = 0; i < total; i++) {
+		row = (start + i) % total;
+
+		buf[0] = '\0';
+		content_row_text(row, buf, sizeof(buf));
+
+		match = ci_strstr(buf, query);
+		if (match) {
+			/* Found — record position */
+			g_find_last_row = row;
+
+			/* Scroll to make match visible, centered */
+			{
+				short vis = content_visible_rows();
+				short target = row - vis / 2;
+				if (target < 0)
+					target = 0;
+				content_set_scroll_pos(target);
+			}
+
+			/* Highlight match using selection */
+			col = (short)(match - buf);
+			g_sel.active = 1;
+			g_sel.selecting = 0;
+			g_sel.anchor_row = row;
+			g_sel.anchor_col = col;
+			g_sel.extent_row = row;
+			g_sel.extent_col = col + qlen;
+			g_sel.word_mode = 0;
+			g_hover_row = -1;
+			content_mark_all_dirty();
+
+			/* Redraw */
+			if (g_window) {
+				GrafPtr save;
+				GetPort(&save);
+				SetPort(g_window);
+				content_draw(g_window);
+				SetPort(save);
+			}
+
+			browser_set_status("Found");
+			return true;
+		}
+	}
+
+	/* Not found */
+	g_find_last_row = -1;
+	SysBeep(5);
+	browser_set_status("Not found");
+	return false;
+}
+
+Boolean
+content_find_again(void)
+{
+	if (!g_find_active || !g_find_query[0])
+		return false;
+	return content_find(g_find_query);
+}
+
+Boolean
+content_find_active(void)
+{
+	return g_find_active != 0;
+}
+
+const char *
+content_find_query(void)
+{
+	return g_find_query;
 }
 #endif /* GEOMYS_CLIPBOARD */
 

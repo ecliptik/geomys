@@ -40,7 +40,10 @@ resource 'MENU' (130, "Edit") {
 		"Paste", noIcon, "V", noMark, plain;
 		"Clear", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Select All", noIcon, "A", noMark, plain
+		"Select All", noIcon, "A", noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Find\311", noIcon, "F", noMark, plain;
+		"Find Again", noIcon, "G", noMark, plain
 	}
 };
 
@@ -220,6 +223,42 @@ resource 'DITL' (132, "Search") {
 		/* 3: Label (set at runtime to show search item name) */
 		{15, 15, 31, 320},
 		StaticText { disabled, "Search for:" };
+
+		/* 4: Query field */
+		{35, 15, 51, 320},
+		EditText { enabled, "" };
+
+		/* 5: Default button outline (UserItem) */
+		{56, 246, 84, 324},
+		UserItem { disabled };
+	}
+};
+
+/* Find in Page dialog — movableDBoxProc for System 7 */
+resource 'DLOG' (137, "Find") {
+	{90, 80, 185, 420},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	137,
+	"Find",
+	noAutoCenter
+};
+
+resource 'DITL' (137, "Find") {
+	{
+		/* 1: Find button */
+		{60, 250, 80, 320},
+		Button { enabled, "Find" };
+
+		/* 2: Cancel button */
+		{60, 165, 80, 235},
+		Button { enabled, "Cancel" };
+
+		/* 3: Label */
+		{15, 15, 31, 60},
+		StaticText { disabled, "Find:" };
 
 		/* 4: Query field */
 		{35, 15, 51, 320},

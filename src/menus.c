@@ -279,6 +279,24 @@ update_menus(void)
 			DisableItem(edit_menu, EDIT_MENU_CLEAR);
 			DisableItem(edit_menu, EDIT_MENU_SELALL);
 		}
+
+#ifdef GEOMYS_CLIPBOARD
+		/* Find items: enabled when page has content */
+		if (!da_active &&
+		    g_gopher.page_type != PAGE_NONE) {
+			EnableItem(edit_menu, EDIT_MENU_FIND);
+			if (content_find_active())
+				EnableItem(edit_menu,
+				    EDIT_MENU_FIND_AGAIN);
+			else
+				DisableItem(edit_menu,
+				    EDIT_MENU_FIND_AGAIN);
+		} else {
+			DisableItem(edit_menu, EDIT_MENU_FIND);
+			DisableItem(edit_menu,
+			    EDIT_MENU_FIND_AGAIN);
+		}
+#endif
 	}
 
 #if GEOMYS_MAX_WINDOWS > 1
@@ -359,6 +377,16 @@ handle_edit_menu(short item)
 			clipboard_select_all(g_window);
 			break;
 		}
+	}
+
+	/* Find commands work regardless of focus */
+	switch (item) {
+	case EDIT_MENU_FIND:
+		do_find_dialog();
+		break;
+	case EDIT_MENU_FIND_AGAIN:
+		content_find_again();
+		break;
 	}
 #endif
 }

@@ -104,6 +104,19 @@ short content_row_height(void);
 void content_cursor_update(WindowPtr win, Point local_pt);
 
 #ifdef GEOMYS_CLIPBOARD
+/* Find in page — case-insensitive substring search.
+ * Returns true if match found, scrolls to and highlights it. */
+Boolean content_find(const char *query);
+
+/* Repeat last find from current match position + 1 */
+Boolean content_find_again(void);
+
+/* Returns true if a find query is active (for Find Again enable) */
+Boolean content_find_active(void);
+
+/* Get the current find query (for dialog pre-fill) */
+const char *content_find_query(void);
+
 /* Activate/deactivate content selection display */
 void content_activate(WindowPtr win, Boolean active);
 
