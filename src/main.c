@@ -2518,10 +2518,11 @@ calc_std_state(WindowPtr win)
 	ideal_w = content_w + SCROLLBAR_WIDTH + 2;
 
 	/* Build standard state rect in global coordinates.
-	 * Leave 2px inset from screen edges for aesthetics,
-	 * and 2px below menu bar (Apple HIG). */
+	 * Leave 2px inset from screen edges for aesthetics.
+	 * stdState is content region coords, so add title bar
+	 * height (19px for zoomDocProc) below menu bar. */
 	std.left = screen.left + 2;
-	std.top = mbar_h + 2;
+	std.top = mbar_h + 19 + 2;
 	std.right = std.left + ideal_w;
 	std.bottom = screen.bottom - 2;
 
