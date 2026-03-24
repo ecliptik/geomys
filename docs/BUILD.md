@@ -58,17 +58,16 @@ The build system uses CMake feature flags to enable or disable components at com
 
 | Flag | Purpose | Default | Minimal | Lite | Full |
 |------|---------|---------|---------|------|------|
-| `GEOMYS_MAX_WINDOWS` | Max simultaneous windows | 1 | 1 | 2 | 4 |
+| `GEOMYS_MAX_WINDOWS` | Max simultaneous windows | 4 | 1 | 2 | 4 |
 | `GEOMYS_OFFSCREEN` | Offscreen double-buffer | ON | OFF | ON | ON |
 | `GEOMYS_STATUS_BAR` | Status bar | ON | ON | ON | ON |
 | `GEOMYS_FAVORITES` | Favorites system | ON | OFF | ON | ON |
-| `GEOMYS_COLOR` | 256-color support | OFF | OFF | OFF | ON |
+| `GEOMYS_COLOR` | 256-color support | ON | OFF | OFF | ON |
 | `GEOMYS_THEMES` | Theme system (9 themes) | ON | OFF | ON | ON |
 | `GEOMYS_DOWNLOAD` | File downloads and image save | ON | OFF | OFF | ON |
 | `GEOMYS_GOPHER_PLUS` | Gopher+ protocol support | ON | OFF | OFF | ON |
 | `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | OFF | ON |
 | `GEOMYS_CP437` | CP437 character set | ON | OFF | ON | ON |
-| `GEOMYS_STYLES` | Page format styles | ON | OFF | OFF | ON |
 | `GEOMYS_CACHE` | Local page caching | ON | OFF | OFF | ON |
 | `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | OFF | ON | ON |
 | `GEOMYS_PRINT` | Printing support | ON | OFF | OFF | ON |
@@ -92,7 +91,6 @@ Individual feature flags can be toggled on or off after a preset is applied. Use
 | `--gopher-plus` | `--no-gopher-plus` | Gopher+ protocol |
 | `--glyphs` | `--no-glyphs` | Unicode glyph rendering |
 | `--cp437` | `--no-cp437` | CP437 character set |
-| `--styles` | `--no-styles` | Page format styles |
 | `--cache` | `--no-cache` | Local page caching |
 | `--clipboard` | `--no-clipboard` | Text selection and clipboard |
 
@@ -110,8 +108,8 @@ When `GEOMYS_MAX_WINDOWS` is 1, multi-window code compiles with zero overhead (n
 Flags are applied after presets, so you can start from a preset and override individual features:
 
 ```bash
-# Start from lite, but add Gopher+ and styles
-./scripts/build.sh --preset lite --gopher-plus --styles
+# Start from lite, but add Gopher+ and downloads
+./scripts/build.sh --preset lite --gopher-plus --download
 
 # Full preset without caching
 ./scripts/build.sh --no-cache

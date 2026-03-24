@@ -13,15 +13,16 @@ About Geomys
 Geomys is a Gopher protocol browser for the Apple
 Macintosh Plus and later models running System 6.0.8
 or later. It connects to Gopher servers over TCP/IP
-using MacTCP, providing a graphical browser interface
-for navigating Gopherspace.
+using MacTCP (also works under Open Transport's
+MacTCP compatibility layer), providing a graphical
+browser interface for navigating Gopherspace.
 
 Geomys implements RFC 1436 (The Internet Gopher
 Protocol) and RFC 4266 (The gopher URI Scheme).
 All 18 canonical and non-canonical Gopher item types
 are fully supported, including directories, text
 files, search queries, binary file downloads, image
-save with metadata, and HTML URL extraction.
+save with metadata, and HTML tag-stripping rendering.
 
 The browser features a web-style interface with an
 address bar, back/forward/home buttons, a combined
@@ -29,50 +30,20 @@ stop/go/refresh action button, and a status bar --
 all designed to follow the Apple Human Interface
 Guidelines.
 
-
-Features
---------
-
-  - Multi-window browsing with up to 4 simultaneous
-    Gopher windows and background loading
-  - Binary file downloads to disk via SFPutFile
-    with progress dialog and Stop button
-  - Image save with GIF/PNG format detection and
-    dimension display
-  - HTML URL extraction with copyable dialog
-  - Go menu: Back, Forward, Home, Refresh, Stop,
-    Open Location, and browsing history
-  - Dynamic stop/go/refresh button right of address
-    bar that changes based on browser state
-  - Status bar hover hints showing URIs and file info
-  - Download-specific visual indicators: angle bracket
-    labels and distinct theme colors
-  - 9 color themes including Light, Dark, Solarized,
-    Tokyo Night, Green Screen, Classic, Platinum
-  - Find in Page (Cmd-F) with Find Again (Cmd-G)
-  - Print support (Cmd-P) via Printing Manager
-  - Text selection and copy to clipboard (Cmd-C)
-  - Keyboard link navigation with Up/Down arrows
-  - Save Page As (Cmd-S) for text and directory pages
-  - CP437 character set and Unicode glyph rendering
-  - HTML tag-stripping renderer for type h items
-  - Telnet connection dialog with Copy Host and
-    System 7 app launching for type 8/T items
-  - Local page cache with memory-aware sizing
-  - Gopher+ protocol support
-  - MacTCP pre-loaded at startup for fast first connect
-  - Dynamic directory capacity up to 2,000 items
-  - Page styles: Traditional, Plain, Markdown
-  - Font selection: Chicago, Monaco, Courier, Geneva
+On System 7 with Color QuickDraw, Geomys supports
+256-color rendering with 9 built-in themes. Color
+support is automatic and has zero impact on System 6
+monochrome systems.
 
 
 System Requirements
 -------------------
 
   - Macintosh Plus or later (68000 CPU)
-  - System 6.0.8 or later
+  - System 6.0.8 or later (tested through 7.5.5)
   - MacTCP 2.1 (configured with a valid TCP/IP
-    connection)
+    connection; also works under Open Transport's
+    MacTCP compatibility layer)
   - 4 MB RAM recommended
   - Network connection (Ethernet or compatible)
 
@@ -91,27 +62,313 @@ Getting Started
 2. Double-click the Geomys application to launch it.
 
 3. Geomys opens to a blank page. Set your home page
-   in Options > Home Page, or type a Gopher URL in
-   the address bar and press Return.
+   in Options > Set Home Page, or type a Gopher URL
+   in the address bar and press Return.
 
-4. Click on directory items to navigate. Click on
-   text items to read them. Click on binary, image,
-   or sound items to save them to disk.
+4. Click on directory items to navigate deeper into
+   Gopherspace. Click on text items to read them.
+   Click on binary, image, or sound items to save
+   them to disk.
 
 5. Use the Back and Forward buttons (or Cmd-[ and
    Cmd-]) to navigate through your browsing history.
 
-6. To select text, click and drag in the content
+6. Type 7 (search) items open a query dialog. Enter
+   your search terms and click OK to see results.
+
+7. To select text, click and drag in the content
    area. Double-click to select a word. Hold Shift
    and click to extend the selection. Press Cmd-C
    to copy. The address bar also supports Cut,
    Copy, and Paste via the Edit menu.
 
-7. Press Cmd-. to cancel an in-progress download
-   or page load.
+8. Press Cmd-. to cancel an in-progress page load
+   or download.
 
-8. To quit, choose Quit from the File menu or press
+9. To quit, choose Quit from the File menu or press
    Command-Q.
+
+
+Features
+--------
+
+  - Sub-1-second startup
+  - All 18 Gopher item types (canonical and
+    non-canonical) fully supported
+  - Gopher+ protocol support
+  - Multi-window browsing with up to 4 simultaneous
+    Gopher windows and background loading
+  - Binary file downloads to disk via standard save
+    dialog with progress display and Stop button
+  - Image save with GIF/PNG format detection and
+    dimension display
+  - HTML tag-stripping renderer for type h items
+  - HTML URL extraction with copyable dialog
+  - Go menu: Back, Forward, Home, Refresh, Stop,
+    Open Location, and browsing history
+  - Dynamic stop/go/refresh button right of address
+    bar that changes based on browser state
+  - Status bar with hover hints showing URIs and
+    file info
+  - 9 color themes including Light, Dark, Solarized,
+    Tokyo Night, Green Screen, Classic, Platinum
+  - Find in Page (Cmd-F) with Find Again (Cmd-G)
+  - Print support (Cmd-P) via Printing Manager
+  - Text selection and copy to clipboard (Cmd-C)
+  - Keyboard link navigation with Up/Down arrows
+  - Save Page As (Cmd-S) for text and directory pages
+  - CP437 character set and Unicode glyph rendering
+  - Telnet connection dialog with Copy Host and
+    System 7 app launching for type 8/T items
+  - Local page cache with memory-aware sizing for
+    instant back/forward navigation
+  - MacTCP pre-loaded at startup for fast first
+    connect
+  - Dynamic directory capacity up to 2,000 items
+  - 20 persistent favorites with menu quick-access
+  - Six font choices: Monaco 9, Monaco 12, Courier
+    10, Chicago 12, Geneva 9, Geneva 10
+  - Horizontal and vertical scrolling
+  - Double-buffered rendering eliminates screen flash
+  - Apple HIG compliant dialogs (default button
+    outlines, Cmd-. cancel, tab field cycling)
+  - All preferences saved across launches
+  - System 7 Preferences folder support
+  - System 7 enhancements: modern save dialog,
+    Apple Events support, MultiFinder suspend/resume,
+    Notification Manager, machine type in About
+    dialog (all conditional -- System 6 behavior
+    unchanged)
+
+
+Keyboard Shortcuts
+------------------
+
+Geomys is designed for the Apple M0110 and M0110A
+keyboards. All shortcuts also work on extended ADB
+and USB keyboards.
+
+  Menu Commands
+  ~~~~~~~~~~~~~
+  Command-N       New window
+  Command-W       Close active window
+  Command-L       Open Location (focus address bar)
+  Command-S       Save Page As
+  Command-P       Print current page
+  Command-D       Add Favorite
+  Command-B       Manage Favorites
+  Command-F       Find in Page
+  Command-G       Find Again
+  Command-C       Copy selected text
+  Command-Z       Undo (address bar)
+  Command-Q       Quit Geomys
+
+  Navigation
+  ~~~~~~~~~~
+  Command-[       Go back
+  Command-]       Go forward
+  Command-R       Refresh current page
+  Command-.       Stop loading / cancel download
+  Return          Navigate to URL (in address bar)
+                  Follow selected link (in content)
+  Tab             Cycle focus: address bar / content
+  Shift-Tab       Cycle focus in reverse
+
+  Content Scrolling
+  ~~~~~~~~~~~~~~~~~
+  Up Arrow        Scroll up one row / select
+                  previous link (directory pages)
+  Down Arrow      Scroll down one row / select
+                  next link (directory pages)
+  Left Arrow      Scroll left
+  Right Arrow     Scroll right
+  Page Up         Scroll up one page
+  Page Down       Scroll down one page
+  Home            Jump to top of page
+  End             Jump to bottom of page
+
+  Text Selection
+  ~~~~~~~~~~~~~~
+  Click-drag      Select text
+  Double-click    Select a word
+  Shift-click     Extend selection to click point
+
+
+Multiple Windows
+----------------
+
+Geomys supports up to 4 simultaneous browser windows.
+Each window has its own page content, browsing
+history, scroll position, and text selection.
+
+  Opening Additional Windows:
+  - Press Command-N to open a new browser window.
+  - New windows open at cascading positions and
+    navigate to your home page (or a blank page if
+    none is set).
+
+  Switching Between Windows:
+  - Click on any window to bring it forward.
+  - The Window menu lists all open windows with a
+    checkmark on the active window.
+
+  Background Loading:
+  - Pages continue loading in background windows
+    while you browse in the foreground window.
+  - The window title updates when loading completes.
+
+  Closing a Window:
+  - Close the window via the close box or Command-W.
+  - If a page is loading, you will be asked to
+    confirm before closing.
+  - Geomys quits when the last window closes.
+
+Font and theme changes from the Options menu apply
+to all windows. The Window menu count
+header shows how many windows are open.
+
+
+Favorites
+---------
+
+Geomys can store up to 20 favorites (bookmarks) for
+Gopher pages you visit frequently.
+
+  Adding a Favorite:
+  1. Navigate to the page you want to bookmark.
+  2. Choose "Add..." from the Favorites menu, or
+     press Command-D.
+  3. Enter a name for the favorite.
+  4. Click OK.
+
+  Accessing Favorites:
+  - Your 5 most recently added favorites appear
+    directly in the Favorites menu for quick access.
+  - Choose "Manage..." to see all favorites.
+
+  Managing Favorites:
+  1. Choose "Manage..." from the Favorites menu,
+     or press Command-B.
+  2. Select a favorite in the list.
+  3. Use the buttons to Edit, Delete, Move Up,
+     Move Down, or Go To.
+
+Favorites and all preferences are saved to a file
+called "Geomys Preferences" in the System Folder
+(System 7 Preferences folder when available).
+
+
+Options
+-------
+
+The Options menu uses hierarchical submenus for
+fonts and themes, with additional items for home
+page and display settings.
+
+  Set Home Page
+  ~~~~~~~~~~~~~
+  Configure the URL that loads when you click the
+  Home button or choose Go > Home. You can enter
+  any gopher:// URL, or check "Use blank page" for
+  no home page. The home page is saved to your
+  preferences.
+
+  Font (submenu)
+  ~~~~~~~~~~~~~~
+  Monaco 9pt    Default -- compact monospace
+  Monaco 12pt   Larger text, fewer rows
+  Courier 10pt  Classic fixed-width alternative
+  Chicago 12pt  The classic Mac system font
+  Geneva 9pt    Compact proportional font
+  Geneva 10pt   Slightly larger proportional font
+
+  Note: Proportional fonts (Chicago, Geneva) use
+  per-character positioning to maintain alignment.
+  Fixed-width fonts (Monaco, Courier) may render
+  slightly faster.
+
+  Theme (submenu)
+  ~~~~~~~~~~~~~~~
+  Choose the color theme for the content area:
+
+  Mono themes (all systems):
+    Light         White background, black text
+    Dark          Black background, white text
+
+  Color themes (Mac II+ with Color QuickDraw):
+    Solarized Light/Dark
+    Tokyo Night Light/Dark
+    Green Screen  Green-on-black CRT aesthetic
+    Classic       1990s web browser colors
+    Platinum      Mac OS 8/9 Appearance Manager
+
+  Color themes are automatically disabled on
+  monochrome systems.
+
+  Show Details
+  ~~~~~~~~~~~~
+  Toggle display of host:port metadata columns on
+  directory pages. When unchecked, only the item
+  name is shown.
+
+  Status Bar
+  ~~~~~~~~~~
+  Toggle the status bar at the bottom of all
+  windows. The status bar shows hover hints with
+  Gopher URIs and file information.
+
+All preferences are saved across launches.
+
+
+Troubleshooting
+---------------
+
+  "Application is busy or damaged"
+  Make sure Geomys was copied to the hard drive
+  correctly. Try deleting and recopying the file.
+  Verify the file type is APPL and creator is GEOM.
+
+  Cannot connect / connection refused
+  Verify that MacTCP is installed and properly
+  configured in the Control Panel. Check that you
+  can reach the remote Gopher server. The default
+  Gopher port is 70.
+
+  DNS resolution fails
+  Geomys uses its own DNS resolver (default server:
+  1.1.1.1). You can also try connecting by IP
+  address instead of hostname by typing the address
+  directly in the address bar.
+
+  Page appears blank after loading
+  Some Gopher servers return empty responses for
+  certain selectors. Try navigating to the server's
+  root by entering just gopher://hostname in the
+  address bar.
+
+  Text appears garbled
+  Geomys translates CP437 characters to Mac Roman
+  equivalents. If a server uses a different encoding,
+  some characters may not display correctly.
+
+  Color themes not available
+  Color themes require a Macintosh II or later with
+  Color QuickDraw. On monochrome systems (Mac Plus,
+  SE, Classic), only Light and Dark themes appear
+  in the menu. This is detected automatically at
+  startup.
+
+  Downloads fail or are incomplete
+  Press Cmd-. to cancel a stalled download. Check
+  your network connection and try again. Large files
+  may take time on slower connections.
+
+  Window too small for content
+  Drag the grow box in the lower-right corner to
+  resize the window. Use horizontal scrolling
+  (Left/Right arrows) for wide content. Toggle
+  Show Details off in the Options menu to reduce
+  line width on directory pages.
 
 
 Credits

@@ -92,8 +92,8 @@ typedef struct {
 | `link_external` | External links: telnet (type `8`/`T`), HTML (type `h`) |
 | `link_download` | Downloadable items: binaries (type `9`), images (type `g`/`I`/`p`), archives |
 | `link_error` | Error items (type `3`) |
-| `label` | Type labels in Traditional page style (e.g., `DIR`, `TXT`, `BIN`) |
-| `metadata` | Right-aligned host:port metadata in Traditional style |
+| `label` | Type labels (e.g., `DIR`, `TXT`, `BIN`) |
+| `metadata` | Right-aligned host:port metadata |
 | `hover_bg` | Background highlight when the cursor hovers over a row |
 
 **Selection:**

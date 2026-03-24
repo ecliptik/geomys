@@ -58,7 +58,6 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 **Display**
 - 9 built-in themes (Light, Dark, Solarized, Tokyo Night, Green Screen, Classic, Platinum)
 - 256-color on System 7; monochrome on System 6
-- 3 page styles: Traditional, Plain, Markdown
 - 6 fonts (Monaco 9/12, Courier 10, Chicago 12, Geneva 9/10)
 - Double-buffered rendering
 - Horizontal and vertical scrolling
@@ -103,13 +102,13 @@ Geomys ships with 9 built-in themes selectable from Options > Theme:
 
 | Theme | Type | Description |
 |-------|------|-------------|
-| Light | Mono | White on black, default. Works on all systems. |
-| Dark | Mono | Black on white. Works on all systems. |
-| Solarized Light/Dark | Color | Ethan Schoonover's Solarized palette. |
-| Tokyo Night Light/Dark | Color | Based on the Tokyo Night color scheme. |
-| Green Screen | Color | Phosphor green on black CRT aesthetic. |
-| Classic | Color | 1990s web browser colors. |
-| Platinum | Color | Mac OS 8/9 Appearance Manager inspired. |
+| [Light](src/themes/light.h) | Mono | White on black, default. Works on all systems. |
+| [Dark](src/themes/dark.h) | Mono | Black on white. Works on all systems. |
+| [Solarized Light](src/themes/solarized_light.h) / [Dark](src/themes/solarized_dark.h) | Color | Ethan Schoonover's Solarized palette. |
+| [Tokyo Night Light](src/themes/tokyo_light.h) / [Dark](src/themes/tokyo_dark.h) | Color | Based on the Tokyo Night color scheme. |
+| [Green Screen](src/themes/green_screen.h) | Color | Phosphor green on black CRT aesthetic. |
+| [Classic](src/themes/classic.h) | Color | 1990s web browser colors. |
+| [Platinum](src/themes/platinum.h) | Color | Mac OS 8/9 Appearance Manager inspired. |
 
 Mono themes work on all systems including the Mac Plus. Color themes require a Mac II or later with Color QuickDraw (detected automatically at runtime).
 
