@@ -1519,6 +1519,8 @@ do_search_dialog(const char *title, const char *host,
 	Handle item_h;
 	Rect item_rect;
 	Str255 pstr;
+
+	InitCursor();
 	char label[100];
 
 	/* Deactivate address bar so modal dialog gets keystrokes */
@@ -1681,6 +1683,8 @@ do_cso_dialog(const char *title, const char *host,
 	Handle item_h;
 	Rect item_rect;
 	Str255 pstr;
+
+	InitCursor();
 	char label[100];
 
 	/* Deactivate address bar so modal dialog gets keystrokes */
@@ -1837,6 +1841,8 @@ do_find_dialog(void)
 	Str255 pstr;
 	const char *prev_query;
 
+	InitCursor();
+
 	/* Deactivate address bar so modal dialog gets keystrokes */
 	browser_activate(false);
 
@@ -1990,6 +1996,7 @@ do_html_url_dialog(const char *url, const char *display)
 
 	(void)display;
 
+	InitCursor();
 	browser_activate(false);
 
 	dlg = GetNewDialog(DLOG_HTML_URL_ID, 0L, 0L);
@@ -2047,6 +2054,7 @@ do_telnet_dialog(char type, const char *display,
 	Boolean is_sys7 = false;
 	long sysver;
 
+	InitCursor();
 	browser_activate(false);
 
 	dlg = GetNewDialog(DLOG_TELNET_ID, 0L, 0L);
