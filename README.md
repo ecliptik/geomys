@@ -5,7 +5,7 @@ A [Gopher](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 
 This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 <p align="center">
-<a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#keyboard-shortcuts">Keyboard Shortcuts</a> · <a href="#building">Building</a> · <a href="#testing">Testing</a> · <a href="#acknowledgments">Acknowledgments</a> · <a href="#license">License</a>
+<a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#keyboard-shortcuts">Keyboard Shortcuts</a> · <a href="#themes">Themes</a> · <a href="#building">Building</a> · <a href="#testing">Testing</a> · <a href="#acknowledgments">Acknowledgments</a> · <a href="#license">License</a>
 </p>
 
 ### System 6
@@ -96,6 +96,24 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 | Follow link | Return | Open selected link |
 | Cycle focus | Tab | Switch between address bar and content |
 | Quit | Cmd+Q | Quit Geomys |
+
+## Themes
+
+Geomys ships with 9 built-in themes selectable from Options > Theme:
+
+| Theme | Type | Description |
+|-------|------|-------------|
+| Light | Mono | White on black, default. Works on all systems. |
+| Dark | Mono | Black on white. Works on all systems. |
+| Solarized Light/Dark | Color | Ethan Schoonover's Solarized palette. |
+| Tokyo Night Light/Dark | Color | Based on the Tokyo Night color scheme. |
+| Green Screen | Color | Phosphor green on black CRT aesthetic. |
+| Classic | Color | 1990s web browser colors. |
+| Platinum | Color | Mac OS 8/9 Appearance Manager inspired. |
+
+Mono themes work on all systems including the Mac Plus. Color themes require a Mac II or later with Color QuickDraw (detected automatically at runtime).
+
+To create custom themes or learn how the theme engine works, see the full [Theme Guide](docs/THEMES.md).
 
 ## Building
 
