@@ -41,15 +41,13 @@
 
 /* File menu items */
 #define FILE_MENU_NEW_WIN    1
-/* separator = 2 */
-#define FILE_MENU_SAVE_AS    3
-/* separator = 4 */
+#define FILE_MENU_CLOSE      2
+/* separator = 3 */
+#define FILE_MENU_SAVE_AS    4
 #define FILE_MENU_PAGE_SETUP 5
 #define FILE_MENU_PRINT      6
 /* separator = 7 */
-#define FILE_MENU_CLOSE      8
-/* separator = 9 */
-#define FILE_MENU_QUIT       10
+#define FILE_MENU_QUIT       8
 
 /* Edit menu items */
 #define EDIT_MENU_UNDO      1

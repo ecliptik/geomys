@@ -21,13 +21,11 @@ resource 'MENU' (129, "File") {
 	129, textMenuProc, allEnabled, enabled, "File",
 	{
 		"New Window", noIcon, "N", noMark, plain;
+		"Close Window", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Save Page As\311", noIcon, "S", noMark, plain;
-		"-", noIcon, noKey, noMark, plain;
 		"Page Setup\311", noIcon, noKey, noMark, plain;
 		"Print\311", noIcon, "P", noMark, plain;
-		"-", noIcon, noKey, noMark, plain;
-		"Close Window", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Quit", noIcon, "Q", noMark, plain
 	}
