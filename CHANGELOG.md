@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] — Internal: Performance, Memory & Security Hardening
+
+### Performance
+- Row formatting: extracted `format_row_text()` using `memcpy` for fixed prefixes instead of `snprintf`, avoiding format-string overhead on 68000
+- Text ingestion: bulk `memchr`/`memcpy` in `gopher_process_data()` replacing byte-at-a-time processing, with fast trailing-byte check for `\r\n` stripping
+- Draw loop: cache `theme_current()` once per row draw instead of 4 separate calls
+- Draw loop: cache `sel_normalize()` once before the draw loop instead of up to 4 times per row
+- Draw loop: replace 512-byte `g_dirty[]` scan with `g_dirty_count` counter, eliminating O(512) scan on every draw pass
+- Selection rendering: pass pre-formatted row text to `draw_selection_rect()` from `content_draw_row()`, avoiding redundant `content_row_text()` call
+
+### Memory
+- Growable text buffers: start at 8KB / 512 line entries, grow to 32KB / 3000 max on demand — saves ~24KB per small text page
+- Cache guard: skip `cache_store()` when `FreeMem()` < 200KB, preventing cache from consuming the last available memory on a 4MB Mac Plus
+- Pre-allocate reusable clip region (`g_clip_rgn`) in `content_init()` instead of `NewRgn()`/`DisposeRgn()` per row per draw pass
+- Reduce `dns_cache_host` from 256 to 80 bytes — Gopher hostnames are limited to 64 bytes in `GopherItem`
+
+### Security
+- Harden DNS `txn_id` with additional entropy sources (mouse position, `FreeMem`, counter with Knuth multiplicative hash) to resist spoofing
+
+### Code Quality
+- Extract `set_item_fg_color()` helper, replacing 3 duplicated copies of item-type-to-foreground-color selection logic
+- Extract `shadow_needs_draw()`/`shadow_update()` helpers to deduplicate shadow buffer comparison logic
+- Extract `finish_download()` helper, sharing cleanup code between `PAGE_DOWNLOAD` and `PAGE_IMAGE` completion paths
+- Extract `poll_active_session()`/`poll_all_sessions()` helpers, replacing ~200 lines of inline null event polling code
+- Extract `browser_begin_addr_clip()`/`browser_end_addr_clip()` helpers, deduplicating address bar text-width clipping pattern
+- Net reduction of ~63 lines through helper extraction and deduplication
+
+## [0.11.0] — Performance & Polish
+
+### Added
+- `'vers'` resource for System 7 Finder Get Info display
+- Apple Events `odoc` handler: open files containing `gopher://` URLs (drag-and-drop onto app icon)
+- Memory-aware cache sizing: active slot count scales with available RAM (3–8 slots via `FreeMem()`)
+- Weighted LRU cache eviction: frequently-visited pages (hit count) stay cached longer
+- Multi-slot cache eviction: if allocation fails, evicts additional slots before giving up
+
+### Changed
+- Selection drag rendering: XOR delta on monochrome — only inverts changed pixels instead of full row redraws, eliminating flash during text selection drag
+- Selection drag rendering: pre-allocated clip region avoids `NewRgn`/`DisposeRgn` per row per mouse event
+- Color selection drag: clipped row redraws limited to changed rows (unchanged rows skipped)
+- Page/thumb scroll now uses offscreen double buffering (was previously skipped), eliminating flash on page scroll
+- Horizontal scroll now uses offscreen double buffering
+- Removed `g_scrolling` flag — all scroll paths now use offscreen rendering with partial CopyBits
+
+### Fixed
+- Shadow buffer invalidated after selection drag to prevent stale state on next `content_draw()`
+
 ## [0.10.0] — HTML Renderer & Telnet Handoff
 
 ### Added

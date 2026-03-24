@@ -125,6 +125,42 @@ static void draw_stop_icon(Rect *r, Boolean dim);
 static void draw_go_icon(Rect *r, Boolean dim);
 static void draw_action_button(WindowPtr win, Boolean pressed);
 
+/*
+ * Clip TE drawing to text width so selection
+ * highlight doesn't extend into empty space.
+ * Saves current clip into *save_clip (caller must
+ * call browser_end_addr_clip to restore).
+ */
+static void
+browser_begin_addr_clip(RgnHandle *save_clip)
+{
+	Rect text_clip;
+	short text_end_x, sf, ss;
+
+	*save_clip = NewRgn();
+	GetClip(*save_clip);
+	sf = qd.thePort->txFont;
+	ss = qd.thePort->txSize;
+	TextFont((*g_addr_te)->txFont);
+	TextSize((*g_addr_te)->txSize);
+	text_end_x = (*g_addr_te)->destRect.left +
+	    TextWidth(*((*g_addr_te)->hText), 0,
+	    (*g_addr_te)->teLength) + 1;
+	TextFont(sf);
+	TextSize(ss);
+	text_clip = g_addr_rect;
+	if (text_end_x < text_clip.right)
+		text_clip.right = text_end_x;
+	ClipRect(&text_clip);
+}
+
+static void
+browser_end_addr_clip(RgnHandle save_clip)
+{
+	SetClip(save_clip);
+	DisposeRgn(save_clip);
+}
+
 void
 browser_init(WindowPtr win)
 {
@@ -245,32 +281,11 @@ draw_nav_bar(WindowPtr win)
 
 	/* Draw address bar content */
 	if (g_addr_te) {
-		RgnHandle save_clip = NewRgn();
-		Rect text_clip;
-		short text_end_x;
-		short save_font, save_size;
+		RgnHandle save_clip;
 
-		/* Clip TE drawing to text width so selection
-		 * highlight doesn't extend into empty space */
-		GetClip(save_clip);
-		save_font = qd.thePort->txFont;
-		save_size = qd.thePort->txSize;
-		TextFont((*g_addr_te)->txFont);
-		TextSize((*g_addr_te)->txSize);
-		text_end_x = (*g_addr_te)->destRect.left +
-		    TextWidth(*((*g_addr_te)->hText), 0,
-		    (*g_addr_te)->teLength) + 1;
-		TextFont(save_font);
-		TextSize(save_size);
-		text_clip = g_addr_rect;
-		if (text_end_x < text_clip.right)
-			text_clip.right = text_end_x;
-		ClipRect(&text_clip);
-
+		browser_begin_addr_clip(&save_clip);
 		TEUpdate(&g_addr_rect, g_addr_te);
-
-		SetClip(save_clip);
-		DisposeRgn(save_clip);
+		browser_end_addr_clip(save_clip);
 	}
 
 	/* Restore default port colors */
@@ -757,36 +772,12 @@ browser_click(WindowPtr win, Point local_pt)
 			static unsigned long last_click = 0;
 			unsigned long now;
 			RgnHandle save_clip;
-			Rect text_clip;
-			short text_end_x;
 
 			GetPort(&save);
 			SetPort(win);
 
-			/* Clip TE drawing to text width so
-			 * selection doesn't fill empty space.
-			 * Must be set BEFORE TEActivate. */
-			save_clip = NewRgn();
-			GetClip(save_clip);
-			{
-				short sf, ss;
-
-				sf = qd.thePort->txFont;
-				ss = qd.thePort->txSize;
-				TextFont((*g_addr_te)->txFont);
-				TextSize((*g_addr_te)->txSize);
-				text_end_x = (*g_addr_te)->
-				    destRect.left +
-				    TextWidth(*((*g_addr_te)->
-				    hText), 0,
-				    (*g_addr_te)->teLength) + 1;
-				TextFont(sf);
-				TextSize(ss);
-			}
-			text_clip = g_addr_rect;
-			if (text_end_x < text_clip.right)
-				text_clip.right = text_end_x;
-			ClipRect(&text_clip);
+			/* Clip must be set BEFORE TEActivate */
+			browser_begin_addr_clip(&save_clip);
 
 			TEActivate(g_addr_te);
 
@@ -806,8 +797,7 @@ browser_click(WindowPtr win, Point local_pt)
 				last_click = now;
 			}
 
-			SetClip(save_clip);
-			DisposeRgn(save_clip);
+			browser_end_addr_clip(save_clip);
 			SetPort(save);
 		}
 		return -2;
@@ -843,37 +833,18 @@ void
 browser_activate(Boolean active)
 {
 	RgnHandle save_clip;
-	Rect text_clip;
-	short text_end_x, sf, ss;
 
 	if (!g_addr_te)
 		return;
 
-	/* Clip TE drawing to text width so deactivate
-	 * highlight doesn't extend into empty space */
-	save_clip = NewRgn();
-	GetClip(save_clip);
-	sf = qd.thePort->txFont;
-	ss = qd.thePort->txSize;
-	TextFont((*g_addr_te)->txFont);
-	TextSize((*g_addr_te)->txSize);
-	text_end_x = (*g_addr_te)->destRect.left +
-	    TextWidth(*((*g_addr_te)->hText), 0,
-	    (*g_addr_te)->teLength) + 1;
-	TextFont(sf);
-	TextSize(ss);
-	text_clip = g_addr_rect;
-	if (text_end_x < text_clip.right)
-		text_clip.right = text_end_x;
-	ClipRect(&text_clip);
+	browser_begin_addr_clip(&save_clip);
 
 	if (active)
 		TEActivate(g_addr_te);
 	else
 		TEDeactivate(g_addr_te);
 
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
+	browser_end_addr_clip(save_clip);
 }
 
 void

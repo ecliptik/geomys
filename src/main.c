@@ -38,8 +38,8 @@
 #endif
 #include "color.h"
 #include "theme.h"
-#ifdef GEOMYS_DOWNLOAD
 #include <Files.h>
+#ifdef GEOMYS_DOWNLOAD
 #include "savefile.h"
 #include "imgparse.h"
 #endif
@@ -91,6 +91,10 @@ static void handle_action_button(void);
 static void update_nav_buttons(void);
 void navigate_history_entry(const HistoryEntry *e, short direction);
 static void handle_page_loaded(void);
+static void poll_active_session(void);
+#if GEOMYS_MAX_WINDOWS > 1
+static void poll_all_sessions(void);
+#endif
 
 /*
  * Apple Events handlers for System 7 compatibility.
@@ -113,8 +117,61 @@ ae_quit_app(const AppleEvent *evt, AppleEvent *reply, long refcon)
 static pascal OSErr
 ae_open_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 {
-	(void)evt; (void)reply; (void)refcon;
-	return errAEEventNotHandled;
+	AEDescList doc_list;
+	long count, i;
+	AEKeyword kw;
+	DescType rt;
+	Size actual;
+	FSSpec fspec;
+	OSErr err;
+
+	(void)reply; (void)refcon;
+
+	err = AEGetParamDesc(evt, keyDirectObject,
+	    typeAEList, &doc_list);
+	if (err != noErr)
+		return err;
+
+	err = AECountItems(&doc_list, &count);
+	if (err != noErr) {
+		AEDisposeDesc(&doc_list);
+		return err;
+	}
+
+	/* Process first document only — navigate to its
+	 * contents if it contains a gopher:// URL */
+	for (i = 1; i <= count && i <= 1; i++) {
+		err = AEGetNthPtr(&doc_list, i, typeFSS,
+		    &kw, &rt, (Ptr)&fspec, sizeof(fspec),
+		    &actual);
+		if (err == noErr) {
+			short refnum;
+
+			err = FSpOpenDF(&fspec, fsRdPerm,
+			    &refnum);
+			if (err == noErr) {
+				char buf[300];
+				long rd = sizeof(buf) - 1;
+
+				FSRead(refnum, &rd, buf);
+				FSClose(refnum);
+				buf[rd] = '\0';
+
+				/* Strip trailing whitespace */
+				while (rd > 0 && (buf[rd - 1] ==
+				    '\r' || buf[rd - 1] == '\n' ||
+				    buf[rd - 1] == ' '))
+					buf[--rd] = '\0';
+
+				if (rd > 9 && strncmp(buf,
+				    "gopher://", 9) == 0)
+					do_navigate_url(buf);
+			}
+		}
+	}
+
+	AEDisposeDesc(&doc_list);
+	return noErr;
 }
 
 static pascal OSErr
@@ -367,6 +424,170 @@ do_new_window(void)
 }
 
 /*
+ * poll_active_session - Poll current session for incoming data.
+ * Batches TCP reads with a 4-tick draw deadline to prevent
+ * per-read redraws on large directories.
+ */
+static void
+poll_active_session(void)
+{
+	unsigned long draw_deadline;
+	short drain_count = 0;
+	Boolean needs_draw = false;
+
+	if (!g_gopher.receiving)
+		return;
+
+	draw_deadline = TickCount() + 4;
+	while (g_gopher.receiving && drain_count < 16) {
+		if (gopher_idle(&g_gopher))
+			needs_draw = true;
+		drain_count++;
+		if (TickCount() >= draw_deadline)
+			break;
+	}
+
+	if (needs_draw) {
+		GrafPtr save;
+		char prog[80];
+
+#ifdef GEOMYS_DOWNLOAD
+		if (g_gopher.page_type == PAGE_DOWNLOAD ||
+		    g_gopher.page_type == PAGE_IMAGE) {
+			if (!g_dl_dialog)
+				dl_progress_open();
+			dl_progress_update(
+			    g_gopher.dl_written);
+		} else
+#endif
+		{
+			if (g_gopher.page_type ==
+			    PAGE_DIRECTORY)
+				snprintf(prog, sizeof(prog),
+				    "Loading\311 %d items",
+				    g_gopher.item_count);
+			else
+				snprintf(prog, sizeof(prog),
+				    "Loading\311 %ld bytes",
+				    g_gopher.text_len);
+			browser_set_status(prog);
+		}
+
+		GetPort(&save);
+		SetPort(g_window);
+#ifdef GEOMYS_DOWNLOAD
+		if (g_gopher.page_type != PAGE_DOWNLOAD &&
+		    g_gopher.page_type != PAGE_IMAGE) {
+#endif
+			content_draw(g_window);
+			content_update_scroll(g_window);
+#ifdef GEOMYS_DOWNLOAD
+		}
+#endif
+		browser_draw_status(g_window);
+		SetPort(save);
+	}
+
+	if (!g_gopher.receiving)
+		handle_page_loaded();
+}
+
+#if GEOMYS_MAX_WINDOWS > 1
+/*
+ * poll_all_sessions - Poll all sessions for incoming data.
+ * Active session gets batched reads and redraws; background
+ * sessions are throttled to every 4th tick with no drawing.
+ */
+static void
+poll_all_sessions(void)
+{
+	BrowserSession *orig = active_session;
+	short si;
+	static unsigned short bg_tick;
+
+	bg_tick++;
+	for (si = 0; si < GEOMYS_MAX_WINDOWS; si++) {
+		BrowserSession *bs;
+
+		bs = session_get(si);
+		if (!bs || !bs->gopher.receiving)
+			continue;
+
+		if (bs == orig) {
+			/* Active session: batch reads with draw */
+			poll_active_session();
+			continue;
+		}
+
+		/* Background: throttle */
+		if ((bg_tick & 3) != 0)
+			continue;
+
+		/* Poll connection only — no drawing */
+		(void)gopher_idle(&bs->gopher);
+		if (!bs->gopher.receiving) {
+			/* Page done: switch for handle_page_loaded */
+			session_switch_to(bs);
+			SetPort(bs->window);
+			handle_page_loaded();
+		}
+	}
+
+	/* Restore original active session */
+	if (active_session != orig) {
+		session_switch_to(orig);
+		if (orig && orig->window)
+			SetPort(orig->window);
+	}
+}
+#endif
+
+/*
+ * finish_download - Shared cleanup after download/image save completes.
+ * Resets download state, restores previous page, title, and redraws.
+ */
+#ifdef GEOMYS_DOWNLOAD
+static void
+finish_download(void)
+{
+	GrafPtr save;
+
+	/* Reset download state */
+	g_gopher.dl_refnum = 0;
+	g_gopher.dl_written = 0;
+	g_gopher.dl_error = false;
+	g_gopher.dl_vrefnum = 0;
+	g_gopher.dl_filename[0] = 0;
+
+	/* Restore previous page and redraw */
+	g_gopher.page_type = g_gopher.dl_prev_page;
+
+	/* Restore title bar from history */
+	{
+		const HistoryEntry *he;
+
+		he = history_current();
+		if (he && he->title[0])
+			set_wtitlef(g_window, "%s",
+			    he->title);
+		else
+			set_wtitlef(g_window, "%s",
+			    g_gopher.cur_host);
+	}
+
+	/* Redraw entire window and update button state */
+	update_nav_buttons();
+	GetPort(&save);
+	SetPort(g_window);
+	content_mark_all_dirty();
+	content_draw(g_window);
+	content_update_scroll(g_window);
+	browser_draw(g_window);
+	SetPort(save);
+}
+#endif
+
+/*
  * handle_page_loaded - Handle completion of a Gopher page load.
  * Updates title, address bar, status bar, caches page,
  * and redraws. Must be called with correct session active.
@@ -420,41 +641,7 @@ handle_page_loaded(void)
 			browser_set_status(uri);
 		}
 
-		/* Reset download state */
-		g_gopher.dl_refnum = 0;
-		g_gopher.dl_written = 0;
-		g_gopher.dl_error = false;
-		g_gopher.dl_vrefnum = 0;
-		g_gopher.dl_filename[0] = 0;
-
-		/* Restore previous page and redraw. The old page
-		 * data (items/text) was preserved during download
-		 * so the directory listing is still intact. */
-		g_gopher.page_type = g_gopher.dl_prev_page;
-
-		/* Restore title bar from history */
-		{
-			const HistoryEntry *he;
-
-			he = history_current();
-			if (he && he->title[0])
-				set_wtitlef(g_window, "%s",
-				    he->title);
-			else
-				set_wtitlef(g_window, "%s",
-				    g_gopher.cur_host);
-		}
-
-		/* Redraw entire window and update button state */
-		update_nav_buttons();
-		GetPort(&save);
-		SetPort(g_window);
-		content_mark_all_dirty();
-		content_draw(g_window);
-		content_update_scroll(g_window);
-		browser_draw(g_window);
-		SetPort(save);
-
+		finish_download();
 		return;
 	}
 
@@ -547,41 +734,11 @@ handle_page_loaded(void)
 			browser_set_status(uri);
 		}
 
-		/* Reset download + image state */
-		g_gopher.dl_refnum = 0;
-		g_gopher.dl_written = 0;
-		g_gopher.dl_error = false;
-		g_gopher.dl_vrefnum = 0;
-		g_gopher.dl_filename[0] = 0;
+		/* Reset image-specific state */
 		g_gopher.img_header_len = 0;
 		g_gopher.img_sniffed = false;
 
-		/* Restore previous page and redraw */
-		g_gopher.page_type = g_gopher.dl_prev_page;
-
-		/* Restore title bar from history */
-		{
-			const HistoryEntry *he;
-
-			he = history_current();
-			if (he && he->title[0])
-				set_wtitlef(g_window, "%s",
-				    he->title);
-			else
-				set_wtitlef(g_window, "%s",
-				    g_gopher.cur_host);
-		}
-
-		/* Redraw entire window and update button state */
-		update_nav_buttons();
-		GetPort(&save);
-		SetPort(g_window);
-		content_mark_all_dirty();
-		content_draw(g_window);
-		content_update_scroll(g_window);
-		browser_draw(g_window);
-		SetPort(save);
-
+		finish_download();
 		return;
 	}
 #endif
@@ -709,199 +866,9 @@ main_event_loop(void)
 		switch (event.what) {
 		case nullEvent:
 #if GEOMYS_MAX_WINDOWS > 1
-			/* Poll ALL sessions for incoming data.
-			 * Background sessions: only poll connection,
-			 * do NOT draw (avoids offscreen buffer
-			 * conflicts). Drawing happens on activate
-			 * or when the session is the active one.
-			 * Throttle background to every 4th tick. */
-			{
-				BrowserSession *orig = active_session;
-				short si;
-				static unsigned short bg_tick;
-
-				bg_tick++;
-				for (si = 0; si < GEOMYS_MAX_WINDOWS;
-				    si++) {
-					BrowserSession *bs;
-
-					bs = session_get(si);
-					if (!bs ||
-					    !bs->gopher.receiving)
-						continue;
-
-					/* Active session: batch
-				 * TCP reads with draw
-				 * deadline to avoid
-				 * parse-draw-parse-draw */
-					if (bs == orig) {
-						unsigned long dd;
-						short dc = 0;
-						Boolean nd = false;
-
-						dd = TickCount() + 4;
-						while (g_gopher.receiving
-						    && dc < 16) {
-							if (gopher_idle(
-							    &g_gopher))
-								nd = true;
-							dc++;
-							if (TickCount()
-							    >= dd)
-								break;
-						}
-						if (nd) {
-							GrafPtr sp;
-							char pg[80];
-
-#ifdef GEOMYS_DOWNLOAD
-							if (g_gopher.page_type
-							    == PAGE_DOWNLOAD ||
-							    g_gopher.page_type
-							    == PAGE_IMAGE) {
-								if (!g_dl_dialog)
-									dl_progress_open();
-								dl_progress_update(
-								    g_gopher.dl_written);
-							} else
-#endif
-							{
-							if (g_gopher.page_type
-							    == PAGE_DIRECTORY)
-								snprintf(pg,
-								    sizeof(pg),
-								    "Loading\311 %d items",
-								    g_gopher.item_count);
-							else
-								snprintf(pg,
-								    sizeof(pg),
-								    "Loading\311 %ld bytes",
-								    g_gopher.text_len);
-							browser_set_status(pg);
-							}
-
-							GetPort(&sp);
-							SetPort(
-							    g_window);
-#ifdef GEOMYS_DOWNLOAD
-							if (g_gopher.page_type
-							    != PAGE_DOWNLOAD &&
-							    g_gopher.page_type
-							    != PAGE_IMAGE) {
-#endif
-							content_draw(
-							    g_window);
-							content_update_scroll(
-							    g_window);
-#ifdef GEOMYS_DOWNLOAD
-							}
-#endif
-							browser_draw_status(
-							    g_window);
-							SetPort(sp);
-						}
-						if (!g_gopher.receiving)
-							handle_page_loaded();
-						continue;
-					}
-
-					/* Background: throttle */
-					if ((bg_tick & 3) != 0)
-						continue;
-
-					/* Poll connection only —
-					 * no drawing, no state
-					 * switch needed since
-					 * gopher_idle operates
-					 * directly on the struct */
-					(void)gopher_idle(
-					    &bs->gopher);
-					if (!bs->gopher.receiving) {
-						/* Page done: do full
-						 * switch for
-						 * handle_page_loaded */
-						session_switch_to(bs);
-						SetPort(bs->window);
-						handle_page_loaded();
-					}
-				}
-
-				/* Restore original active session */
-				if (active_session != orig) {
-					session_switch_to(orig);
-					if (orig && orig->window)
-						SetPort(orig->window);
-				}
-			}
+			poll_all_sessions();
 #else
-			/* Poll Gopher connection for data.
-			 * Batch TCP reads with 4-tick draw
-			 * deadline to prevent per-read redraws
-			 * on large directories. */
-			if (g_gopher.receiving) {
-				unsigned long draw_deadline;
-				short drain_count = 0;
-				Boolean needs_draw = false;
-
-				draw_deadline = TickCount() + 4;
-				while (g_gopher.receiving
-				    && drain_count < 16) {
-					if (gopher_idle(&g_gopher))
-						needs_draw = true;
-					drain_count++;
-					if (TickCount() >= draw_deadline)
-						break;
-				}
-				if (needs_draw) {
-					GrafPtr save;
-					char prog[80];
-
-#ifdef GEOMYS_DOWNLOAD
-					if (g_gopher.page_type ==
-					    PAGE_DOWNLOAD ||
-					    g_gopher.page_type ==
-					    PAGE_IMAGE) {
-						if (!g_dl_dialog)
-							dl_progress_open();
-						dl_progress_update(
-						    g_gopher.dl_written);
-					} else
-#endif
-					{
-					if (g_gopher.page_type ==
-					    PAGE_DIRECTORY)
-						snprintf(prog,
-						    sizeof(prog),
-						    "Loading\311 %d items",
-						    g_gopher.item_count);
-					else
-						snprintf(prog,
-						    sizeof(prog),
-						    "Loading\311 %ld bytes",
-						    g_gopher.text_len);
-					browser_set_status(prog);
-					}
-
-					GetPort(&save);
-					SetPort(g_window);
-#ifdef GEOMYS_DOWNLOAD
-					if (g_gopher.page_type !=
-					    PAGE_DOWNLOAD &&
-					    g_gopher.page_type !=
-					    PAGE_IMAGE) {
-#endif
-					content_draw(g_window);
-					content_update_scroll(
-					    g_window);
-#ifdef GEOMYS_DOWNLOAD
-					}
-#endif
-					browser_draw_status(g_window);
-					SetPort(save);
-				}
-				if (!g_gopher.receiving)
-					handle_page_loaded();
-			}
+			poll_active_session();
 #endif
 
 			/* Address bar cursor blink + content cursor update */

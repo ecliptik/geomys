@@ -47,14 +47,15 @@ static CursHandle g_hand_cursor = 0L;  /* hand cursor for links */
 #ifdef GEOMYS_CLIPBOARD
 static CursHandle g_ibeam_cursor = 0L; /* I-beam cursor for text */
 #endif
-static short g_scrolling = 0;          /* 1 during scroll action — skip offscreen */
 static short g_hover_row = -1;         /* currently highlighted row, -1 = none */
 static short g_selected_row = -1;      /* keyboard-selected row, -1 = none */
 static short g_in_full_draw = 0;       /* 1 during content_draw loop — skip per-row clip/restore */
+static RgnHandle g_clip_rgn = 0L;     /* pre-allocated clip save/restore region */
 
 /* Dirty-row tracking: skip redrawing rows that haven't changed */
 static unsigned char g_dirty[512];     /* per-row dirty flag */
 static short g_dirty_all = 1;          /* 1 = redraw all rows */
+static short g_dirty_count = 0;        /* number of individually dirty rows */
 
 /* Shadow buffer: per-row state for change detection */
 #define SHADOW_MAX_ROWS  64   /* max visible rows tracked */
@@ -66,6 +67,68 @@ typedef struct {
 } ShadowRow;
 static ShadowRow g_shadow[SHADOW_MAX_ROWS];
 static short g_shadow_valid;  /* 1 if shadow state is populated */
+
+/*
+ * shadow_needs_draw - Check if a row's state has changed since last draw.
+ * Returns 1 if the row needs redrawing, 0 if shadow matches.
+ * sel_cached: 1 if normalized selection bounds are valid.
+ */
+static short
+shadow_needs_draw(short slot, short row_index, short hover_flag,
+    short sel_cached, short norm_sr, short norm_sc,
+    short norm_er, short norm_ec)
+{
+	ShadowRow cur;
+
+	if (!g_shadow_valid || slot >= SHADOW_MAX_ROWS)
+		return 1;
+
+	cur.item_index = row_index;
+	cur.hover_flag = hover_flag;
+	cur.sel_start = -1;
+	cur.sel_end = -1;
+
+	if (sel_cached && row_index >= norm_sr &&
+	    row_index <= norm_er) {
+		cur.sel_start = (row_index == norm_sr) ?
+		    norm_sc : 0;
+		cur.sel_end = (row_index == norm_er) ?
+		    norm_ec : 32767;
+	}
+
+	if (cur.item_index == g_shadow[slot].item_index &&
+	    cur.hover_flag == g_shadow[slot].hover_flag &&
+	    cur.sel_start == g_shadow[slot].sel_start &&
+	    cur.sel_end == g_shadow[slot].sel_end)
+		return 0;
+
+	return 1;
+}
+
+/*
+ * shadow_update - Record current row state in shadow buffer.
+ */
+static void
+shadow_update(short slot, short row_index, short hover_flag,
+    short sel_cached, short norm_sr, short norm_sc,
+    short norm_er, short norm_ec)
+{
+	if (slot >= SHADOW_MAX_ROWS)
+		return;
+
+	g_shadow[slot].item_index = row_index;
+	g_shadow[slot].hover_flag = hover_flag;
+	g_shadow[slot].sel_start = -1;
+	g_shadow[slot].sel_end = -1;
+
+	if (sel_cached && row_index >= norm_sr &&
+	    row_index <= norm_er) {
+		g_shadow[slot].sel_start =
+		    (row_index == norm_sr) ? norm_sc : 0;
+		g_shadow[slot].sel_end =
+		    (row_index == norm_er) ? norm_ec : 32767;
+	}
+}
 
 #ifdef GEOMYS_CLIPBOARD
 /* Selection state */
@@ -115,14 +178,18 @@ count_rows(void)
 void
 content_mark_dirty(short row)
 {
-	if (row >= 0 && row < 512)
+	if (row >= 0 && row < 512) {
+		if (!g_dirty[row])
+			g_dirty_count++;
 		g_dirty[row] = 1;
+	}
 }
 
 void
 content_mark_all_dirty(void)
 {
 	g_dirty_all = 1;
+	g_dirty_count = 0;
 	g_shadow_valid = 0;
 }
 
@@ -183,6 +250,10 @@ content_init(WindowPtr win)
 	g_ibeam_cursor = GetCursor(iBeamCursor);
 #endif
 
+	/* Pre-allocate reusable clip save/restore region.
+	 * Avoids per-row NewRgn/DisposeRgn overhead. */
+	g_clip_rgn = NewRgn();
+
 	/* Initialize font from prefs */
 	{
 		extern GeomysPrefs g_prefs;
@@ -195,6 +266,10 @@ content_init(WindowPtr win)
 void
 content_cleanup(void)
 {
+	if (g_clip_rgn) {
+		DisposeRgn(g_clip_rgn);
+		g_clip_rgn = 0L;
+	}
 	if (g_hscrollbar) {
 		DisposeControl(g_hscrollbar);
 		g_hscrollbar = 0L;
@@ -319,17 +394,17 @@ cp437_translate(char *dst, const char *src, short len)
 #ifdef GEOMYS_CLIPBOARD
 static void
 draw_selection_rect(Rect *inv_r, short row_index,
-    short y, WindowPtr win)
+    short y, WindowPtr win,
+    const char *row_text, short row_text_len)
 {
 #ifdef GEOMYS_THEMES
 #ifdef GEOMYS_COLOR
 	if (g_has_color_qd) {
 		const ThemeColors *st = theme_current();
 		if (st) {
-			RgnHandle save_clip;
 			Rect cr;
-			const char *text = 0L;
-			short text_len = 0;
+			const char *text;
+			short text_len;
 			short text_x;
 
 			/* Fill selection background */
@@ -337,9 +412,12 @@ draw_selection_rect(Rect *inv_r, short row_index,
 			EraseRect(inv_r);
 			theme_set_fg(&st->sel_fg);
 
-			/* Get row text (formatted with prefix
-			 * to match draw logic) */
-			{
+			/* Use pre-formatted text if provided,
+			 * otherwise fetch it */
+			if (row_text && row_text_len > 0) {
+				text = row_text;
+				text_len = row_text_len;
+			} else {
 				char row_buf[256];
 
 				text_len = content_row_text(
@@ -351,23 +429,32 @@ draw_selection_rect(Rect *inv_r, short row_index,
 					g_sel_text_buf[text_len]
 					    = '\0';
 					text = g_sel_text_buf;
+				} else {
+					text = 0L;
 				}
 			}
 
-			/* Redraw text clipped to selection */
+			/* Redraw text clipped to selection.
+			 * During full draw, content_draw() owns
+			 * g_clip_rgn — use content rect to
+			 * restore clip instead of the region.
+			 * Outside full draw, save/restore via
+			 * g_clip_rgn as usual. */
 			if (text && text_len > 0) {
-				save_clip = NewRgn();
-				GetClip(save_clip);
+				content_get_rect(win, &cr);
+				if (!g_in_full_draw && g_clip_rgn)
+					GetClip(g_clip_rgn);
 				ClipRect(inv_r);
 
-				content_get_rect(win, &cr);
 				text_x = cr.left + 4 -
 				    g_hscroll_pos;
 				MoveTo(text_x, y - 2);
 				DrawText((Ptr)text, 0, text_len);
 
-				SetClip(save_clip);
-				DisposeRgn(save_clip);
+				if (g_in_full_draw)
+					ClipRect(&cr);
+				else if (g_clip_rgn)
+					SetClip(g_clip_rgn);
 			}
 
 			theme_reset_cache();
@@ -381,6 +468,180 @@ draw_selection_rect(Rect *inv_r, short row_index,
 }
 #endif /* GEOMYS_CLIPBOARD */
 
+/*
+ * format_row_text - Build formatted row string for a directory item.
+ * Produces the same output as the old snprintf patterns:
+ *   "      %.*s"  (icons style or info items)
+ *   " DIR  %.*s"  (text style, normal)
+ *   " DIR+ %.*s"  (text style, Gopher+)
+ *   " <DL> %.*s"  (text style, download)
+ *   " <DL+> %.*s" (text style, download with Gopher+)
+ * Uses memcpy for the fixed prefixes — avoids snprintf overhead on 68000.
+ * Returns length of text placed in buf.
+ * If out_split is non-NULL, stores the split position in display text
+ * (first double-space separator), or -1 if none found.
+ */
+static short
+format_row_text(GopherItem *item, short page_style, char *buf,
+    short bufsiz, short *out_split)
+{
+	const char *disp = item->display;
+	short dlen = strlen(disp);
+	short split_pos = -1;
+	short name_len, li, pos, lbl_len, avail;
+	const char *label;
+
+	/* Find split point: first run of 2+ spaces separates
+	 * name from metadata (skip info lines — plain text may
+	 * have natural double spaces e.g. after periods) */
+	if (item->type != GOPHER_INFO) {
+		for (li = 1; li < dlen - 1; li++) {
+			if (disp[li] == ' ' &&
+			    disp[li + 1] == ' ') {
+				split_pos = li;
+				break;
+			}
+		}
+	}
+
+	if (out_split)
+		*out_split = split_pos;
+
+	name_len = (split_pos > 0) ? split_pos : dlen;
+
+	if (bufsiz <= 0)
+		return 0;
+
+	pos = 0;
+
+	if (page_style == STYLE_ICONS ||
+	    item->type == GOPHER_INFO) {
+		/* "      %.*s" — 6 spaces + name */
+		if (pos + 6 < bufsiz) {
+			memcpy(buf + pos, "      ", 6);
+			pos += 6;
+		}
+	} else {
+		label = gopher_type_label(item->type);
+		lbl_len = strlen(label);
+
+		if (gopher_type_is_download(item->type)) {
+#ifdef GEOMYS_GOPHER_PLUS
+			if (item->has_plus) {
+				/* " <%s+> %.*s" */
+				if (pos + 2 < bufsiz) {
+					buf[pos++] = ' ';
+					buf[pos++] = '<';
+				}
+				avail = bufsiz - pos - 4;
+				if (lbl_len > avail)
+					lbl_len = avail;
+				if (lbl_len > 0) {
+					memcpy(buf + pos, label,
+					    lbl_len);
+					pos += lbl_len;
+				}
+				if (pos + 3 < bufsiz) {
+					buf[pos++] = '+';
+					buf[pos++] = '>';
+					buf[pos++] = ' ';
+				}
+			} else
+#endif
+			{
+				/* " <%s> %.*s" */
+				if (pos + 2 < bufsiz) {
+					buf[pos++] = ' ';
+					buf[pos++] = '<';
+				}
+				avail = bufsiz - pos - 3;
+				if (lbl_len > avail)
+					lbl_len = avail;
+				if (lbl_len > 0) {
+					memcpy(buf + pos, label,
+					    lbl_len);
+					pos += lbl_len;
+				}
+				if (pos + 2 < bufsiz) {
+					buf[pos++] = '>';
+					buf[pos++] = ' ';
+				}
+			}
+		} else {
+#ifdef GEOMYS_GOPHER_PLUS
+			if (item->has_plus) {
+				/* " %s+ %.*s" */
+				if (pos + 1 < bufsiz)
+					buf[pos++] = ' ';
+				avail = bufsiz - pos - 3;
+				if (lbl_len > avail)
+					lbl_len = avail;
+				if (lbl_len > 0) {
+					memcpy(buf + pos, label,
+					    lbl_len);
+					pos += lbl_len;
+				}
+				if (pos + 2 < bufsiz) {
+					buf[pos++] = '+';
+					buf[pos++] = ' ';
+				}
+			} else
+#endif
+			{
+				/* " %s  %.*s" */
+				if (pos + 1 < bufsiz)
+					buf[pos++] = ' ';
+				avail = bufsiz - pos - 3;
+				if (lbl_len > avail)
+					lbl_len = avail;
+				if (lbl_len > 0) {
+					memcpy(buf + pos, label,
+					    lbl_len);
+					pos += lbl_len;
+				}
+				if (pos + 2 < bufsiz) {
+					buf[pos++] = ' ';
+					buf[pos++] = ' ';
+				}
+			}
+		}
+	}
+
+	/* Append name portion */
+	avail = bufsiz - pos - 1;  /* leave room for NUL */
+	if (name_len > avail)
+		name_len = avail;
+	if (name_len > 0) {
+		memcpy(buf + pos, disp, name_len);
+		pos += name_len;
+	}
+
+	buf[pos] = '\0';
+	return pos;
+}
+
+#if defined(GEOMYS_THEMES) && defined(GEOMYS_COLOR)
+/*
+ * set_item_fg_color - Set QuickDraw foreground color based on item type.
+ * Extracts the repeated type-to-color selection pattern.
+ */
+static void
+set_item_fg_color(const ThemeColors *t, char type)
+{
+	if (type == GOPHER_ERROR)
+		theme_set_fg(&t->link_error);
+	else if (type == GOPHER_SEARCH)
+		theme_set_fg(&t->link_search);
+	else if (gopher_type_is_download(type))
+		theme_set_fg(&t->link_download);
+	else if (gopher_type_navigable(type) ||
+	    type == GOPHER_HTML)
+		theme_set_fg(&t->link);
+	else
+		theme_set_fg(&t->link_external);
+}
+#endif
+
 /* Draw a single directory row.
  * Self-contained — sets clip, font, erases, draws.
  * row_index is the absolute index in g_page->items[]. */
@@ -391,11 +652,12 @@ content_draw_row(WindowPtr win, short row_index)
 	short y, content_width;
 	GopherItem *item;
 	char line[100];
-	const char *label;
-	short len, text_width;
+	short len, text_width, split_pos;
 	Str255 ps;
-	RgnHandle save_clip = 0L;
 	extern GeomysPrefs g_prefs;
+#ifdef GEOMYS_THEMES
+	const ThemeColors *t;
+#endif
 
 	if (!g_page || g_page->page_type != PAGE_DIRECTORY)
 		return;
@@ -409,9 +671,8 @@ content_draw_row(WindowPtr win, short row_index)
 	    row_index > g_scroll_pos + visible_rows(win))
 		return;
 
-	if (!g_in_full_draw) {
-		save_clip = NewRgn();
-		GetClip(save_clip);
+	if (!g_in_full_draw && g_clip_rgn) {
+		GetClip(g_clip_rgn);
 		ClipRect(&r);
 	}
 
@@ -422,8 +683,8 @@ content_draw_row(WindowPtr win, short row_index)
 	    r.right, y);
 
 #ifdef GEOMYS_THEMES
+	t = theme_current();
 	{
-		const ThemeColors *t = theme_current();
 		short did_erase = 0;
 
 		if (t) {
@@ -443,21 +704,9 @@ content_draw_row(WindowPtr win, short row_index)
 					    &g_page->items[row_index];
 					if (ti->type == GOPHER_INFO)
 						theme_set_fg(&t->text);
-					else if (ti->type == GOPHER_ERROR)
-						theme_set_fg(&t->link_error);
-					else if (ti->type == GOPHER_SEARCH)
-						theme_set_fg(&t->link_search);
-					else if (gopher_type_is_download(
-					    ti->type))
-						theme_set_fg(
-						    &t->link_download);
-					else if (gopher_type_navigable(
-					    ti->type) ||
-					    ti->type == GOPHER_HTML)
-						theme_set_fg(&t->link);
 					else
-						theme_set_fg(
-						    &t->link_external);
+						set_item_fg_color(t,
+						    ti->type);
 				}
 			} else
 #endif
@@ -480,314 +729,178 @@ content_draw_row(WindowPtr win, short row_index)
 	content_width = r.right - r.left - 8;
 
 	item = &g_page->items[row_index];
-	label = gopher_type_label(item->type);
 
-	/* Find split point in display text: first run of
-	 * 2+ spaces separates name from metadata */
-	{
-		const char *disp = item->display;
-		short dlen = strlen(disp);
-		short split_pos = -1;
-		short name_len;
-		short li;
+	/* Format line with style prefix (memcpy-based) */
+	len = format_row_text(item, g_prefs.page_style, line,
+	    sizeof(line), &split_pos);
+	if (len > 255) len = 255;
 
-		/* Only split non-info items — info lines are
-		 * plain text that may have natural double
-		 * spaces (e.g. after periods) */
-		if (item->type != GOPHER_INFO) {
-			for (li = 1; li < dlen - 1; li++) {
-				if (disp[li] == ' ' &&
-				    disp[li + 1] == ' ') {
-					split_pos = li;
-					break;
-				}
-			}
-		}
+	/* Measure name width */
+	text_width = TextWidth(line, 0, len);
 
-		/* Determine name portion length */
-		name_len = (split_pos > 0) ? split_pos : dlen;
-
-		/* Format line with style prefix using name
-		 * portion only */
-		switch (g_prefs.page_style) {
-		case STYLE_ICONS:
-			snprintf(line, sizeof(line),
-			    "      %.*s",
-			    name_len, disp);
-			break;
-		default: /* STYLE_TEXT */
-			if (item->type == GOPHER_INFO)
-				snprintf(line, sizeof(line),
-				    "      %.*s",
-				    name_len, disp);
-			else if (gopher_type_is_download(
-			    item->type)) {
-#ifdef GEOMYS_GOPHER_PLUS
-				if (item->has_plus)
-					snprintf(line,
-					    sizeof(line),
-					    " <%s+> %.*s",
-					    label,
-					    name_len, disp);
-				else
-#endif
-					snprintf(line,
-					    sizeof(line),
-					    " <%s> %.*s",
-					    label,
-					    name_len, disp);
-			} else {
-#ifdef GEOMYS_GOPHER_PLUS
-				if (item->has_plus)
-					snprintf(line,
-					    sizeof(line),
-					    " %s+ %.*s", label,
-					    name_len, disp);
-				else
-#endif
-					snprintf(line,
-					    sizeof(line),
-					    " %s  %.*s", label,
-					    name_len, disp);
-			}
-			break;
-		}
-
-		len = strlen(line);
-		if (len > 255) len = 255;
-
-		/* Measure name width */
-		text_width = TextWidth(line, 0, len);
-
-		/* Draw with horizontal offset —
-		 * ClipRect handles clipping automatically.
-		 * Traditional style: draw label prefix in
-		 * label color, then name in link color. */
+	/* Draw with horizontal offset —
+	 * ClipRect handles clipping automatically.
+	 * Traditional style: draw label prefix in
+	 * label color, then name in link color. */
 #if defined(GEOMYS_THEMES) && defined(GEOMYS_COLOR)
-		if (g_has_color_qd &&
-		    item->type != GOPHER_INFO) {
-			const ThemeColors *lt =
-			    theme_current();
-			if (lt && g_prefs.page_style ==
-			    STYLE_TEXT) {
-				/* Text style: label prefix in
-				 * label color, name in link
-				 * color */
-				short lbl_len = 5;
-				Str255 lps;
+	if (g_has_color_qd &&
+	    item->type != GOPHER_INFO) {
+		if (t && g_prefs.page_style ==
+		    STYLE_TEXT) {
+			/* Text style: label prefix in
+			 * label color, name in link
+			 * color */
+			short lbl_len = 5;
+			Str255 lps;
 
 #ifdef GEOMYS_GOPHER_PLUS
-				if (item->has_plus)
-					lbl_len = 5;
+			if (item->has_plus)
+				lbl_len = 5;
 #endif
-				if (lbl_len > len)
-					lbl_len = len;
+			if (lbl_len > len)
+				lbl_len = len;
 
-				/* Draw label in label color */
-				theme_set_fg(&lt->label);
-				lps[0] = lbl_len;
-				memcpy(lps + 1, line,
-				    lbl_len);
-				MoveTo(r.left + 4 -
-				    g_hscroll_pos, y - 2);
-				DrawString(lps);
+			/* Draw label in label color */
+			theme_set_fg(&t->label);
+			lps[0] = lbl_len;
+			memcpy(lps + 1, line,
+			    lbl_len);
+			MoveTo(r.left + 4 -
+			    g_hscroll_pos, y - 2);
+			DrawString(lps);
 
-				/* Draw name in link color */
-				{
-					GopherItem *ci =
-					    &g_page->items[
-					    row_index];
-					if (ci->type ==
-					    GOPHER_ERROR)
-						theme_set_fg(
-						    &lt->link_error);
-					else if (ci->type ==
-					    GOPHER_SEARCH)
-						theme_set_fg(
-						    &lt->link_search);
-					else if (
-					    gopher_type_is_download(
-					    ci->type))
-						theme_set_fg(
-						    &lt->
-						    link_download);
-					else if (
-					    gopher_type_navigable(
-					    ci->type) ||
-					    ci->type ==
-					    GOPHER_HTML)
-						theme_set_fg(
-						    &lt->link);
-					else
-						theme_set_fg(
-						    &lt->
-						    link_external);
-				}
-				if (len > lbl_len) {
-					ps[0] = len - lbl_len;
-					memcpy(ps + 1,
-					    line + lbl_len,
-					    len - lbl_len);
-					DrawString(ps);
-				}
-			} else if (lt) {
-				/* Icons style: all text in
-				 * link color */
-				GopherItem *ci =
-				    &g_page->items[
-				    row_index];
-				if (ci->type ==
-				    GOPHER_ERROR)
-					theme_set_fg(
-					    &lt->link_error);
-				else if (ci->type ==
-				    GOPHER_SEARCH)
-					theme_set_fg(
-					    &lt->link_search);
-				else if (
-				    gopher_type_is_download(
-				    ci->type))
-					theme_set_fg(
-					    &lt->
-					    link_download);
-				else if (
-				    gopher_type_navigable(
-				    ci->type) ||
-				    ci->type ==
-				    GOPHER_HTML)
-					theme_set_fg(
-					    &lt->link);
-				else
-					theme_set_fg(
-					    &lt->
-					    link_external);
-				ps[0] = len;
-				memcpy(ps + 1, line, len);
-				MoveTo(r.left + 4 -
-				    g_hscroll_pos, y - 2);
-				DrawString(ps);
-			} else {
-				ps[0] = len;
-				memcpy(ps + 1, line, len);
-				MoveTo(r.left + 4 -
-				    g_hscroll_pos, y - 2);
+			/* Draw name in link color */
+			set_item_fg_color(t, item->type);
+			if (len > lbl_len) {
+				ps[0] = len - lbl_len;
+				memcpy(ps + 1,
+				    line + lbl_len,
+				    len - lbl_len);
 				DrawString(ps);
 			}
-		} else
-#endif
-		{
+		} else if (t) {
+			/* Icons style: all text in
+			 * link color */
+			set_item_fg_color(t, item->type);
 			ps[0] = len;
 			memcpy(ps + 1, line, len);
-			MoveTo(r.left + 4 - g_hscroll_pos,
-			    y - 2);
+			MoveTo(r.left + 4 -
+			    g_hscroll_pos, y - 2);
+			DrawString(ps);
+		} else {
+			ps[0] = len;
+			memcpy(ps + 1, line, len);
+			MoveTo(r.left + 4 -
+			    g_hscroll_pos, y - 2);
 			DrawString(ps);
 		}
+	} else
+#endif
+	{
+		ps[0] = len;
+		memcpy(ps + 1, line, len);
+		MoveTo(r.left + 4 - g_hscroll_pos,
+		    y - 2);
+		DrawString(ps);
+	}
 
-		/* Draw icon for Icons style */
-		if (g_prefs.page_style == STYLE_ICONS &&
-		    item->type != GOPHER_INFO) {
-			const GopherIcon *gi;
-			gi = gopher_icon_for_type(
-			    item->type);
-			if (gi) {
-				short ix, iy, inv;
-				ix = r.left + 4 -
-				    g_hscroll_pos;
-				iy = y - g_row_height +
-				    (g_row_height -
-				    gi->height) / 2;
-				inv = 0;
+	/* Draw icon for Icons style */
+	if (g_prefs.page_style == STYLE_ICONS &&
+	    item->type != GOPHER_INFO) {
+		const GopherIcon *gi;
+		gi = gopher_icon_for_type(
+		    item->type);
+		if (gi) {
+			short ix, iy, inv;
+			ix = r.left + 4 -
+			    g_hscroll_pos;
+			iy = y - g_row_height +
+			    (g_row_height -
+			    gi->height) / 2;
+			inv = 0;
 #ifdef GEOMYS_THEMES
-				/* Mono dark: use srcBic to
-				 * draw white icons on black
-				 * background */
-				if (theme_is_dark() &&
-				    !theme_is_color())
-					inv = 1;
+			/* Mono dark: use srcBic to
+			 * draw white icons on black
+			 * background */
+			if (theme_is_dark() &&
+			    !theme_is_color())
+				inv = 1;
 #if defined(GEOMYS_COLOR)
-				if (g_has_color_qd) {
-					const ThemeColors
-					    *lt =
-					    theme_current();
-					if (lt) {
-						theme_set_fg(
-						    &lt->label);
-						inv = 0;
-					}
-				}
-#endif
-#endif
-				gopher_icon_draw(gi,
-				    ix, iy, inv);
+			if (g_has_color_qd && t) {
+				theme_set_fg(
+				    &t->label);
+				inv = 0;
 			}
+#endif
+#endif
+			gopher_icon_draw(gi,
+			    ix, iy, inv);
 		}
+	}
 
-		/* Draw metadata right-aligned when Show
-		 * Details is on and metadata exists.
-		 * Metadata stays fixed at right edge
-		 * (not affected by hscroll). */
-		if (split_pos > 0 && g_prefs.show_details) {
-			const char *rp = disp + split_pos;
-			short right_len, right_w;
-			short right_avail;
-			short ellipsis_w;
+	/* Draw metadata right-aligned when Show
+	 * Details is on and metadata exists.
+	 * Metadata stays fixed at right edge
+	 * (not affected by hscroll). */
+	if (split_pos > 0 && g_prefs.show_details) {
+		const char *disp = item->display;
+		short dlen = strlen(disp);
+		const char *rp = disp + split_pos;
+		short right_len, right_w;
+		short right_avail;
+		short ellipsis_w;
 
-			ellipsis_w = TextWidth("\xC9", 0, 1);
+		ellipsis_w = TextWidth("\xC9", 0, 1);
 
-			/* Skip padding spaces */
-			while (*rp == ' ' && rp < disp + dlen)
-				rp++;
-			right_len = dlen - (rp - disp);
+		/* Skip padding spaces */
+		while (*rp == ' ' && rp < disp + dlen)
+			rp++;
+		right_len = dlen - (rp - disp);
 
-			if (right_len > 0 && right_len < 100) {
-				char right_buf[100];
+		if (right_len > 0 && right_len < 100) {
+			char right_buf[100];
 
-				right_w = TextWidth(rp, 0,
+			right_w = TextWidth(rp, 0,
+			    right_len);
+			right_avail = content_width -
+			    text_width - 4;
+
+			/* Truncate metadata from right
+			 * with ellipsis if needed */
+			if (right_w > right_avail &&
+			    right_len > 1) {
+				short mw = right_avail
+				    - ellipsis_w;
+				memcpy(right_buf, rp,
 				    right_len);
-				right_avail = content_width -
-				    text_width - 4;
+				while (right_len > 1 &&
+				    TextWidth(right_buf,
+				    0, right_len) > mw)
+					right_len--;
+				right_buf[right_len] =
+				    '\xC9';
+				right_len++;
+				right_w = TextWidth(
+				    right_buf, 0,
+				    right_len);
+				rp = right_buf;
+			}
 
-				/* Truncate metadata from right
-				 * with ellipsis if needed */
-				if (right_w > right_avail &&
-				    right_len > 1) {
-					short mw = right_avail
-					    - ellipsis_w;
-					memcpy(right_buf, rp,
-					    right_len);
-					while (right_len > 1 &&
-					    TextWidth(right_buf,
-					    0, right_len) > mw)
-						right_len--;
-					right_buf[right_len] =
-					    '\xC9';
-					right_len++;
-					right_w = TextWidth(
-					    right_buf, 0,
-					    right_len);
-					rp = right_buf;
-				}
-
-				/* Right-align metadata */
-				if (right_avail > ellipsis_w) {
+			/* Right-align metadata */
+			if (right_avail > ellipsis_w) {
 #ifdef GEOMYS_THEMES
-					{
-						const ThemeColors *mt =
-						    theme_current();
 #ifdef GEOMYS_COLOR
-						if (mt && g_has_color_qd)
-							theme_set_fg(
-							    &mt->metadata);
+				if (t && g_has_color_qd)
+					theme_set_fg(
+					    &t->metadata);
 #endif
-					}
 #endif
-					ps[0] = right_len;
-					memcpy(ps + 1, rp,
-					    right_len);
-					MoveTo(r.right - 4 -
-					    right_w, y - 2);
-					DrawString(ps);
-				}
+				ps[0] = right_len;
+				memcpy(ps + 1, rp,
+				    right_len);
+				MoveTo(r.right - 4 -
+				    right_w, y - 2);
+				DrawString(ps);
 			}
 		}
 	}
@@ -850,7 +963,7 @@ content_draw_row(WindowPtr win, short row_index)
 				    y - g_row_height, x2, y);
 				draw_selection_rect(
 				    &inv_r, row_index,
-				    y, win);
+				    y, win, line, len);
 			}
 		}
 	}
@@ -882,10 +995,8 @@ content_draw_row(WindowPtr win, short row_index)
 	if (!g_in_full_draw)
 		theme_restore_colors();
 
-	if (!g_in_full_draw) {
-		SetClip(save_clip);
-		DisposeRgn(save_clip);
-	}
+	if (!g_in_full_draw && g_clip_rgn)
+		SetClip(g_clip_rgn);
 }
 
 /* Draw a single text row by index.
@@ -898,7 +1009,6 @@ content_draw_text_row(WindowPtr win, short line_index)
 	short y;
 	const char *line_start;
 	short line_len;
-	RgnHandle save_clip = 0L;
 
 	if (!g_page || (g_page->page_type != PAGE_TEXT
 #ifdef GEOMYS_HTML
@@ -919,9 +1029,8 @@ content_draw_text_row(WindowPtr win, short line_index)
 	    line_index > g_scroll_pos + visible_rows(win))
 		return;
 
-	if (!g_in_full_draw) {
-		save_clip = NewRgn();
-		GetClip(save_clip);
+	if (!g_in_full_draw && g_clip_rgn) {
+		GetClip(g_clip_rgn);
 		ClipRect(&r);
 	}
 
@@ -1043,7 +1152,7 @@ content_draw_text_row(WindowPtr win, short line_index)
 				    y - g_row_height, x2, y);
 				draw_selection_rect(
 				    &inv_r, line_index,
-				    y, win);
+				    y, win, 0L, 0);
 			}
 		}
 	}
@@ -1061,10 +1170,8 @@ content_draw_text_row(WindowPtr win, short line_index)
 	if (!g_in_full_draw)
 		theme_restore_colors();
 
-	if (!g_in_full_draw) {
-		SetClip(save_clip);
-		DisposeRgn(save_clip);
-	}
+	if (!g_in_full_draw && g_clip_rgn)
+		SetClip(g_clip_rgn);
 }
 
 void
@@ -1072,8 +1179,12 @@ content_draw(WindowPtr win)
 {
 	Rect r, erase_r;
 	short i, start_row, end_row;
-	RgnHandle save_clip;
 	short last_y;
+#ifdef GEOMYS_CLIPBOARD
+	short norm_sr = -1, norm_sc = -1;
+	short norm_er = -1, norm_ec = -1;
+	short sel_cached = 0;
+#endif
 #ifdef GEOMYS_OFFSCREEN
 	short use_offscreen;
 	short dirty_lo = 32767;  /* lowest drawn row (screen pos) */
@@ -1084,11 +1195,7 @@ content_draw(WindowPtr win)
 	 * This ensures callers that don't mark dirty still
 	 * get correct behavior (backward compatible). */
 	if (!g_dirty_all) {
-		short any = 0, di;
-		for (di = 0; di < 512; di++) {
-			if (g_dirty[di]) { any = 1; break; }
-		}
-		if (!any) {
+		if (g_dirty_count == 0) {
 			g_dirty_all = 1;
 			/* No explicit dirty marks — caller wants a
 			 * full redraw.  Invalidate shadow to prevent
@@ -1105,14 +1212,15 @@ content_draw(WindowPtr win)
 #endif
 
 #ifdef GEOMYS_OFFSCREEN
-	use_offscreen = offscreen_is_ready() && !g_scrolling;
+	use_offscreen = offscreen_is_ready();
 	if (use_offscreen)
 		offscreen_begin(win);
 #endif
 
 	/* Clip to content area (excluding scrollbar) */
-	save_clip = NewRgn();
-	GetClip(save_clip);
+	if (!g_clip_rgn)
+		return;
+	GetClip(g_clip_rgn);
 	ClipRect(&r);
 
 	/* Erase each row as we draw to reduce flicker.
@@ -1132,14 +1240,27 @@ content_draw(WindowPtr win)
 #endif
 		EraseRect(&r);
 		theme_restore_colors();
-		SetClip(save_clip);
-		DisposeRgn(save_clip);
+		SetClip(g_clip_rgn);
 		return;
 	}
 
 	start_row = g_scroll_pos;
 	end_row = start_row + visible_rows(win) + 1;
 	last_y = r.top;
+
+#ifdef GEOMYS_CLIPBOARD
+	/* Cache normalized selection once before the draw
+	 * loop — avoids calling sel_normalize() per row */
+	if (g_sel.active) {
+		norm_sr = g_sel.anchor_row;
+		norm_sc = g_sel.anchor_col;
+		norm_er = g_sel.extent_row;
+		norm_ec = g_sel.extent_col;
+		sel_normalize(&norm_sr, &norm_sc,
+		    &norm_er, &norm_ec);
+		sel_cached = 1;
+	}
+#endif
 
 	g_in_full_draw = 1;
 
@@ -1154,45 +1275,17 @@ content_draw(WindowPtr win)
 			need_draw = g_dirty_all ||
 			    (i < 512 && g_dirty[i]);
 
-			/* Shadow buffer check — skip if row
-			 * state is unchanged from last draw */
-			if (need_draw && g_shadow_valid &&
-			    slot < SHADOW_MAX_ROWS) {
-				ShadowRow cur;
-				cur.item_index = i;
-				cur.hover_flag =
-				    (i == g_hover_row);
-				cur.sel_start = -1;
-				cur.sel_end = -1;
+			if (need_draw &&
+			    !shadow_needs_draw(slot, i,
+			    (i == g_hover_row),
 #ifdef GEOMYS_CLIPBOARD
-				if (g_sel.active) {
-					short sr, sc, er, ec;
-					sr = g_sel.anchor_row;
-					sc = g_sel.anchor_col;
-					er = g_sel.extent_row;
-					ec = g_sel.extent_col;
-					sel_normalize(&sr, &sc,
-					    &er, &ec);
-					if (i >= sr && i <= er) {
-						cur.sel_start =
-						    (i == sr) ?
-						    sc : 0;
-						cur.sel_end =
-						    (i == er) ?
-						    ec : 32767;
-					}
-				}
+			    sel_cached, norm_sr, norm_sc,
+			    norm_er, norm_ec
+#else
+			    0, -1, -1, -1, -1
 #endif
-				if (cur.item_index ==
-				    g_shadow[slot].item_index &&
-				    cur.hover_flag ==
-				    g_shadow[slot].hover_flag &&
-				    cur.sel_start ==
-				    g_shadow[slot].sel_start &&
-				    cur.sel_end ==
-				    g_shadow[slot].sel_end)
-					need_draw = 0;
-			}
+			    ))
+				need_draw = 0;
 
 			if (need_draw) {
 				content_draw_row(win, i);
@@ -1202,39 +1295,16 @@ content_draw(WindowPtr win)
 				if (slot > dirty_hi)
 					dirty_hi = slot;
 #endif
-				/* Update shadow */
-				if (slot < SHADOW_MAX_ROWS) {
-					g_shadow[slot].item_index
-					    = i;
-					g_shadow[slot].hover_flag
-					    = (i == g_hover_row);
-					g_shadow[slot].sel_start
-					    = -1;
-					g_shadow[slot].sel_end
-					    = -1;
+				shadow_update(slot, i,
+				    (i == g_hover_row),
 #ifdef GEOMYS_CLIPBOARD
-					if (g_sel.active) {
-						short sr, sc, er, ec;
-						sr = g_sel.anchor_row;
-						sc = g_sel.anchor_col;
-						er = g_sel.extent_row;
-						ec = g_sel.extent_col;
-						sel_normalize(&sr, &sc,
-						    &er, &ec);
-						if (i >= sr && i <= er) {
-							g_shadow[slot]
-							    .sel_start
-							    = (i == sr)
-							    ? sc : 0;
-							g_shadow[slot]
-							    .sel_end
-							    = (i == er)
-							    ? ec
-							    : 32767;
-						}
-					}
+				    sel_cached, norm_sr,
+				    norm_sc, norm_er,
+				    norm_ec
+#else
+				    0, -1, -1, -1, -1
 #endif
-				}
+				    );
 			}
 		}
 
@@ -1262,43 +1332,16 @@ content_draw(WindowPtr win)
 			need_draw = g_dirty_all ||
 			    (i < 512 && g_dirty[i]);
 
-			/* Shadow buffer check for text rows */
-			if (need_draw && g_shadow_valid &&
-			    slot < SHADOW_MAX_ROWS) {
-				ShadowRow cur;
-				cur.item_index = i;
-				cur.hover_flag = 0;
-				cur.sel_start = -1;
-				cur.sel_end = -1;
+			if (need_draw &&
+			    !shadow_needs_draw(slot, i, 0,
 #ifdef GEOMYS_CLIPBOARD
-				if (g_sel.active) {
-					short sr, sc, er, ec;
-					sr = g_sel.anchor_row;
-					sc = g_sel.anchor_col;
-					er = g_sel.extent_row;
-					ec = g_sel.extent_col;
-					sel_normalize(&sr, &sc,
-					    &er, &ec);
-					if (i >= sr && i <= er) {
-						cur.sel_start =
-						    (i == sr) ?
-						    sc : 0;
-						cur.sel_end =
-						    (i == er) ?
-						    ec : 32767;
-					}
-				}
+			    sel_cached, norm_sr, norm_sc,
+			    norm_er, norm_ec
+#else
+			    0, -1, -1, -1, -1
 #endif
-				if (cur.item_index ==
-				    g_shadow[slot].item_index &&
-				    cur.hover_flag ==
-				    g_shadow[slot].hover_flag &&
-				    cur.sel_start ==
-				    g_shadow[slot].sel_start &&
-				    cur.sel_end ==
-				    g_shadow[slot].sel_end)
-					need_draw = 0;
-			}
+			    ))
+				need_draw = 0;
 
 			if (need_draw) {
 				content_draw_text_row(win, i);
@@ -1308,39 +1351,15 @@ content_draw(WindowPtr win)
 				if (slot > dirty_hi)
 					dirty_hi = slot;
 #endif
-				/* Update shadow */
-				if (slot < SHADOW_MAX_ROWS) {
-					g_shadow[slot].item_index
-					    = i;
-					g_shadow[slot].hover_flag
-					    = 0;
-					g_shadow[slot].sel_start
-					    = -1;
-					g_shadow[slot].sel_end
-					    = -1;
+				shadow_update(slot, i, 0,
 #ifdef GEOMYS_CLIPBOARD
-					if (g_sel.active) {
-						short sr, sc, er, ec;
-						sr = g_sel.anchor_row;
-						sc = g_sel.anchor_col;
-						er = g_sel.extent_row;
-						ec = g_sel.extent_col;
-						sel_normalize(&sr, &sc,
-						    &er, &ec);
-						if (i >= sr && i <= er) {
-							g_shadow[slot]
-							    .sel_start
-							    = (i == sr)
-							    ? sc : 0;
-							g_shadow[slot]
-							    .sel_end
-							    = (i == er)
-							    ? ec
-							    : 32767;
-						}
-					}
+				    sel_cached, norm_sr,
+				    norm_sc, norm_er,
+				    norm_ec
+#else
+				    0, -1, -1, -1, -1
 #endif
-				}
+				    );
 			}
 		}
 
@@ -1395,6 +1414,7 @@ done:
 		for (di = start_row; di < end_row && di < 512; di++)
 			g_dirty[di] = 0;
 	}
+	g_dirty_count = 0;
 
 	/* Mark shadow as valid after a complete draw pass */
 	g_shadow_valid = 1;
@@ -1403,8 +1423,7 @@ done:
 	 * don't leak into chrome (nav bar, address bar, buttons) */
 	theme_restore_colors();
 
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
+	SetClip(g_clip_rgn);
 
 #ifdef GEOMYS_OFFSCREEN
 	/* Blit offscreen content to screen.
@@ -1457,78 +1476,14 @@ content_row_text(short row, char *buf, short bufsiz)
 
 	if (g_page->page_type == PAGE_DIRECTORY) {
 		GopherItem *item;
-		const char *disp, *label;
-		short dlen, split_pos, name_len, li, len;
 
 		if (row < 0 || row >= g_page->item_count)
 			return 0;
 
 		item = &g_page->items[row];
-		label = gopher_type_label(item->type);
-		disp = item->display;
-		dlen = strlen(disp);
-		split_pos = -1;
-
-		if (item->type != GOPHER_INFO) {
-			for (li = 1; li < dlen - 1; li++) {
-				if (disp[li] == ' ' &&
-				    disp[li + 1] == ' ') {
-					split_pos = li;
-					break;
-				}
-			}
-		}
-
-		name_len = (split_pos > 0) ?
-		    split_pos : dlen;
-
-		switch (g_prefs.page_style) {
-		case STYLE_ICONS:
-			len = snprintf(buf, bufsiz,
-			    "      %.*s",
-			    name_len, disp);
-			break;
-		default: /* STYLE_TEXT */
-			if (item->type == GOPHER_INFO)
-				len = snprintf(buf, bufsiz,
-				    "      %.*s",
-				    name_len, disp);
-			else if (gopher_type_is_download(
-			    item->type)) {
-#ifdef GEOMYS_GOPHER_PLUS
-				if (item->has_plus)
-					len = snprintf(buf,
-					    bufsiz,
-					    " <%s+> %.*s",
-					    label,
-					    name_len, disp);
-				else
-#endif
-					len = snprintf(buf,
-					    bufsiz,
-					    " <%s> %.*s",
-					    label,
-					    name_len, disp);
-			} else {
-#ifdef GEOMYS_GOPHER_PLUS
-				if (item->has_plus)
-					len = snprintf(buf,
-					    bufsiz,
-					    " %s+ %.*s", label,
-					    name_len, disp);
-				else
-#endif
-					len = snprintf(buf,
-					    bufsiz,
-					    " %s  %.*s", label,
-					    name_len, disp);
-			}
-			break;
-		}
-
-		if (len < 0) len = 0;
-		if (len >= bufsiz) len = bufsiz - 1;
-		return len;
+		return format_row_text(item,
+		    g_prefs.page_style, buf, bufsiz,
+		    0L);
 
 	} else if (g_page->page_type == PAGE_TEXT
 #ifdef GEOMYS_HTML
@@ -1696,10 +1651,113 @@ sel_find_word_bounds(short row, short col,
 	*end_col = i;
 }
 
+/*
+ * sel_row_pixel_range - compute pixel x1,x2 for a row's
+ * selection columns. Returns the pixel range for the
+ * selection on this row given the normalized start/end
+ * columns and whether this is the first/last/middle row.
+ */
+static void
+sel_row_pixel_range(short rr, short sel_sr, short sel_sc,
+    short sel_er, short sel_ec, WindowPtr win,
+    const Rect *cr, short *x1, short *x2)
+{
+	if (sel_sr == sel_er) {
+		/* Single row: col range */
+		*x1 = col_to_pixel(rr, sel_sc, win);
+		*x2 = col_to_pixel(rr, sel_ec, win);
+	} else if (rr == sel_sr) {
+		/* First row: start_col to EOL */
+		*x1 = col_to_pixel(rr, sel_sc, win);
+		*x2 = cr->right;
+	} else if (rr == sel_er) {
+		/* Last row: BOL to end_col */
+		*x1 = cr->left;
+		*x2 = col_to_pixel(rr, sel_ec, win);
+	} else {
+		/* Middle row: full width */
+		*x1 = cr->left;
+		*x2 = cr->right;
+	}
+}
+
+/*
+ * invert_xor_delta - XOR the symmetric difference between
+ * old and new selection pixel ranges on a single row.
+ * Used on monochrome systems where InvertRect is self-
+ * inverting. Avoids full row redraws entirely.
+ *
+ * Cases:
+ *   1. Row was not selected, now is: invert new range
+ *   2. Row was selected, now is not: invert old range
+ *   3. Both selected, ranges differ: invert the deltas
+ */
+static void
+invert_xor_delta(short old_x1, short old_x2,
+    short new_x1, short new_x2, short y_top, short y_bot)
+{
+	Rect delta_r;
+
+	if (old_x1 == 0 && old_x2 == 0) {
+		/* Case 1: newly selected — invert all */
+		if (new_x2 > new_x1) {
+			SetRect(&delta_r, new_x1, y_top,
+			    new_x2, y_bot);
+			InvertRect(&delta_r);
+		}
+		return;
+	}
+
+	if (new_x1 == 0 && new_x2 == 0) {
+		/* Case 2: deselected — un-invert all */
+		if (old_x2 > old_x1) {
+			SetRect(&delta_r, old_x1, y_top,
+			    old_x2, y_bot);
+			InvertRect(&delta_r);
+		}
+		return;
+	}
+
+	/* Case 3: both selected — XOR the differences.
+	 * The old and new ranges overlap; invert only
+	 * the non-overlapping parts (symmetric diff). */
+
+	/* Left delta: if start moved */
+	if (old_x1 != new_x1) {
+		short lo = old_x1 < new_x1 ?
+		    old_x1 : new_x1;
+		short hi = old_x1 > new_x1 ?
+		    old_x1 : new_x1;
+		if (hi > lo) {
+			SetRect(&delta_r, lo, y_top,
+			    hi, y_bot);
+			InvertRect(&delta_r);
+		}
+	}
+
+	/* Right delta: if end moved */
+	if (old_x2 != new_x2) {
+		short lo = old_x2 < new_x2 ?
+		    old_x2 : new_x2;
+		short hi = old_x2 > new_x2 ?
+		    old_x2 : new_x2;
+		if (hi > lo) {
+			SetRect(&delta_r, lo, y_top,
+			    hi, y_bot);
+			InvertRect(&delta_r);
+		}
+	}
+}
+
 /* Begin tracking selection drag. Redraws rows as selection
  * extends. Returns 1 if the mouse moved beyond slop
  * (i.e. user is dragging), 0 if released without moving
- * (i.e. a click). Tracks character-level positions. */
+ * (i.e. a click). Tracks character-level positions.
+ *
+ * Uses XOR delta rendering on monochrome to avoid flash:
+ * instead of erase-draw-invert per row, only InvertRect
+ * the changed pixel regions. On color systems, falls back
+ * to clipped row redraws with offscreen buffering. */
 static short
 track_content_drag(WindowPtr win, Point start_pt, short start_row)
 {
@@ -1707,12 +1765,35 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 	short row, col, prev_row, prev_col;
 	short total;
 	short dragged = 0;
+	short use_xor;
 	Rect r;
 
 	content_get_rect(win, &r);
 	total = count_rows();
 	prev_row = start_row;
 	prev_col = g_sel.anchor_col;
+
+	/* Determine if we can use the fast XOR path.
+	 * XOR works on mono where InvertRect is used for
+	 * selection. Color themes use sel_bg/sel_fg colors,
+	 * so XOR would produce wrong colors. */
+	use_xor = 1;
+#ifdef GEOMYS_COLOR
+	if (g_has_color_qd) {
+		const ThemeColors *t = theme_current();
+		if (t)
+			use_xor = 0;
+	}
+#endif
+
+	/* Save/restore clip using pre-allocated region */
+	if (!g_clip_rgn)
+		return 0;
+	GetClip(g_clip_rgn);
+	ClipRect(&r);
+
+	TextFont(g_font_id);
+	TextSize(g_font_size);
 
 	while (StillDown()) {
 		GetMouse(&pt);
@@ -1755,8 +1836,6 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 			    &old_er, &old_ec);
 
 			if (g_sel.word_mode) {
-				/* In word mode, extend by
-				 * word boundaries */
 				if (row < g_sel.word_anchor_start ||
 				    (row == g_sel.word_anchor_start &&
 				    col < g_sel.anchor_col)) {
@@ -1779,17 +1858,17 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 			sel_normalize(&new_sr, &new_sc,
 			    &new_er, &new_ec);
 
-			/* Redraw only rows where selection
-			 * state actually changed — skip rows
-			 * that are identically selected in both
-			 * old and new ranges to avoid flash */
+			/* Process only rows where selection
+			 * state actually changed */
 			lo = old_sr < new_sr ?
 			    old_sr : new_sr;
 			hi = old_er > new_er ?
 			    old_er : new_er;
+
 			for (rr = lo; rr <= hi; rr++) {
 				short old_in, new_in;
 				short osc, oec, nsc, nec;
+				short y;
 
 				/* Was this row in old sel? */
 				old_in = (rr >= old_sr &&
@@ -1826,19 +1905,63 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 				    osc == nsc && oec == nec)
 					continue;
 
-				if (g_page->page_type ==
-				    PAGE_DIRECTORY)
-					content_draw_row(
-					    win, rr);
-				else
-					content_draw_text_row(
-					    win, rr);
+				/* Skip rows not visible */
+				if (rr < g_scroll_pos ||
+				    rr > g_scroll_pos +
+				    visible_rows(win))
+					continue;
+
+				y = r.top + (rr - g_scroll_pos
+				    + 1) * g_row_height;
+
+				if (use_xor) {
+					/* Mono XOR delta path:
+					 * invert only changed
+					 * pixels — no erase,
+					 * no redraw, no flash */
+					short ox1 = 0, ox2 = 0;
+					short nx1 = 0, nx2 = 0;
+
+					if (old_in)
+						sel_row_pixel_range(
+						    rr, old_sr,
+						    old_sc, old_er,
+						    old_ec, win, &r,
+						    &ox1, &ox2);
+					if (new_in)
+						sel_row_pixel_range(
+						    rr, new_sr,
+						    new_sc, new_er,
+						    new_ec, win, &r,
+						    &nx1, &nx2);
+
+					invert_xor_delta(
+					    ox1, ox2, nx1, nx2,
+					    y - g_row_height, y);
+				} else {
+					/* Color path: full row
+					 * redraw (themed colors
+					 * require erase+draw) */
+					if (g_page->page_type ==
+					    PAGE_DIRECTORY)
+						content_draw_row(
+						    win, rr);
+					else
+						content_draw_text_row(
+						    win, rr);
+				}
 			}
 		}
 
 		prev_row = row;
 		prev_col = col;
 	}
+
+	SetClip(g_clip_rgn);
+
+	/* Invalidate shadow so next content_draw() fully
+	 * resyncs with the current selection state */
+	g_shadow_valid = 0;
 
 	return dragged;
 }
@@ -2456,10 +2579,10 @@ scroll_action(ControlHandle ctl, short part)
 			}
 		}
 	} else {
-		/* Page/thumb scroll — full redraw */
-		g_scrolling = 1;
+		/* Page/thumb scroll — full redraw with
+		 * offscreen buffering for flicker-free
+		 * rendering (partial CopyBits keeps it fast) */
 		content_draw(win);
-		g_scrolling = 0;
 	}
 
 	SetPort(save);
@@ -2589,9 +2712,7 @@ content_vscroll_by(short delta)
 	win = (*g_scrollbar)->contrlOwner;
 	GetPort(&save);
 	SetPort(win);
-	g_scrolling = 1;
 	content_draw(win);
-	g_scrolling = 0;
 	SetPort(save);
 }
 
@@ -3299,9 +3420,7 @@ hscroll_action(ControlHandle ctl, short part)
 	SetPort(win);
 
 	/* Full redraw for horizontal scroll */
-	g_scrolling = 1;
 	content_draw(win);
-	g_scrolling = 0;
 
 	SetPort(save);
 }
@@ -3349,9 +3468,7 @@ content_hscroll_by(short delta)
 	win = (*g_hscrollbar)->contrlOwner;
 	GetPort(&save);
 	SetPort(win);
-	g_scrolling = 1;
 	content_draw(win);
-	g_scrolling = 0;
 	SetPort(save);
 }
 
@@ -3386,9 +3503,7 @@ content_hscroll_to(short pos)
 	win = (*g_hscrollbar)->contrlOwner;
 	GetPort(&save);
 	SetPort(win);
-	g_scrolling = 1;
 	content_draw(win);
-	g_scrolling = 0;
 	SetPort(save);
 }
 

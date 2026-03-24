@@ -311,8 +311,19 @@ dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server)
 
 	{
 		unsigned long secs;
+		Point mouse;
+		static unsigned short dns_counter = 0;
+
 		ReadDateTime(&secs);
-		txn_id = (unsigned short)((TickCount() ^ secs ^ (unsigned long)&txn_id) & 0xFFFF);
+		GetMouse(&mouse);
+		txn_id = (unsigned short)(
+		    (TickCount() ^ secs ^
+		    (unsigned long)&txn_id ^
+		    ((unsigned long)mouse.h << 8) ^
+		    (unsigned long)mouse.v ^
+		    (unsigned long)FreeMem() ^
+		    (unsigned long)(++dns_counter * 2654435761UL))
+		    & 0xFFFF);
 	}
 
 	query_len = dns_build_query(hostname, query, sizeof(query), txn_id);

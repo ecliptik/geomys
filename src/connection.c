@@ -35,7 +35,7 @@
 static Boolean tcp_initialized = false;
 
 /* Single-entry DNS cache to avoid redundant lookups */
-static char dns_cache_host[256];
+static char dns_cache_host[80];
 static unsigned long dns_cache_ip;
 
 static OSErr

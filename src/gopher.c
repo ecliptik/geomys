@@ -135,11 +135,11 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 #else
 		new_page_type = PAGE_TEXT;
 #endif
-		new_text = NewPtr(GOPHER_TEXT_BUFSIZ);
+		new_text = NewPtr(GOPHER_TEXT_INIT_SIZE);
 		if (!new_text)
 			return false;
 		new_lines = (long *)NewPtr(
-		    (long)GOPHER_MAX_TEXT_LINES * sizeof(long));
+		    (long)GOPHER_INIT_TEXT_LINES * sizeof(long));
 		if (!new_lines) {
 			DisposePtr(new_text);
 			return false;
@@ -206,7 +206,11 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		gs->item_capacity = new_items ?
 		    GOPHER_INIT_ITEMS : 0;
 		gs->text_buf = new_text;
+		gs->text_buf_capacity = new_text ?
+		    GOPHER_TEXT_INIT_SIZE : 0;
 		gs->text_lines = new_lines;
+		gs->text_lines_capacity = new_lines ?
+		    GOPHER_INIT_TEXT_LINES : 0;
 		gs->text_line_count = new_lines ? 1 : 0;
 	}
 
@@ -353,24 +357,131 @@ gopher_process_data(GopherState *gs)
 #endif
 
 	if (gs->page_type == PAGE_TEXT) {
-		/* Text mode: append raw data to text buffer */
-		for (i = 0; i < len; i++) {
-			if (gs->text_len < GOPHER_TEXT_BUFSIZ - 1) {
-				/* Convert LF to CR for Mac line endings */
-				if (buf[i] == '\n') {
-					gs->text_buf[gs->text_len++] = '\r';
-					/* Record start of next line */
+		/* Text mode: bulk-copy with memchr/memcpy instead
+		 * of byte-at-a-time processing.  Strips \r, converts
+		 * \n to \r (Mac line ending), records line starts.
+		 * Buffer grows from GOPHER_TEXT_INIT_SIZE to
+		 * GOPHER_TEXT_BUFSIZ as needed. */
+		char *p = buf;
+		char *end = buf + len;
+		long avail, cap;
+
+		while (p < end) {
+			char *nl = (char *)memchr(p, '\n',
+			    end - p);
+			char *chunk_end = nl ? nl : end;
+			short chunk_len = chunk_end - p;
+			short copy_len = chunk_len;
+
+			/* Strip trailing \r (from \r\n endings) */
+			if (copy_len > 0 &&
+			    p[copy_len - 1] == '\r')
+				copy_len--;
+
+			cap = gs->text_buf_capacity;
+
+			/* Grow text_buf if needed */
+			if (gs->text_len + copy_len + 2 > cap &&
+			    cap < GOPHER_TEXT_BUFSIZ) {
+				long new_cap = cap * 2;
+				char *new_buf;
+
+				if (new_cap > GOPHER_TEXT_BUFSIZ)
+					new_cap = GOPHER_TEXT_BUFSIZ;
+				new_buf = NewPtr(new_cap);
+				if (new_buf) {
+					memcpy(new_buf,
+					    gs->text_buf,
+					    gs->text_len);
+					DisposePtr(gs->text_buf);
+					gs->text_buf = new_buf;
+					gs->text_buf_capacity =
+					    new_cap;
+					cap = new_cap;
+				}
+			}
+
+			/* Copy chunk to text_buf */
+			if (copy_len > 0) {
+				avail = cap - 1 -
+				    gs->text_len;
+				if (copy_len > avail)
+					copy_len = (short)avail;
+
+				/* Fast path: no interior \r — use
+				 * memcpy (common case for normal
+				 * Gopher text) */
+				if (!memchr(p, '\r', copy_len)) {
+					memcpy(gs->text_buf +
+					    gs->text_len,
+					    p, copy_len);
+					gs->text_len += copy_len;
+				} else {
+					/* Slow path: strip \r */
+					short ci;
+					for (ci = 0; ci < copy_len;
+					    ci++) {
+						if (p[ci] != '\r' &&
+						    gs->text_len <
+						    cap - 1)
+							gs->text_buf[
+							    gs->text_len++
+							    ] = p[ci];
+					}
+				}
+			}
+
+			if (nl) {
+				/* Emit Mac line ending */
+				if (gs->text_len < cap - 1) {
+					gs->text_buf[
+					    gs->text_len++] = '\r';
+
+					/* Grow text_lines if needed */
+					if (gs->text_lines &&
+					    gs->text_line_count >=
+					    gs->text_lines_capacity &&
+					    gs->text_lines_capacity <
+					    GOPHER_MAX_TEXT_LINES) {
+						short new_lc =
+						    gs->text_lines_capacity
+						    * 2;
+						long *new_tl;
+
+						if (new_lc >
+						    GOPHER_MAX_TEXT_LINES)
+							new_lc =
+							    GOPHER_MAX_TEXT_LINES;
+						new_tl = (long *)NewPtr(
+						    (long)new_lc *
+						    sizeof(long));
+						if (new_tl) {
+							memcpy(new_tl,
+							    gs->text_lines,
+							    (long)gs->
+							    text_line_count
+							    * sizeof(long));
+							DisposePtr((Ptr)
+							    gs->text_lines);
+							gs->text_lines =
+							    new_tl;
+							gs->text_lines_capacity
+							    = new_lc;
+						}
+					}
+
 					if (gs->text_lines &&
 					    gs->text_line_count <
-					    GOPHER_MAX_TEXT_LINES) {
+					    gs->text_lines_capacity) {
 						gs->text_lines[
-						    gs->text_line_count] =
-						    gs->text_len;
+						    gs->text_line_count
+						    ] = gs->text_len;
 						gs->text_line_count++;
 					}
-				} else if (buf[i] != '\r')
-					gs->text_buf[gs->text_len++] =
-					    buf[i];
+				}
+				p = nl + 1;
+			} else {
+				break;
 			}
 		}
 		gs->text_buf[gs->text_len] = '\0';

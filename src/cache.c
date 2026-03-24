@@ -1,11 +1,13 @@
 /*
  * cache.c - Local page caching for instant back/forward
  *
- * Uses a fixed pool of CACHE_MAX slots. Each slot stores a copy
- * of a page's content (directory items or text buffer). LRU
- * eviction when all slots are full.
+ * Uses a pool of up to CACHE_MAX slots, with the active count
+ * determined at init based on available memory. Each slot stores
+ * a copy of a page's content (directory items or text buffer).
+ * Eviction uses weighted LRU: access_time + hit_count * 100,
+ * so frequently-visited pages (e.g. home directory) stay cached.
  *
- * Total memory: ~100KB worst case (3 slots x ~33KB each)
+ * Memory budget: ~50KB per slot worst case.
  */
 
 #ifdef GEOMYS_CACHE
@@ -27,10 +29,12 @@ typedef struct {
 	long        *text_lines;    /* copied line index (NewPtr) */
 	short       text_line_count;
 	long        access_time;    /* tick count for LRU */
+	short       hit_count;      /* times retrieved (for weighted eviction) */
 } CacheSlot;
 
 static CacheSlot g_cache[CACHE_MAX];
-static long g_tick = 0;  /* simple monotonic counter for LRU */
+static long g_tick = 0;       /* monotonic counter for LRU */
+static short g_cache_limit;   /* active slots (may be < CACHE_MAX) */
 
 static void
 free_slot(CacheSlot *slot)
@@ -53,6 +57,7 @@ free_slot(CacheSlot *slot)
 	slot->item_count = 0;
 	slot->text_len = 0;
 	slot->text_line_count = 0;
+	slot->hit_count = 0;
 }
 
 /* Find slot for a session + history index, or -1 */
@@ -61,7 +66,7 @@ find_slot(short session_id, short history_idx)
 {
 	short i;
 
-	for (i = 0; i < CACHE_MAX; i++) {
+	for (i = 0; i < g_cache_limit; i++) {
 		if (g_cache[i].session_id == session_id &&
 		    g_cache[i].history_idx == history_idx)
 			return i;
@@ -69,28 +74,56 @@ find_slot(short session_id, short history_idx)
 	return -1;
 }
 
-/* Find LRU slot (oldest access_time) */
+/* Find best eviction candidate using weighted LRU.
+ * Score = access_time + hit_count * 100. Lower = evict first.
+ * Empty slots are returned immediately. */
 static short
-find_lru_slot(void)
+find_evict_slot(void)
 {
-	short i, lru = 0;
-	long oldest = g_cache[0].access_time;
+	short i, best = 0;
+	long best_score;
 
-	for (i = 1; i < CACHE_MAX; i++) {
+	if (g_cache[0].session_id == -1)
+		return 0;
+
+	best_score = g_cache[0].access_time +
+	    (long)g_cache[0].hit_count * 100;
+
+	for (i = 1; i < g_cache_limit; i++) {
+		long score;
+
 		if (g_cache[i].session_id == -1)
 			return i;  /* empty slot, use it */
-		if (g_cache[i].access_time < oldest) {
-			oldest = g_cache[i].access_time;
-			lru = i;
+
+		score = g_cache[i].access_time +
+		    (long)g_cache[i].hit_count * 100;
+		if (score < best_score) {
+			best_score = score;
+			best = i;
 		}
 	}
-	return lru;
+	return best;
 }
 
 void
 cache_init(void)
 {
 	short i;
+	long free_mem;
+
+	/* Determine how many slots to use based on
+	 * available memory. Reserve 768KB for the app
+	 * (code + stack + working set) and use the rest
+	 * to scale cache. ~50KB per slot worst case. */
+	free_mem = FreeMem();
+	g_cache_limit = 3;  /* minimum */
+	if (free_mem > 768L * 1024L) {
+		long budget = free_mem - 768L * 1024L;
+		short extra = (short)(budget / (50L * 1024L));
+		g_cache_limit = 3 + extra;
+	}
+	if (g_cache_limit > CACHE_MAX)
+		g_cache_limit = CACHE_MAX;
 
 	for (i = 0; i < CACHE_MAX; i++) {
 		g_cache[i].session_id = -1;
@@ -103,6 +136,7 @@ cache_init(void)
 		g_cache[i].text_len = 0;
 		g_cache[i].text_line_count = 0;
 		g_cache[i].access_time = 0;
+		g_cache[i].hit_count = 0;
 	}
 	g_tick = 0;
 }
@@ -125,10 +159,15 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 	if (!gs || gs->page_type == PAGE_NONE)
 		return;
 
-	/* Reuse existing slot or evict LRU */
+	/* Skip caching when memory is low — prevent cache
+	 * from consuming the last available memory */
+	if (FreeMem() < 200L * 1024L)
+		return;
+
+	/* Reuse existing slot or evict */
 	slot_idx = find_slot(session_id, history_idx);
 	if (slot_idx < 0) {
-		slot_idx = find_lru_slot();
+		slot_idx = find_evict_slot();
 		free_slot(&g_cache[slot_idx]);
 	}
 
@@ -137,17 +176,28 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 	slot->history_idx = history_idx;
 	slot->page_type = gs->page_type;
 	slot->access_time = ++g_tick;
+	slot->hit_count = 0;
 
 	if (gs->page_type == PAGE_DIRECTORY && gs->items &&
 	    gs->item_count > 0) {
 		long size = (long)gs->item_count * sizeof(GopherItem);
 
 		slot->items = (GopherItem *)NewPtr(size);
+		if (!slot->items) {
+			/* Allocation failed — try evicting
+			 * another slot to free memory */
+			short victim = find_evict_slot();
+			if (victim != slot_idx) {
+				free_slot(&g_cache[victim]);
+				slot->items = (GopherItem *)
+				    NewPtr(size);
+			}
+		}
 		if (slot->items) {
 			memcpy(slot->items, gs->items, size);
 			slot->item_count = gs->item_count;
 		} else {
-			/* Allocation failed — invalidate */
+			/* Still failed — invalidate */
 			free_slot(slot);
 			return;
 		}
@@ -159,6 +209,15 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 #endif
 	    ) && gs->text_buf && gs->text_len > 0) {
 		slot->text_buf = NewPtr(gs->text_len);
+		if (!slot->text_buf) {
+			/* Try evicting another slot */
+			short victim = find_evict_slot();
+			if (victim != slot_idx) {
+				free_slot(&g_cache[victim]);
+				slot->text_buf =
+				    NewPtr(gs->text_len);
+			}
+		}
 		if (slot->text_buf) {
 			memcpy(slot->text_buf, gs->text_buf,
 			    gs->text_len);
@@ -198,6 +257,7 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 
 	slot = &g_cache[slot_idx];
 	slot->access_time = ++g_tick;
+	slot->hit_count++;
 
 	gs->page_type = slot->page_type;
 
@@ -246,6 +306,7 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 			gs->text_buf = NewPtr(GOPHER_TEXT_BUFSIZ);
 			if (!gs->text_buf)
 				return false;
+			gs->text_buf_capacity = GOPHER_TEXT_BUFSIZ;
 		}
 		memcpy(gs->text_buf, slot->text_buf,
 		    slot->text_len);
@@ -261,6 +322,8 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 				gs->text_lines = (long *)NewPtr(
 				    (long)GOPHER_MAX_TEXT_LINES
 				    * sizeof(long));
+				gs->text_lines_capacity =
+				    GOPHER_MAX_TEXT_LINES;
 			}
 			if (gs->text_lines) {
 				long lsize =
@@ -281,6 +344,8 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 				gs->text_lines = (long *)NewPtr(
 				    (long)GOPHER_MAX_TEXT_LINES
 				    * sizeof(long));
+				gs->text_lines_capacity =
+				    GOPHER_MAX_TEXT_LINES;
 			}
 			if (gs->text_lines) {
 				long ti;
@@ -322,7 +387,7 @@ cache_invalidate_from(short session_id, short history_idx)
 {
 	short i;
 
-	for (i = 0; i < CACHE_MAX; i++) {
+	for (i = 0; i < g_cache_limit; i++) {
 		if (g_cache[i].session_id == session_id &&
 		    g_cache[i].history_idx >= history_idx)
 			free_slot(&g_cache[i]);

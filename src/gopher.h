@@ -11,11 +11,13 @@
 #define GOPHER_INIT_ITEMS    64   /* initial allocation */
 #define GOPHER_MAX_ITEMS   2000   /* hard cap */
 
-/* Text buffer size for type-0 content */
-#define GOPHER_TEXT_BUFSIZ  (32L * 1024L)
+/* Text buffer: starts small, grows to max */
+#define GOPHER_TEXT_INIT_SIZE  (8L * 1024L)
+#define GOPHER_TEXT_BUFSIZ     (32L * 1024L)
 
-/* Maximum text lines for line index (O(1) scroll lookup) */
-#define GOPHER_MAX_TEXT_LINES  3000
+/* Text line index: starts small, grows to max */
+#define GOPHER_INIT_TEXT_LINES  512
+#define GOPHER_MAX_TEXT_LINES   3000
 
 /* Gopher item types (RFC 1436 canonical) */
 #define GOPHER_TEXT         '0'
@@ -72,10 +74,12 @@ typedef struct {
 	short       item_capacity;  /* current allocation size */
 
 	/* Text content */
-	char        *text_buf;      /* NewPtr-allocated, GOPHER_TEXT_BUFSIZ */
+	char        *text_buf;      /* NewPtr-allocated, starts GOPHER_TEXT_INIT_SIZE */
 	long        text_len;
+	long        text_buf_capacity;  /* current allocation size */
 	long        *text_lines;    /* byte offsets of each line start */
 	short       text_line_count;
+	short       text_lines_capacity; /* current line index allocation */
 
 	/* Connection */
 	Connection  conn;
