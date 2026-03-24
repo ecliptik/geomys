@@ -29,6 +29,7 @@
 /* Forward declarations */
 static void gopher_parse_line(GopherState *gs, const char *line, short len);
 static void gopher_process_data(GopherState *gs);
+static void cso_process_data(GopherState *gs, char *buf, short len);
 
 void
 gopher_init(GopherState *gs)
@@ -125,6 +126,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		if (!new_items)
 			return false;
 	} else if (type == GOPHER_TEXT || type == GOPHER_ERROR
+	    || type == GOPHER_CSO
 #ifdef GEOMYS_HTML
 	    || type == GOPHER_HTML
 #endif
@@ -356,6 +358,13 @@ gopher_process_data(GopherState *gs)
 	}
 #endif
 
+	/* CSO phonebook: line-based parsing into text buffer */
+	if (gs->page_type == PAGE_TEXT &&
+	    gs->cur_type == GOPHER_CSO) {
+		cso_process_data(gs, buf, len);
+		return;
+	}
+
 	if (gs->page_type == PAGE_TEXT) {
 		/* Text mode: bulk-copy with memchr/memcpy instead
 		 * of byte-at-a-time processing.  Strips \r, converts
@@ -517,6 +526,213 @@ gopher_process_data(GopherState *gs)
 				gs->line_buf[gs->line_len++] = c;
 		}
 	}
+}
+
+/*
+ * cso_append_text - Append a string to the text buffer with Mac
+ * line endings.  Grows the buffer if needed.  Shared helper for
+ * CSO response formatting.
+ */
+static void
+cso_append_text(GopherState *gs, const char *str, short slen)
+{
+	long cap = gs->text_buf_capacity;
+
+	/* Grow text_buf if needed */
+	if (gs->text_len + slen + 2 > cap &&
+	    cap < GOPHER_TEXT_BUFSIZ) {
+		long new_cap = cap * 2;
+		char *new_buf;
+
+		if (new_cap > GOPHER_TEXT_BUFSIZ)
+			new_cap = GOPHER_TEXT_BUFSIZ;
+		new_buf = NewPtr(new_cap);
+		if (new_buf) {
+			memcpy(new_buf, gs->text_buf,
+			    gs->text_len);
+			DisposePtr(gs->text_buf);
+			gs->text_buf = new_buf;
+			gs->text_buf_capacity = new_cap;
+			cap = new_cap;
+		}
+	}
+
+	if (gs->text_len + slen >= cap)
+		slen = (short)(cap - 1 - gs->text_len);
+	if (slen <= 0)
+		return;
+
+	memcpy(gs->text_buf + gs->text_len, str, slen);
+	gs->text_len += slen;
+	gs->text_buf[gs->text_len] = '\0';
+}
+
+/*
+ * cso_end_line - Emit a Mac line ending (\r) and record line
+ * start in text_lines index.
+ */
+static void
+cso_end_line(GopherState *gs)
+{
+	long cap = gs->text_buf_capacity;
+
+	if (gs->text_len >= cap - 1)
+		return;
+
+	gs->text_buf[gs->text_len++] = '\r';
+
+	/* Record new line start — grow index if needed */
+	if (!gs->text_lines)
+		return;
+
+	if (gs->text_line_count >= gs->text_lines_capacity &&
+	    gs->text_lines_capacity < GOPHER_MAX_TEXT_LINES) {
+		short new_lc = gs->text_lines_capacity * 2;
+		long *new_tl;
+
+		if (new_lc > GOPHER_MAX_TEXT_LINES)
+			new_lc = GOPHER_MAX_TEXT_LINES;
+		new_tl = (long *)NewPtr(
+		    (long)new_lc * sizeof(long));
+		if (new_tl) {
+			memcpy(new_tl, gs->text_lines,
+			    (long)gs->text_line_count
+			    * sizeof(long));
+			DisposePtr((Ptr)gs->text_lines);
+			gs->text_lines = new_tl;
+			gs->text_lines_capacity = new_lc;
+		}
+	}
+
+	if (gs->text_line_count < gs->text_lines_capacity) {
+		gs->text_lines[gs->text_line_count] =
+		    gs->text_len;
+		gs->text_line_count++;
+	}
+}
+
+/*
+ * cso_parse_line - Parse a single CSO response line.
+ * Format: -200:entry:field: value  (data)
+ *         200:Ok.                  (success)
+ *         5xx:error message        (error)
+ *
+ * Extracts "field: value" from data lines, inserts blank
+ * lines between entries, shows errors inline.
+ */
+static short g_cso_last_entry = -1;  /* track entry boundaries */
+
+static void
+cso_parse_line(GopherState *gs, const char *line, short len)
+{
+	const char *p = line;
+	const char *end = line + len;
+	short code;
+	short entry;
+	const char *field_start;
+
+	if (len == 0)
+		return;
+
+	/* Parse numeric status code (3 digits max) */
+	code = 0;
+	if (*p == '-') p++;  /* negative = more data */
+	while (p < end && *p >= '0' && *p <= '9' &&
+	    code < 1000) {
+		code = code * 10 + (*p - '0');
+		p++;
+	}
+
+	/* Success completion — ignore */
+	if (code >= 200 && code < 300 && line[0] != '-')
+		return;
+
+	/* Error codes (4xx, 5xx) — display inline */
+	if (code >= 400) {
+		if (*p == ':') p++;
+		cso_append_text(gs, "Error: ",  7);
+		if (p < end)
+			cso_append_text(gs, p, end - p);
+		cso_end_line(gs);
+		return;
+	}
+
+	/* Data line: -200:entry:field: value */
+	if (code < 200 || line[0] != '-')
+		return;  /* unknown format — skip */
+
+	if (p >= end || *p != ':')
+		return;
+	p++;  /* skip ':' after code */
+
+	/* Parse entry number (bounded to prevent overflow) */
+	entry = 0;
+	while (p < end && *p >= '0' && *p <= '9' &&
+	    entry < 10000) {
+		entry = entry * 10 + (*p - '0');
+		p++;
+	}
+
+	/* Insert blank line between different entries */
+	if (g_cso_last_entry >= 0 &&
+	    entry != g_cso_last_entry) {
+		cso_end_line(gs);
+	}
+	g_cso_last_entry = entry;
+
+	if (p >= end || *p != ':')
+		return;
+	p++;  /* skip ':' after entry number */
+
+	/* Rest is "field: value" — emit as-is, trimming
+	 * leading whitespace from field name */
+	field_start = p;
+	while (field_start < end && *field_start == ' ')
+		field_start++;
+
+	if (field_start < end)
+		cso_append_text(gs, field_start,
+		    end - field_start);
+	cso_end_line(gs);
+}
+
+/*
+ * cso_process_data - Line-buffered CSO response processor.
+ * Accumulates data in gs->line_buf, parses complete lines.
+ */
+static void
+cso_process_data(GopherState *gs, char *buf, short len)
+{
+	short i;
+
+	/* Reset entry tracker on fresh page */
+	if (gs->text_len == 0)
+		g_cso_last_entry = -1;
+
+	for (i = 0; i < len; i++) {
+		char c = buf[i];
+
+		if (c == '\n') {
+			/* Strip trailing CR */
+			if (gs->line_len > 0 &&
+			    gs->line_buf[gs->line_len - 1] == '\r')
+				gs->line_len--;
+			gs->line_buf[gs->line_len] = '\0';
+
+			if (gs->line_len > 0)
+				cso_parse_line(gs,
+				    gs->line_buf,
+				    gs->line_len);
+
+			gs->line_len = 0;
+		} else {
+			if (gs->line_len <
+			    (short)sizeof(gs->line_buf) - 1)
+				gs->line_buf[gs->line_len++] = c;
+		}
+	}
+
+	gs->text_buf[gs->text_len] = '\0';
 }
 
 /*

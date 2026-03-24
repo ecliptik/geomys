@@ -113,6 +113,7 @@
 #define DLOG_DL_PROGRESS_ID 139
 #define DLOG_TELNET_ID      140
 #define DLOG_DNS_ID         141
+#define DLOG_CSO_ID         142
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -131,6 +132,8 @@ void do_new_window(void);
 void do_navigate_url_titled(const char *url, const char *title);
 void do_navigate_url(const char *url);  /* title = NULL */
 void do_search_dialog(const char *title, const char *host,
+    short port, const char *selector);
+void do_cso_dialog(const char *title, const char *host,
     short port, const char *selector);
 void do_type_message(char type, const char *display,
     const char *host, short port);

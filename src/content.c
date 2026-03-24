@@ -2017,6 +2017,15 @@ do_directory_navigate(WindowPtr win, GopherState *gs,
 		return true;
 	}
 
+	/* Type 2 (CSO) — show phonebook query dialog */
+	if (item->type == GOPHER_CSO) {
+		do_cso_dialog(item->display,
+		    item->host, item->port,
+		    item->selector);
+		content_draw(win);
+		return true;
+	}
+
 	/* HTML type — extract URL or fetch as text */
 	if (item->type == GOPHER_HTML) {
 		if (strncmp(item->selector, "URL:", 4) == 0) {
@@ -2142,6 +2151,12 @@ content_click_row(WindowPtr win, GopherState *gs, short row)
 		return false;
 	if (item->type == GOPHER_SEARCH) {
 		do_search_dialog(item->display,
+		    item->host, item->port, item->selector);
+		content_draw(win);
+		return true;
+	}
+	if (item->type == GOPHER_CSO) {
+		do_cso_dialog(item->display,
 		    item->host, item->port, item->selector);
 		content_draw(win);
 		return true;
@@ -2373,6 +2388,14 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 
 		if (item->type == GOPHER_SEARCH) {
 			do_search_dialog(item->display,
+			    item->host, item->port,
+			    item->selector);
+			content_draw(win);
+			return true;
+		}
+
+		if (item->type == GOPHER_CSO) {
+			do_cso_dialog(item->display,
 			    item->host, item->port,
 			    item->selector);
 			content_draw(win);

@@ -249,6 +249,42 @@ resource 'DITL' (132, "Search") {
 	}
 };
 
+/* CSO phonebook query dialog — movableDBoxProc for System 7 */
+resource 'DLOG' (142, "CSO") {
+	{90, 80, 185, 420},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	142,
+	"CSO Lookup",
+	noAutoCenter
+};
+
+resource 'DITL' (142, "CSO") {
+	{
+		/* 1: Look Up button */
+		{60, 245, 80, 320},
+		Button { enabled, "Look Up" };
+
+		/* 2: Cancel button */
+		{60, 155, 80, 230},
+		Button { enabled, "Cancel" };
+
+		/* 3: Label (set at runtime to show CSO item name) */
+		{15, 15, 31, 320},
+		StaticText { disabled, "Look up in:" };
+
+		/* 4: Query field */
+		{35, 15, 51, 320},
+		EditText { enabled, "" };
+
+		/* 5: Default button outline (UserItem) */
+		{56, 241, 84, 324},
+		UserItem { disabled };
+	}
+};
+
 /* Find in Page dialog — movableDBoxProc for System 7 */
 resource 'DLOG' (137, "Find") {
 	{90, 80, 185, 420},

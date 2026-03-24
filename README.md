@@ -40,11 +40,16 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 ## Features
 
 **Gopher Protocol**
-- All 18 canonical and non-canonical item types
+- All 19 canonical and non-canonical Gopher item types:
+  - Interactive: directories (1), text files (0), CSO phonebook (2), search (7), HTML (h)
+  - Telnet handoff: telnet (8) and TN3270 (T) with connection dialog and app launching
+  - Download to disk: BinHex (4), DOS binary (5), UUencode (6), binary (9), document (d), GIF (g), image (I), PNG (p), RTF (r), sound (s)
+  - Display: informational (i), error (3)
 - [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol support
 - Binary file downloads with progress dialog
 - Image save with format/dimension detection
 - HTML tag-stripping renderer for type h pages
+- CSO/ph phonebook queries with formatted results
 - Search queries (type 7) with dialog input
 
 **Browsing**

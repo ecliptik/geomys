@@ -19,10 +19,12 @@ browser interface for navigating Gopherspace.
 
 Geomys implements RFC 1436 (The Internet Gopher
 Protocol) and RFC 4266 (The gopher URI Scheme).
-All 18 canonical and non-canonical Gopher item types
-are fully supported, including directories, text
-files, search queries, binary file downloads, image
-save with metadata, and HTML tag-stripping rendering.
+All 19 canonical and non-canonical Gopher item types
+are handled: directories, text files, CSO phonebook
+queries, search, and HTML pages are fully interactive;
+binary files, images, documents, and sound files save
+to disk; telnet and TN3270 items display connection
+details with optional app launching.
 
 The browser features a web-style interface with an
 address bar, back/forward/home buttons, a combined
@@ -93,8 +95,8 @@ Features
 --------
 
   - Sub-1-second startup
-  - All 18 Gopher item types (canonical and
-    non-canonical) fully supported
+  - All 19 Gopher item types handled: interactive
+    browsing, downloads, telnet handoff, and display
   - Gopher+ protocol support
   - Multi-window browsing with up to 4 simultaneous
     Gopher windows and background loading

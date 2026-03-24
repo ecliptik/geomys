@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — CSO Phonebook Support
+
+### Added
+- CSO/ph phonebook queries (type 2): query dialog with "Look Up" button, ph/qi protocol handling, formatted response display
+- History integration preserves CSO queries for back/forward navigation
+
+### Changed
+- Type 2 (CSO) upgraded from informational stub to full interactive protocol support
+- Documentation updated: item type support now accurately described by tier (interactive, download, telnet handoff, display) instead of blanket "fully supported"
+
 ## [0.11.2] — Internal: Code Review Improvements
 
 ### Performance

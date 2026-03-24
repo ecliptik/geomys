@@ -1666,6 +1666,162 @@ do_search_dialog(const char *title, const char *host,
 	}
 }
 
+/*
+ * CSO phonebook dialog — shown when clicking a Type 2 item.
+ * Prompts for a name to look up, sends CSO query command,
+ * displays results as formatted text.
+ */
+void
+do_cso_dialog(const char *title, const char *host,
+    short port, const char *selector)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+	char label[100];
+
+	/* Deactivate address bar so modal dialog gets keystrokes */
+	browser_activate(false);
+
+	dlg = GetNewDialog(DLOG_CSO_ID, 0L, 0L);
+	if (!dlg) {
+		browser_activate(true);
+		return;
+	}
+	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
+
+	/* Set label with CSO item name */
+	snprintf(label, sizeof(label), "Look up in %.50s:", title);
+	c2pstr(pstr, label);
+	GetDialogItem(dlg, 3, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	setup_default_button_outline(dlg, 5);
+	SelectDialogItemText(dlg, 4, 0, 0);
+
+	/* Loop until Look Up or Cancel button clicked */
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	} while (item != 1 && item != 2);
+
+	if (item == 1) {
+		char query[256];
+		char full_sel[512];
+
+		GetDialogItem(dlg, 4, &item_type, &item_h,
+		    &item_rect);
+		GetDialogItemText(item_h, pstr);
+		{
+			short len = pstr[0];
+			if (len >= (short)sizeof(query))
+				len = sizeof(query) - 1;
+			memcpy(query, pstr + 1, len);
+			query[len] = '\0';
+		}
+
+		DisposeDialog(dlg);
+		browser_activate(true);
+
+		/* Invalidate window behind dismissed dialog */
+		{
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
+
+		if (query[0]) {
+			char cso_title[100];
+			char uri[300];
+
+			/* Build CSO command as selector */
+			snprintf(full_sel, sizeof(full_sel),
+			    "query name=%s\r\nquit", query);
+
+			/* Save scroll before resetting */
+			history_set_scroll(
+			    content_get_scroll_pos());
+
+			g_app_state = APP_STATE_LOADING;
+			content_scroll_to_top();
+
+			/* Show loading state */
+			set_wtitlef(g_window, "Loading %.50s\311",
+			    host);
+			snprintf(uri, sizeof(uri),
+			    "Loading %.50s\311", host);
+			browser_set_status(uri);
+
+			SetCursor(*GetCursor(watchCursor));
+			if (gopher_navigate(&g_gopher, host, port,
+			    GOPHER_CSO, full_sel)) {
+#ifdef GEOMYS_CACHE
+				cache_invalidate_from(
+				    active_session->id,
+				    history_current_index() + 1);
+#endif
+				/* Push to history with query */
+				snprintf(cso_title,
+				    sizeof(cso_title),
+				    "CSO: %s", query);
+				history_push(host, port,
+				    GOPHER_CSO, selector,
+				    cso_title, query);
+				update_nav_buttons();
+			} else {
+				InitCursor();
+
+				g_app_state = APP_STATE_IDLE;
+
+				/* Restore title bar */
+				{
+					const HistoryEntry *he =
+					    history_current();
+					if (he && he->title[0])
+						set_wtitlef(g_window,
+						    "%s", he->title);
+					else if (he)
+						set_wtitlef(g_window,
+						    "%s", he->host);
+					else
+						set_wtitlef(g_window,
+						    "Geomys");
+				}
+
+				browser_set_status("Lookup failed");
+				{
+					GrafPtr save;
+					GetPort(&save);
+					SetPort(g_window);
+					content_draw(g_window);
+					content_update_scroll(
+					    g_window);
+					browser_draw_status(
+					    g_window);
+					SetPort(save);
+				}
+			}
+		}
+	} else {
+		DisposeDialog(dlg);
+		browser_activate(true);
+
+		/* Invalidate window behind dismissed dialog */
+		{
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
+	}
+}
+
 #ifdef GEOMYS_CLIPBOARD
 /*
  * Find in Page dialog — Edit > Find (Cmd+F)
@@ -2151,21 +2307,29 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	}
 
 	/* Navigate without pushing to history.
-	 * For search entries, reconstruct selector\tquery */
+	 * For search/CSO entries, reconstruct the query selector */
 	{
 		char nav_sel[512];
 		const char *sel = e->selector;
+		char nav_type = e->type;
 
 		if (e->type == GOPHER_SEARCH && e->query[0]) {
 			snprintf(nav_sel, sizeof(nav_sel),
 			    "%s\t%s", e->selector, e->query);
 			sel = nav_sel;
+			nav_type = GOPHER_DIRECTORY;
+		} else if (e->type == GOPHER_CSO &&
+		    e->query[0]) {
+			snprintf(nav_sel, sizeof(nav_sel),
+			    "query name=%s\r\nquit",
+			    e->query);
+			sel = nav_sel;
+			nav_type = GOPHER_CSO;
 		}
 
 		SetCursor(*GetCursor(watchCursor));
 		if (!gopher_navigate(&g_gopher, e->host, e->port,
-		    (e->type == GOPHER_SEARCH) ?
-		    GOPHER_DIRECTORY : e->type, sel)) {
+		    nav_type, sel)) {
 		GrafPtr save;
 
 		InitCursor();
