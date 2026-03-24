@@ -16,6 +16,7 @@ static const ThemeColors theme_platinum = {
 	{ 0x00, 0x00, 0xCC },  /* link: Mac blue #0000CC */
 	{ 0x00, 0x66, 0x66 },  /* link_search: teal #006666 */
 	{ 0x66, 0x00, 0xCC },  /* link_external: purple #6600CC */
+	{ 0x00, 0x66, 0x99 },  /* link_download: teal #006699 */
 	{ 0xCC, 0x00, 0x00 },  /* link_error: red */
 	{ 0x66, 0x66, 0x99 },  /* label: muted purple-gray #666699 */
 	{ 0x66, 0x66, 0x66 },  /* metadata: gray */

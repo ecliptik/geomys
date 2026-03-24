@@ -16,6 +16,7 @@ static const ThemeColors theme_tokyo_light = {
 	{ 0x33, 0x66, 0xFF },  /* link: blue #2E7DE9 → #3366FF */
 	{ 0x00, 0x99, 0x66 },  /* link_search: teal #118C74 → #009966 */
 	{ 0x99, 0x66, 0x00 },  /* link_external: orange #B15C00 → #996600 */
+	{ 0x00, 0x66, 0x99 },  /* link_download: teal #166775 → #006699 */
 	{ 0xFF, 0x33, 0x66 },  /* link_error: red #F52A65 → #FF3366 */
 	{ 0x99, 0x99, 0xCC },  /* label: comment #848CB5 → #9999CC */
 	{ 0x66, 0x66, 0x99 },  /* metadata: dark comment #565F89 → #666699 */

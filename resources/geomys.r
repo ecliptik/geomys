@@ -7,7 +7,7 @@
 #include "Processes.r"
 
 resource 'MBAR' (128) {
-	{ 128, 129, 130, 131, 132, 133 }
+	{ 128, 129, 130, 134, 131, 132, 133 }
 };
 
 resource 'MENU' (128, "Apple") {
@@ -50,6 +50,20 @@ resource 'MENU' (130, "Edit") {
 	}
 };
 
+resource 'MENU' (134, "Go") {
+	134, textMenuProc, allEnabled, enabled, "Go",
+	{
+		"Back", noIcon, "[", noMark, plain;
+		"Forward", noIcon, "]", noMark, plain;
+		"Home", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Refresh", noIcon, "R", noMark, plain;
+		"Stop", noIcon, ".", noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Open Location\311", noIcon, "L", noMark, plain;
+	}
+};
+
 resource 'MENU' (131, "Favorites") {
 	131, textMenuProc, allEnabled, enabled, "Favorites",
 	{
@@ -80,8 +94,8 @@ resource 'MENU' (133, "Window") {
 	}
 };
 
-resource 'MENU' (134, "Font") {
-	134, textMenuProc, allEnabled, enabled, "Font",
+resource 'MENU' (135, "Font") {
+	135, textMenuProc, allEnabled, enabled, "Font",
 	{
 		"Monaco 9", noIcon, noKey, noMark, plain;
 		"Monaco 12", noIcon, noKey, noMark, plain;
@@ -92,16 +106,16 @@ resource 'MENU' (134, "Font") {
 	}
 };
 
-resource 'MENU' (135, "Page Style") {
-	135, textMenuProc, allEnabled, enabled, "Page Style",
+resource 'MENU' (136, "Page Style") {
+	136, textMenuProc, allEnabled, enabled, "Page Style",
 	{
 		"Text", noIcon, noKey, noMark, plain;
 		"Icons", noIcon, noKey, noMark, plain
 	}
 };
 
-resource 'MENU' (136, "Theme") {
-	136, textMenuProc, allEnabled, enabled, "Theme",
+resource 'MENU' (137, "Theme") {
+	137, textMenuProc, allEnabled, enabled, "Theme",
 	{
 		"Light", noIcon, noKey, noMark, plain;
 		"Dark", noIcon, noKey, noMark, plain;
@@ -192,7 +206,7 @@ resource 'DITL' (131, "Open URL") {
 
 		/* 4: URL field */
 		{15, 80, 31, 365},
-		EditText { enabled, "gopher://sdf.org" };
+		EditText { enabled, "" };
 
 		/* 5: Default button outline (UserItem) */
 		{56, 296, 84, 374},
@@ -268,6 +282,42 @@ resource 'DITL' (137, "Find") {
 
 		/* 5: Default button outline (UserItem) */
 		{56, 246, 84, 324},
+		UserItem { disabled };
+	}
+};
+
+/* HTML URL dialog — shows external URL for type h items */
+resource 'DLOG' (138, "HTML URL") {
+	{80, 50, 195, 450},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	138,
+	"External Link",
+	noAutoCenter
+};
+
+resource 'DITL' (138, "HTML URL") {
+	{
+		/* 1: OK button */
+		{80, 310, 100, 380},
+		Button { enabled, "OK" };
+
+		/* 2: Cancel button */
+		{80, 220, 100, 290},
+		Button { enabled, "Cancel" };
+
+		/* 3: Description text */
+		{10, 15, 42, 385},
+		StaticText { disabled, "This link points to a web page outside of Gopher:" };
+
+		/* 4: URL field (editable for Cmd-C copy) */
+		{50, 15, 66, 385},
+		EditText { enabled, "" };
+
+		/* 5: Default button outline (UserItem) */
+		{76, 306, 104, 384},
 		UserItem { disabled };
 	}
 };
@@ -475,6 +525,34 @@ resource 'DITL' (128, "Alert") {
 		/* 4: Default button outline (UserItem) */
 		{81, 246, 109, 324},
 		UserItem { disabled };
+	}
+};
+
+/* Download progress dialog — movable modal with Stop button */
+resource 'DLOG' (139, "Download Progress") {
+	{80, 90, 170, 410},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0,
+	139,
+	"Downloading",
+	alertPositionMainScreen
+};
+
+resource 'DITL' (139, "Download Progress") {
+	{
+		/* 1: Stop button (centered at bottom) */
+		{55, 120, 75, 200},
+		Button { enabled, "Stop" };
+
+		/* 2: Filename text */
+		{10, 15, 26, 305},
+		StaticText { disabled, "Downloading ^0" };
+
+		/* 3: Byte count text */
+		{30, 15, 46, 305},
+		StaticText { disabled, "^1 bytes received" };
 	}
 };
 

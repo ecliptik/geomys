@@ -7,8 +7,9 @@
 
 #include "connection.h"
 
-/* Maximum items in a directory listing */
-#define GOPHER_MAX_ITEMS    200
+/* Directory item array: starts small, grows dynamically */
+#define GOPHER_INIT_ITEMS    64   /* initial allocation */
+#define GOPHER_MAX_ITEMS   2000   /* hard cap */
 
 /* Text buffer size for type-0 content */
 #define GOPHER_TEXT_BUFSIZ  (32L * 1024L)
@@ -44,6 +45,8 @@
 #define PAGE_DIRECTORY      1
 #define PAGE_TEXT           2
 #define PAGE_ERROR          3
+#define PAGE_DOWNLOAD       4
+#define PAGE_IMAGE          5
 
 typedef struct {
 	char    type;
@@ -61,8 +64,9 @@ typedef struct {
 	short       page_type;      /* PAGE_DIRECTORY, PAGE_TEXT, etc. */
 
 	/* Directory listing */
-	GopherItem  *items;         /* NewPtr-allocated array */
+	GopherItem  *items;         /* NewPtr-allocated, grows dynamically */
 	short       item_count;
+	short       item_capacity;  /* current allocation size */
 
 	/* Text content */
 	char        *text_buf;      /* NewPtr-allocated, GOPHER_TEXT_BUFSIZ */
@@ -85,6 +89,21 @@ typedef struct {
 	char        cur_selector[256];
 	char        cur_type;
 	char        cur_title[80];  /* display name of current page */
+
+#ifdef GEOMYS_DOWNLOAD
+	/* Download state (PAGE_DOWNLOAD / PAGE_IMAGE) */
+	short       dl_refnum;      /* open file refNum, 0 = not open */
+	long        dl_written;     /* bytes written so far */
+	Boolean     dl_error;       /* sticky write error flag */
+	short       dl_vrefnum;     /* volume for cleanup on error */
+	Str63       dl_filename;    /* for cleanup on error */
+	short       dl_prev_page;   /* page_type before download started */
+
+	/* Image sniff state (PAGE_IMAGE) */
+	char        img_header[26]; /* enough for GIF or PNG header */
+	short       img_header_len; /* bytes collected so far */
+	Boolean     img_sniffed;    /* header parsed, waiting for user */
+#endif
 } GopherState;
 
 /* Initialize gopher state — call once at startup */

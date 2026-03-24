@@ -7,29 +7,39 @@
 #include "gopher_types.h"
 #include "gopher.h"
 
+/* Download/image types are only navigable when GEOMYS_DOWNLOAD
+ * is enabled — otherwise the click interceptors are compiled
+ * out and gopher_navigate() would fall through to directory
+ * parsing, producing garbage. */
+#ifdef GEOMYS_DOWNLOAD
+#define DL_NAV true
+#else
+#define DL_NAV false
+#endif
+
 static const GopherTypeInfo type_table[] = {
 	/* Canonical types (RFC 1436) */
-	{ GOPHER_TEXT,      "TXT",  true  },
-	{ GOPHER_DIRECTORY, "DIR",  true  },
-	{ GOPHER_CSO,       "CSO",  true  },
-	{ GOPHER_ERROR,     "ERR",  false },
-	{ GOPHER_BINHEX,    "HQX",  false },
-	{ GOPHER_DOS,       "DOS",  false },
-	{ GOPHER_UUENCODE,  "UUE",  false },
-	{ GOPHER_SEARCH,    "?",    true  },
-	{ GOPHER_TELNET,    "TEL",  false },
-	{ GOPHER_BINARY,    "BIN",  false },
-	{ GOPHER_GIF,       "GIF",  false },
-	{ GOPHER_IMAGE,     "IMG",  false },
-	{ GOPHER_TN3270,    "3270", false },
+	{ GOPHER_TEXT,      "TXT",  true   },
+	{ GOPHER_DIRECTORY, "DIR",  true   },
+	{ GOPHER_CSO,       "CSO",  true   },
+	{ GOPHER_ERROR,     "ERR",  false  },
+	{ GOPHER_BINHEX,    "HQX",  DL_NAV },
+	{ GOPHER_DOS,       "DOS",  DL_NAV },
+	{ GOPHER_UUENCODE,  "UUE",  DL_NAV },
+	{ GOPHER_SEARCH,    "?",    true   },
+	{ GOPHER_TELNET,    "TEL",  false  },
+	{ GOPHER_BINARY,    "BIN",  DL_NAV },
+	{ GOPHER_GIF,       "GIF",  DL_NAV },
+	{ GOPHER_IMAGE,     "IMG",  DL_NAV },
+	{ GOPHER_TN3270,    "3270", false  },
 
 	/* Non-canonical types */
-	{ GOPHER_DOC,       "DOC",  false },
-	{ GOPHER_HTML,      "HTM",  true  },
-	{ GOPHER_INFO,      "   ",  false },
-	{ GOPHER_PNG,       "PNG",  false },
-	{ GOPHER_RTF,       "RTF",  false },
-	{ GOPHER_SOUND,     "SND",  false },
+	{ GOPHER_DOC,       "DOC",  DL_NAV },
+	{ GOPHER_HTML,      "HTM",  false  },
+	{ GOPHER_INFO,      "   ",  false  },
+	{ GOPHER_PNG,       "PNG",  DL_NAV },
+	{ GOPHER_RTF,       "RTF",  DL_NAV },
+	{ GOPHER_SOUND,     "SND",  DL_NAV },
 
 	{ 0, 0L, false }  /* sentinel */
 };
@@ -60,4 +70,24 @@ Boolean
 gopher_type_navigable(char type)
 {
 	return gopher_type_info(type)->navigable;
+}
+
+Boolean
+gopher_type_is_download(char type)
+{
+	switch (type) {
+	case GOPHER_BINHEX:
+	case GOPHER_DOS:
+	case GOPHER_UUENCODE:
+	case GOPHER_BINARY:
+	case GOPHER_DOC:
+	case GOPHER_GIF:
+	case GOPHER_IMAGE:
+	case GOPHER_PNG:
+	case GOPHER_RTF:
+	case GOPHER_SOUND:
+		return true;
+	default:
+		return false;
+	}
 }

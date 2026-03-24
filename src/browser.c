@@ -71,6 +71,8 @@ static char g_status[80];
 static short g_btn_state[NAV_BTN_COUNT];
 static Rect g_btn_rects[NAV_BTN_COUNT];
 static Rect g_addr_rect;
+static Rect g_action_rect;           /* stop/go/refresh button */
+static short g_action_state = ACTION_REFRESH;
 static short g_focus = FOCUS_ADDR_BAR;  /* which UI element has focus */
 
 #ifdef GEOMYS_CLIPBOARD
@@ -117,8 +119,11 @@ static void draw_nav_bar(WindowPtr win);
 static void draw_nav_button(short btn_id, Boolean pressed);
 static void draw_back_icon(Rect *r, Boolean dim);
 static void draw_forward_icon(Rect *r, Boolean dim);
-static void draw_refresh_icon(Rect *r, Boolean dim);
 static void draw_home_icon(Rect *r, Boolean dim);
+static void draw_refresh_icon(Rect *r, Boolean dim);
+static void draw_stop_icon(Rect *r, Boolean dim);
+static void draw_go_icon(Rect *r, Boolean dim);
+static void draw_action_button(WindowPtr win, Boolean pressed);
 
 void
 browser_init(WindowPtr win)
@@ -132,8 +137,8 @@ browser_init(WindowPtr win)
 	/* Initialize button states — back/forward disabled initially */
 	g_btn_state[NAV_BTN_BACK] = BTN_DISABLED;
 	g_btn_state[NAV_BTN_FORWARD] = BTN_DISABLED;
-	g_btn_state[NAV_BTN_REFRESH] = BTN_ENABLED;
 	g_btn_state[NAV_BTN_HOME] = BTN_ENABLED;
+	g_action_state = ACTION_REFRESH;
 
 	/* Compute button rects */
 	x = NAV_BTN_MARGIN;
@@ -143,10 +148,19 @@ browser_init(WindowPtr win)
 		x += NAV_BTN_SIZE + NAV_BTN_MARGIN;
 	}
 
+	/* Action button (stop/go/refresh) right of address bar */
+	{
+		short ax = win->portRect.right
+		    - ACTION_BTN_SIZE - NAV_BTN_MARGIN;
+		SetRect(&g_action_rect, ax, NAV_BTN_Y,
+		    ax + ACTION_BTN_SIZE,
+		    NAV_BTN_Y + ACTION_BTN_SIZE);
+	}
+
 	/* Create address bar TextEdit — frame aligns with
-	 * button bounds, right edge aligns with scrollbar */
+	 * button bounds, right edge to left of action button */
 	SetRect(&te_rect, ADDR_BAR_LEFT, NAV_BTN_Y + 1,
-	    win->portRect.right - SCROLLBAR_WIDTH,
+	    g_action_rect.left - 3,
 	    NAV_BTN_Y + NAV_BTN_SIZE - 1);
 	g_addr_rect = te_rect;
 	{
@@ -203,6 +217,26 @@ draw_nav_bar(WindowPtr win)
 	/* Draw nav buttons */
 	for (i = 0; i < NAV_BTN_COUNT; i++)
 		draw_nav_button(i, false);
+
+	/* Recalculate action button and address bar for
+	 * current window width (handles resize) */
+	{
+		short ax = win->portRect.right
+		    - ACTION_BTN_SIZE - NAV_BTN_MARGIN;
+		SetRect(&g_action_rect, ax, NAV_BTN_Y,
+		    ax + ACTION_BTN_SIZE,
+		    NAV_BTN_Y + ACTION_BTN_SIZE);
+		g_addr_rect.right = g_action_rect.left - 3;
+		if (g_addr_te) {
+			(*g_addr_te)->viewRect.right =
+			    g_addr_rect.right;
+			(*g_addr_te)->destRect.right =
+			    g_addr_rect.right - 2;
+		}
+	}
+
+	/* Draw action button (stop/go/refresh) */
+	draw_action_button(win, false);
 
 	/* Draw address bar frame */
 	frame_r = g_addr_rect;
@@ -278,9 +312,6 @@ draw_nav_button(short btn_id, Boolean pressed)
 		break;
 	case NAV_BTN_FORWARD:
 		draw_forward_icon(&r, dim);
-		break;
-	case NAV_BTN_REFRESH:
-		draw_refresh_icon(&r, dim);
 		break;
 	case NAV_BTN_HOME:
 		draw_home_icon(&r, dim);
@@ -421,6 +452,95 @@ draw_home_icon(Rect *r, Boolean dim)
 	EraseRect(&door_r);
 
 	PenNormal();
+}
+
+/* Stop: filled square (standard stop icon) */
+static void
+draw_stop_icon(Rect *r, Boolean dim)
+{
+	short cx, cy;
+	Rect sq;
+
+	cx = (r->left + r->right) / 2;
+	cy = (r->top + r->bottom) / 2;
+
+	if (dim) PenPat(&qd.gray);
+	PenSize(1, 1);
+
+	SetRect(&sq, cx - 4, cy - 4, cx + 4, cy + 4);
+	if (dim)
+		FillRect(&sq, &qd.gray);
+	else
+		PaintRect(&sq);
+
+	PenNormal();
+}
+
+/* Go: right-pointing arrow (navigate) */
+static void
+draw_go_icon(Rect *r, Boolean dim)
+{
+	short cx, cy;
+	PolyHandle poly;
+
+	cx = (r->left + r->right) / 2;
+	cy = (r->top + r->bottom) / 2;
+
+	if (dim) PenPat(&qd.gray);
+	PenSize(1, 1);
+
+	/* Filled right arrow */
+	poly = OpenPoly();
+	MoveTo(cx - 4, cy - 5);
+	LineTo(cx + 4, cy);
+	LineTo(cx - 4, cy + 5);
+	LineTo(cx - 4, cy - 5);
+	ClosePoly();
+	if (dim)
+		FillPoly(poly, &qd.gray);
+	else
+		PaintPoly(poly);
+	KillPoly(poly);
+
+	PenNormal();
+}
+
+/* Draw the action button (stop/go/refresh) */
+static void
+draw_action_button(WindowPtr win, Boolean pressed)
+{
+	Rect r = g_action_rect;
+
+	(void)win;
+	EraseRect(&r);
+	FrameRect(&r);
+
+	if (pressed)
+		InvertRect(&r);
+
+	switch (g_action_state) {
+	case ACTION_STOP:
+		draw_stop_icon(&r, false);
+		break;
+	case ACTION_GO:
+		draw_go_icon(&r, false);
+		break;
+	case ACTION_REFRESH:
+		draw_refresh_icon(&r, false);
+		break;
+	}
+}
+
+void
+browser_set_action_state(short state)
+{
+	g_action_state = state;
+}
+
+short
+browser_get_action_state(void)
+{
+	return g_action_state;
 }
 
 short
@@ -591,6 +711,39 @@ browser_click(WindowPtr win, Point local_pt)
 		}
 	}
 
+	/* Check action button (stop/go/refresh) */
+	if (PtInRect(local_pt, &g_action_rect)) {
+		GrafPtr save;
+		Boolean in_btn = true;
+		Point pt;
+
+		GetPort(&save);
+		SetPort(win);
+		draw_action_button(win, true);
+
+		while (StillDown()) {
+			GetMouse(&pt);
+			if (PtInRect(pt, &g_action_rect)) {
+				if (!in_btn) {
+					draw_action_button(win, true);
+					in_btn = true;
+				}
+			} else {
+				if (in_btn) {
+					draw_action_button(win, false);
+					in_btn = false;
+				}
+			}
+		}
+
+		draw_action_button(win, false);
+		SetPort(save);
+
+		if (!in_btn)
+			return -3;
+		return -4;  /* action button clicked */
+	}
+
 	/* Check address bar */
 	if (PtInRect(local_pt, &g_addr_rect)) {
 		g_focus = FOCUS_ADDR_BAR;
@@ -733,16 +886,24 @@ browser_idle(void)
 Boolean
 browser_cursor_update(WindowPtr win, Point local_pt)
 {
+	static Boolean was_over_addr = false;
+
 	(void)win;
 
 	if (PtInRect(local_pt, &g_addr_rect)) {
-		CursHandle ibeam;
+		/* Only set I-beam once on entry to avoid
+		 * interfering with TEIdle caret blink */
+		if (!was_over_addr) {
+			CursHandle ibeam;
 
-		ibeam = GetCursor(iBeamCursor);
-		if (ibeam)
-			SetCursor(*ibeam);
+			ibeam = GetCursor(iBeamCursor);
+			if (ibeam)
+				SetCursor(*ibeam);
+			was_over_addr = true;
+		}
 		return true;
 	}
+	was_over_addr = false;
 	return false;
 }
 

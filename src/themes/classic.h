@@ -15,6 +15,7 @@ static const ThemeColors theme_classic = {
 	{ 0x00, 0x00, 0xFF },  /* link: HTML blue #0000EE → #0000FF */
 	{ 0x00, 0x66, 0x00 },  /* link_search: dark green #006400 → #006600 */
 	{ 0x66, 0x00, 0x99 },  /* link_external: visited #551A8B → #660099 */
+	{ 0x00, 0x99, 0x99 },  /* link_download: teal #009999 */
 	{ 0xCC, 0x00, 0x00 },  /* link_error: red */
 	{ 0x99, 0x99, 0x99 },  /* label: gray (subdued type labels) */
 	{ 0x66, 0x66, 0x66 },  /* metadata: dark gray */

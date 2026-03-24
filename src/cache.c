@@ -200,16 +200,31 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 
 	if (slot->page_type == PAGE_DIRECTORY && slot->items) {
 		long size = (long)slot->item_count * sizeof(GopherItem);
-		long buf_size = (long)GOPHER_MAX_ITEMS * sizeof(GopherItem);
+		/* Allocate exactly what we need, rounded up
+		 * to GOPHER_INIT_ITEMS minimum */
+		short need = slot->item_count;
+		long buf_size;
 
-		if (!gs->items) {
-			gs->items = (GopherItem *)NewPtr(buf_size);
-			if (!gs->items)
+		if (need < GOPHER_INIT_ITEMS)
+			need = GOPHER_INIT_ITEMS;
+		buf_size = (long)need * sizeof(GopherItem);
+
+		if (!gs->items ||
+		    gs->item_capacity < slot->item_count) {
+			if (gs->items)
+				DisposePtr((Ptr)gs->items);
+			gs->items = (GopherItem *)NewPtr(
+			    buf_size);
+			if (!gs->items) {
+				gs->item_capacity = 0;
 				return false;
+			}
+			gs->item_capacity = need;
 		}
-		/* Clear entire buffer first to prevent stale items
-		 * from previous page bleeding through on scroll */
-		memset(gs->items, 0, buf_size);
+		/* Clear buffer then copy cached items */
+		memset(gs->items, 0,
+		    (long)gs->item_capacity *
+		    sizeof(GopherItem));
 		memcpy(gs->items, slot->items, size);
 		gs->item_count = slot->item_count;
 

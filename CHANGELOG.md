@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] — Type Handlers & Downloads
+
+### Added
+- Binary file downloads: save types 4 (BinHex), 5 (DOS binary), 6 (UUEncoded), 9 (binary), d (document) to disk via SFPutFile
+- Image save with metadata: types g (GIF), I (image), p (PNG) — shows format, dimensions, and file size after save
+- GIF and PNG header parsing for image dimensions (68000-safe byte-level reads)
+- HTML URL extraction: type h with `URL:` prefix displays URL in copyable dialog
+- HTML `GET /` prefix support for legacy Gopher-to-HTTP links
+- Bare HTML selectors fetched and displayed as plain text
+- Sound file download (type s) and RTF document download (type r)
+- Download progress dialog: movable modal with filename, live byte count, and Stop button
+- Download cancel via Cmd-. or Stop button with partial file cleanup
+- Suggested filenames derived from Gopher selector path
+- File type/creator code mapping for all download types
+- `gopher_type_is_download()` helper for centralized download type detection
+- Download-specific `link_download` theme color (teal/cyan) across all 9 themes
+- Angle bracket labels for download types: `<BIN>` vs `[TXT]` in Traditional page style
+- Status bar hover hints: shows gopher:// URI for navigable items, "click to save to disk" for downloads, extracted URL for HTML links
+- Hand cursor on download items (previously only navigable types)
+- Combined Stop/Go/Refresh action button right of address bar: stop icon during loading, go arrow when URL edited, refresh when idle
+- Go menu with Back (Cmd-[), Forward (Cmd-]), Home, Refresh (Cmd-R), Stop (Cmd-.), Open Location (Cmd-L), and browsing history list
+- MacTCP pre-loaded at startup with "Loading MacTCP..." status and watch cursor
+- Dynamic directory item array: starts at 64 items, grows to 2,000 max (was fixed at 200)
+
+### Changed
+- Type 3 (Error) items now fetch and display server error text instead of generic message
+- Navigation buttons reduced to Back, Forward, Home (Refresh/Stop replaced by action button)
+- Address bar wider — extends between nav buttons and action button
+- History list moved from Window menu to Go menu
+- Refresh no longer pushes to navigation history
+- Download completion treats server close as success (Gopher has no Content-Length)
+- Previous page preserved during downloads — directory listing stays visible
+- Home Page dialog default cleared (was pre-filled with sdf.org)
+- Directory item array uses 67% less memory for typical pages (26KB vs 80KB)
+
+### Fixed
+- Type h (HTML) no longer attempts to parse HTML as Gopher directory
+- HTML URL extraction checks selector field (not display field) for `URL:` prefix
+- Page rendering after load: force full redraw to prevent invisible rows from shadow buffer staleness
+- SFPutFile dialog ghost: window redrawn immediately after save dialog dismisses
+- Download state preserved: address bar, cache, and history stay correct during downloads
+- Action button updates to refresh after download/cancel completes
+- Address bar I-beam cursor no longer flickers during typing
+- Lite build: download types correctly non-navigable when GEOMYS_DOWNLOAD is OFF
+
 ## [0.8.0] — HIG Improvements
 
 ### Added
@@ -15,7 +60,7 @@ All notable changes to this project will be documented in this file.
 - Loading progress indicator: status bar shows live "Loading... N items" or "Loading... N bytes" during page fetch
 - Improved error messages: connection errors now include the hostname, suggested fixes, and use Mac curly quotes
 - Timeout status: "Connection timed out" shown in status bar when receive timeout fires
-- History list in Window menu: last 10 visited pages shown below window list, checkmark on current page
+- History list: last 10 visited pages with checkmark on current page (moved to Go menu in 0.9.0)
 - Direct history navigation: click any history entry to jump to it
 - Print support: Page Setup and Print (Cmd-P) in File menu for printing current page content
 - `GEOMYS_PRINT` feature flag with conditional compilation

@@ -38,6 +38,7 @@
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
+static MenuHandle go_menu;
 static MenuHandle favorites_menu, options_menu;
 static MenuHandle window_menu;
 static MenuHandle font_submenu;
@@ -46,8 +47,11 @@ static MenuHandle style_submenu;
 static MenuHandle theme_submenu;
 #endif
 
-/* main.c globals */
+/* main.c globals and functions */
 extern GeomysPrefs g_prefs;
+extern void navigate_history_entry(const HistoryEntry *e,
+    short direction);
+extern void do_refresh(void);
 
 #if GEOMYS_MAX_WINDOWS > 1
 static void update_window_menu(void);
@@ -74,6 +78,7 @@ init_menus(void)
 
 	file_menu = GetMenuHandle(FILE_MENU_ID);
 	edit_menu = GetMenuHandle(EDIT_MENU_ID);
+	go_menu = GetMenuHandle(GO_MENU_ID);
 	favorites_menu = GetMenuHandle(FAVORITES_MENU_ID);
 	options_menu = GetMenuHandle(OPTIONS_MENU_ID);
 
@@ -190,6 +195,8 @@ init_menus(void)
 	DrawMenuBar();
 }
 
+static void update_go_menu_history(void);
+
 void
 update_menus(void)
 {
@@ -238,6 +245,35 @@ update_menus(void)
 		else
 			DisableItem(file_menu, FILE_MENU_CLOSE);
 		EnableItem(file_menu, FILE_MENU_QUIT);
+	}
+
+	/* Go menu */
+	if (go_menu) {
+		if (history_can_back())
+			EnableItem(go_menu, GO_MENU_BACK);
+		else
+			DisableItem(go_menu, GO_MENU_BACK);
+		if (history_can_forward())
+			EnableItem(go_menu, GO_MENU_FORWARD);
+		else
+			DisableItem(go_menu, GO_MENU_FORWARD);
+		if (g_prefs.home_url[0])
+			EnableItem(go_menu, GO_MENU_HOME);
+		else
+			DisableItem(go_menu, GO_MENU_HOME);
+		if (g_gopher.cur_host[0] &&
+		    g_app_state == APP_STATE_IDLE)
+			EnableItem(go_menu, GO_MENU_REFRESH);
+		else
+			DisableItem(go_menu, GO_MENU_REFRESH);
+		if (g_app_state == APP_STATE_LOADING &&
+		    g_gopher.receiving)
+			EnableItem(go_menu, GO_MENU_STOP);
+		else
+			DisableItem(go_menu, GO_MENU_STOP);
+		EnableItem(go_menu, GO_MENU_OPEN_LOC);
+
+		update_go_menu_history();
 	}
 
 	/* Edit menu: enable when DA is active so SystemEdit works,
@@ -425,14 +461,78 @@ handle_edit_menu(short item)
 #endif
 }
 
+/* First history item number in Go menu (0 = no history shown) */
+static short g_go_history_start = 0;
+
+/*
+ * update_go_menu_history - Append history entries to Go menu.
+ * Called from update_menus after static items are updated.
+ */
+static void
+update_go_menu_history(void)
+{
+	short hcount, cur_pos, i, item_num, shown;
+	Str255 ps;
+
+	g_go_history_start = 0;
+
+	if (!go_menu)
+		return;
+
+	/* Remove any previously appended history items
+	 * (items after GO_MENU_OPEN_LOC = 8) */
+	while (CountMItems(go_menu) > GO_MENU_OPEN_LOC)
+		DeleteMenuItem(go_menu,
+		    CountMItems(go_menu));
+
+	hcount = history_count();
+	cur_pos = history_current_index();
+
+	if (hcount <= 0)
+		return;
+
+	/* Separator + "History" heading + entries */
+	AppendMenu(go_menu, "\p(-");
+	item_num = GO_MENU_OPEN_LOC + 2;
+	AppendMenu(go_menu, "\pHistory");
+	DisableItem(go_menu, item_num);
+	item_num++;
+	g_go_history_start = item_num;
+
+	/* Most recent first, max 10 */
+	shown = 0;
+	for (i = hcount - 1; i >= 0 && shown < 10;
+	    i--, shown++) {
+		const HistoryEntry *he;
+		char hlabel[80];
+
+		he = history_get(i);
+		if (!he)
+			continue;
+
+		if (he->title[0])
+			strncpy(hlabel, he->title,
+			    sizeof(hlabel) - 1);
+		else
+			strncpy(hlabel, he->host,
+			    sizeof(hlabel) - 1);
+		hlabel[sizeof(hlabel) - 1] = '\0';
+
+		c2pstr(ps, hlabel);
+		AppendMenu(go_menu, "\p ");
+		SetMenuItemText(go_menu, item_num, ps);
+		CheckItem(go_menu, item_num,
+		    i == cur_pos);
+		item_num++;
+	}
+}
+
 #if GEOMYS_MAX_WINDOWS > 1
-/* First history item number in Window menu (0 = no history shown) */
-static short g_win_history_start = 0;
 
 /*
  * update_window_menu - Rebuild the Window menu dynamically.
  * Shows "N of M Windows" header, then lists each open window
- * with a checkmark on the active session, then history entries.
+ * with a checkmark on the active session.
  */
 static void
 update_window_menu(void)
@@ -440,8 +540,6 @@ update_window_menu(void)
 	short i, item_num;
 	char label[80];
 	Str255 ps;
-
-	g_win_history_start = 0;
 
 	if (!window_menu)
 		return;
@@ -488,53 +586,12 @@ update_window_menu(void)
 		item_num++;
 	}
 
-	/* Append history entries for active window */
-	{
-		short hcount = history_count();
-		short cur_pos = history_current_index();
-		short shown = 0;
-
-		if (hcount > 0) {
-			AppendMenu(window_menu, "\p(-");
-			item_num++;
-			AppendMenu(window_menu, "\pHistory");
-			DisableItem(window_menu, item_num);
-			item_num++;
-			g_win_history_start = item_num;
-
-			/* Most recent first */
-			for (i = hcount - 1;
-			    i >= 0 && shown < 10; i--, shown++) {
-				const HistoryEntry *he;
-				char hlabel[80];
-
-				he = history_get(i);
-				if (!he)
-					continue;
-
-				if (he->title[0])
-					strncpy(hlabel, he->title,
-					    sizeof(hlabel) - 1);
-				else
-					strncpy(hlabel, he->host,
-					    sizeof(hlabel) - 1);
-				hlabel[sizeof(hlabel) - 1] = '\0';
-
-				c2pstr(ps, hlabel);
-				AppendMenu(window_menu, "\p ");
-				SetMenuItemText(window_menu,
-				    item_num, ps);
-				CheckItem(window_menu, item_num,
-				    i == cur_pos);
-				item_num++;
-			}
-		}
-	}
 }
+
 
 /*
  * handle_window_menu - Handle click on a Window menu item.
- * Items 3+ correspond to session windows, then history entries.
+ * Items 3+ correspond to session windows.
  */
 static void
 handle_window_menu(short item)
@@ -543,17 +600,6 @@ handle_window_menu(short item)
 
 	if (item < WIN_MENU_FIRST_WIN)
 		return;
-
-	/* Check if this is a history item */
-	if (g_win_history_start > 0 && item >= g_win_history_start) {
-		short hcount = history_count();
-		short menu_offset = item - g_win_history_start;
-		short hist_idx = hcount - 1 - menu_offset;
-
-		if (hist_idx >= 0 && hist_idx < hcount)
-			navigate_history_to(hist_idx);
-		return;
-	}
 
 	/* Map menu item to session */
 	item_num = WIN_MENU_FIRST_WIN;
@@ -591,6 +637,56 @@ handle_menu(long menu_id)
 		break;
 	case EDIT_MENU_ID:
 		handle_edit_menu(item);
+		break;
+	case GO_MENU_ID:
+		switch (item) {
+		case GO_MENU_BACK:
+			if (history_can_back()) {
+				history_set_scroll(
+				    content_get_scroll_pos());
+				navigate_history_entry(
+				    history_back(), -1);
+			}
+			break;
+		case GO_MENU_FORWARD:
+			if (history_can_forward()) {
+				history_set_scroll(
+				    content_get_scroll_pos());
+				navigate_history_entry(
+				    history_forward(), 1);
+			}
+			break;
+		case GO_MENU_HOME:
+			if (g_prefs.home_url[0])
+				do_navigate_url(g_prefs.home_url);
+			break;
+		case GO_MENU_REFRESH:
+			do_refresh();
+			break;
+		case GO_MENU_STOP:
+			do_cancel_loading();
+			break;
+		case GO_MENU_OPEN_LOC:
+			browser_set_focus(FOCUS_ADDR_BAR);
+			browser_activate(true);
+#ifdef GEOMYS_CLIPBOARD
+			browser_edit_select_all();
+#endif
+			break;
+		default:
+			/* History list items */
+			if (g_go_history_start > 0 &&
+			    item >= g_go_history_start) {
+				short hcount = history_count();
+				short offset = item -
+				    g_go_history_start;
+				short idx = hcount - 1 - offset;
+
+				if (idx >= 0 && idx < hcount)
+					navigate_history_to(idx);
+			}
+			break;
+		}
 		break;
 #ifdef GEOMYS_FAVORITES
 	case FAVORITES_MENU_ID:

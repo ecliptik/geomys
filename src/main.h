@@ -16,9 +16,20 @@
 #define FAVORITES_MENU_ID   131
 #define OPTIONS_MENU_ID     132
 #define WINDOW_MENU_ID      133
-#define FONT_MENU_ID        134
-#define STYLE_MENU_ID       135
-#define THEME_MENU_ID       136
+#define GO_MENU_ID          134
+#define FONT_MENU_ID        135
+#define STYLE_MENU_ID       136
+#define THEME_MENU_ID       137
+
+/* Go menu items */
+#define GO_MENU_BACK        1
+#define GO_MENU_FORWARD     2
+#define GO_MENU_HOME        3
+/* separator = 4 */
+#define GO_MENU_REFRESH     5
+#define GO_MENU_STOP        6
+/* separator = 7 */
+#define GO_MENU_OPEN_LOC    8
 
 /* Window menu items (dynamic: items 3+ are window list) */
 #define WIN_MENU_HEADER     1
@@ -99,6 +110,8 @@
 #define DLOG_FAVORITES_ID   134
 #define DLOG_EDIT_FAV_ID    135
 #define DLOG_FIND_ID        137
+#define DLOG_HTML_URL_ID    138
+#define DLOG_DL_PROGRESS_ID 139
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -121,7 +134,9 @@ void do_search_dialog(const char *title, const char *host,
 void do_type_message(char type, const char *display,
     const char *host, short port);
 void do_home_page_dialog(void);
+void do_html_url_dialog(const char *url, const char *display);
 void do_find_dialog(void);
+void do_cancel_loading(void);
 void navigate_history_to(short index);
 
 /* Globals (defined in main.c) */

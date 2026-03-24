@@ -45,6 +45,9 @@ typedef struct {
 	ip_addr     dns_server;
 } Connection;
 
+/* Initialize MacTCP driver — call at startup for faster first connect */
+void conn_init_tcp(void);
+
 /* Connect to host:port, showing progress in status_win */
 Boolean conn_connect(Connection *conn, const char *host, short port,
     WindowPtr status_win);

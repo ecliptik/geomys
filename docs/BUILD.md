@@ -62,14 +62,16 @@ The build system uses CMake feature flags to enable or disable components at com
 | `GEOMYS_OFFSCREEN` | Offscreen double-buffer | ON | OFF | ON | ON |
 | `GEOMYS_STATUS_BAR` | Status bar | ON | ON | ON | ON |
 | `GEOMYS_FAVORITES` | Favorites system | ON | OFF | ON | ON |
-| `GEOMYS_COLOR` | 256-color support (future) | OFF | OFF | OFF | OFF |
-| `GEOMYS_DOWNLOAD` | File downloads | ON | OFF | OFF | ON |
+| `GEOMYS_COLOR` | 256-color support | OFF | OFF | OFF | ON |
+| `GEOMYS_THEMES` | Theme system (9 themes) | ON | OFF | ON | ON |
+| `GEOMYS_DOWNLOAD` | File downloads and image save | ON | OFF | OFF | ON |
 | `GEOMYS_GOPHER_PLUS` | Gopher+ protocol support | ON | OFF | OFF | ON |
 | `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | OFF | ON |
 | `GEOMYS_CP437` | CP437 character set | ON | OFF | ON | ON |
 | `GEOMYS_STYLES` | Page format styles | ON | OFF | OFF | ON |
 | `GEOMYS_CACHE` | Local page caching | ON | OFF | OFF | ON |
 | `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | OFF | ON | ON |
+| `GEOMYS_PRINT` | Printing support | ON | OFF | OFF | ON |
 
 ### Dependencies
 
@@ -85,7 +87,8 @@ Individual feature flags can be toggled on or off after a preset is applied. Use
 | `--statusbar` | `--no-statusbar` | Status bar |
 | `--favorites` | `--no-favorites` | Favorites system |
 | `--color` | `--no-color` | 256-color support |
-| `--download` | `--no-download` | File downloads |
+| `--themes` | `--no-themes` | Theme system |
+| `--download` | `--no-download` | File downloads and image save |
 | `--gopher-plus` | `--no-gopher-plus` | Gopher+ protocol |
 | `--glyphs` | `--no-glyphs` | Unicode glyph rendering |
 | `--cp437` | `--no-cp437` | CP437 character set |

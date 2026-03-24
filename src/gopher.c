@@ -8,6 +8,7 @@
 #include <Windows.h>
 #include <Dialogs.h>
 #include <ToolUtils.h>
+#include <Files.h>
 #include <Multiverse.h>
 #include <string.h>
 #include <stdio.h>
@@ -18,6 +19,9 @@
 #include "dialogs.h"
 #include "macutil.h"
 #include "main.h"
+#ifdef GEOMYS_DOWNLOAD
+#include "imgparse.h"
+#endif
 
 /* Forward declarations */
 static void gopher_parse_line(GopherState *gs, const char *line, short len);
@@ -61,6 +65,7 @@ gopher_clear_page(GopherState *gs)
 		gs->items = 0L;
 	}
 	gs->item_count = 0;
+	gs->item_capacity = 0;
 
 	if (gs->text_buf) {
 		DisposePtr(gs->text_buf);
@@ -73,6 +78,17 @@ gopher_clear_page(GopherState *gs)
 		gs->text_lines = 0L;
 	}
 	gs->text_line_count = 0;
+
+#ifdef GEOMYS_DOWNLOAD
+	if (gs->dl_refnum) {
+		FSClose(gs->dl_refnum);
+		gs->dl_refnum = 0;
+	}
+	gs->dl_written = 0;
+	gs->dl_error = false;
+	gs->dl_vrefnum = 0;
+	gs->dl_filename[0] = 0;
+#endif
 
 	gs->page_type = PAGE_NONE;
 	gs->line_len = 0;
@@ -98,10 +114,10 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	    type == '\0') {
 		new_page_type = PAGE_DIRECTORY;
 		new_items = (GopherItem *)NewPtr(
-		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
+		    (long)sizeof(GopherItem) * GOPHER_INIT_ITEMS);
 		if (!new_items)
 			return false;
-	} else if (type == GOPHER_TEXT) {
+	} else if (type == GOPHER_TEXT || type == GOPHER_ERROR) {
 		new_page_type = PAGE_TEXT;
 		new_text = NewPtr(GOPHER_TEXT_BUFSIZ);
 		if (!new_text)
@@ -113,10 +129,24 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 			return false;
 		}
 		new_lines[0] = 0;  /* first line starts at offset 0 */
+#ifdef GEOMYS_DOWNLOAD
+	} else if (type == GOPHER_BINHEX || type == GOPHER_DOS ||
+	    type == GOPHER_UUENCODE || type == GOPHER_BINARY ||
+	    type == GOPHER_DOC || type == GOPHER_SOUND ||
+	    type == GOPHER_RTF) {
+		/* Download types: no buffer allocation — data goes
+		 * straight to disk via FSWrite in process_data */
+		new_page_type = PAGE_DOWNLOAD;
+	} else if (type == GOPHER_GIF || type == GOPHER_IMAGE ||
+	    type == GOPHER_PNG) {
+		/* Image types: sniff header first, then stream to
+		 * disk. File is already open from do_image_save. */
+		new_page_type = PAGE_IMAGE;
+#endif
 	} else {
 		new_page_type = PAGE_DIRECTORY;
 		new_items = (GopherItem *)NewPtr(
-		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
+		    (long)sizeof(GopherItem) * GOPHER_INIT_ITEMS);
 		if (!new_items)
 			return false;
 	}
@@ -134,29 +164,64 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		return false;
 	}
 
-	/* Connection succeeded — now clear old page and switch */
-	gopher_clear_page(gs);
+	/* Connection succeeded — now clear old page and switch.
+	 * For downloads/images, preserve old page data so the
+	 * directory listing stays visible during the download. */
+#ifdef GEOMYS_DOWNLOAD
+	if (new_page_type == PAGE_DOWNLOAD ||
+	    new_page_type == PAGE_IMAGE) {
+		gs->dl_prev_page = gs->page_type;
+		gs->page_type = new_page_type;
+		gs->line_len = 0;
+	} else
+#endif
+	{
+		gopher_clear_page(gs);
 
-	/* Zero new items buffer to prevent stale data if
-	 * item_count is ever inconsistent */
-	if (new_items)
-		memset(new_items, 0,
-		    (long)sizeof(GopherItem) * GOPHER_MAX_ITEMS);
+		/* Zero new items buffer to prevent stale data if
+		 * item_count is ever inconsistent */
+		if (new_items)
+			memset(new_items, 0,
+			    (long)sizeof(GopherItem) *
+			    GOPHER_INIT_ITEMS);
 
-	gs->page_type = new_page_type;
-	gs->items = new_items;
-	gs->text_buf = new_text;
-	gs->text_lines = new_lines;
-	gs->text_line_count = new_lines ? 1 : 0;  /* line 0 at offset 0 */
+		gs->page_type = new_page_type;
+		gs->items = new_items;
+		gs->item_capacity = new_items ?
+		    GOPHER_INIT_ITEMS : 0;
+		gs->text_buf = new_text;
+		gs->text_lines = new_lines;
+		gs->text_line_count = new_lines ? 1 : 0;
+	}
 
-	/* Save current request info */
-	strncpy(gs->cur_host, host, sizeof(gs->cur_host) - 1);
-	gs->cur_host[sizeof(gs->cur_host) - 1] = '\0';
-	gs->cur_port = port;
-	gs->cur_type = type;
-	strncpy(gs->cur_selector, selector,
-	    sizeof(gs->cur_selector) - 1);
-	gs->cur_selector[sizeof(gs->cur_selector) - 1] = '\0';
+#ifdef GEOMYS_DOWNLOAD
+	/* Reset image sniff state for PAGE_IMAGE */
+	if (new_page_type == PAGE_IMAGE) {
+		gs->img_header_len = 0;
+		gs->img_sniffed = false;
+	}
+#endif
+
+	/* Save current request info.
+	 * For downloads/images, keep the previous page's request
+	 * info so the address bar, cache, and history stay correct
+	 * after the download completes. */
+#ifdef GEOMYS_DOWNLOAD
+	if (new_page_type != PAGE_DOWNLOAD &&
+	    new_page_type != PAGE_IMAGE) {
+#endif
+		strncpy(gs->cur_host, host,
+		    sizeof(gs->cur_host) - 1);
+		gs->cur_host[sizeof(gs->cur_host) - 1] = '\0';
+		gs->cur_port = port;
+		gs->cur_type = type;
+		strncpy(gs->cur_selector, selector,
+		    sizeof(gs->cur_selector) - 1);
+		gs->cur_selector[sizeof(gs->cur_selector) - 1] =
+		    '\0';
+#ifdef GEOMYS_DOWNLOAD
+	}
+#endif
 
 	/* Send selector */
 	if (conn_send_selector(&gs->conn, selector) != noErr) {
@@ -210,6 +275,59 @@ gopher_process_data(GopherState *gs)
 	short i;
 	char *buf = gs->conn.read_buf;
 	short len = gs->conn.read_len;
+
+#ifdef GEOMYS_DOWNLOAD
+	if (gs->page_type == PAGE_DOWNLOAD) {
+		long count = (long)len;
+		OSErr err = FSWrite(gs->dl_refnum, &count, buf);
+		if (err != noErr)
+			gs->dl_error = true;
+		gs->dl_written += count;
+		return;
+	}
+
+	if (gs->page_type == PAGE_IMAGE) {
+		/* First: fill the sniff buffer (26 bytes) */
+		if (gs->img_header_len < IMG_HEADER_SIZE) {
+			short need = IMG_HEADER_SIZE -
+			    gs->img_header_len;
+			short copy = (len < need) ? len : need;
+
+			memcpy(gs->img_header + gs->img_header_len,
+			    buf, copy);
+			gs->img_header_len += copy;
+			buf += copy;
+			len -= copy;
+
+			if (gs->img_header_len >= IMG_HEADER_SIZE) {
+				gs->img_sniffed = true;
+
+				/* Write header to disk immediately
+				 * so the saved file is complete */
+				if (gs->dl_refnum) {
+					long hc = gs->img_header_len;
+					OSErr he = FSWrite(
+					    gs->dl_refnum,
+					    &hc, gs->img_header);
+					if (he != noErr)
+						gs->dl_error = true;
+					gs->dl_written += hc;
+				}
+			}
+		}
+
+		/* Stream remaining data to disk if file is open */
+		if (len > 0 && gs->dl_refnum) {
+			long count = (long)len;
+			OSErr err = FSWrite(gs->dl_refnum,
+			    &count, buf);
+			if (err != noErr)
+				gs->dl_error = true;
+			gs->dl_written += count;
+		}
+		return;
+	}
+#endif
 
 	if (gs->page_type == PAGE_TEXT) {
 		/* Text mode: append raw data to text buffer */
@@ -283,6 +401,27 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 
 	if (gs->item_count >= GOPHER_MAX_ITEMS)
 		return;
+
+	/* Grow items array if full */
+	if (gs->item_count >= gs->item_capacity) {
+		short new_cap;
+		long new_size;
+		GopherItem *new_items;
+
+		new_cap = gs->item_capacity * 2;
+		if (new_cap > GOPHER_MAX_ITEMS)
+			new_cap = GOPHER_MAX_ITEMS;
+		new_size = (long)sizeof(GopherItem) * new_cap;
+
+		new_items = (GopherItem *)NewPtr(new_size);
+		if (!new_items)
+			return;  /* out of memory — stop adding */
+		memcpy(new_items, gs->items,
+		    (long)sizeof(GopherItem) * gs->item_count);
+		DisposePtr((Ptr)gs->items);
+		gs->items = new_items;
+		gs->item_capacity = new_cap;
+	}
 
 	item = &gs->items[gs->item_count];
 	memset(item, 0, sizeof(GopherItem));

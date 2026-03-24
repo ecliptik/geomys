@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 0.3.0
+                   Version 0.9.0
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -18,18 +18,49 @@ for navigating Gopherspace.
 
 Geomys implements RFC 1436 (The Internet Gopher
 Protocol) and RFC 4266 (The gopher URI Scheme).
-It supports all canonical and non-canonical Gopher
-item types, including directories, text files,
-search queries, and informational messages.
+All 18 canonical and non-canonical Gopher item types
+are fully supported, including directories, text
+files, search queries, binary file downloads, image
+save with metadata, and HTML URL extraction.
 
 The browser features a web-style interface with an
-address bar, back/forward/refresh/home navigation
-buttons, and a status bar — all designed to follow
-the Apple Human Interface Guidelines.
+address bar, back/forward/home buttons, a combined
+stop/go/refresh action button, and a status bar --
+all designed to follow the Apple Human Interface
+Guidelines.
 
-Geomys supports multi-window browsing, allowing up
-to 4 simultaneous Gopher windows with independent
-history, scroll position, and background loading.
+
+Features
+--------
+
+  - Multi-window browsing with up to 4 simultaneous
+    Gopher windows and background loading
+  - Binary file downloads to disk via SFPutFile
+    with progress dialog and Stop button
+  - Image save with GIF/PNG format detection and
+    dimension display
+  - HTML URL extraction with copyable dialog
+  - Go menu: Back, Forward, Home, Refresh, Stop,
+    Open Location, and browsing history
+  - Dynamic stop/go/refresh button right of address
+    bar that changes based on browser state
+  - Status bar hover hints showing URIs and file info
+  - Download-specific visual indicators: angle bracket
+    labels and distinct theme colors
+  - 9 color themes including Light, Dark, Solarized,
+    Tokyo Night, Green Screen, Classic, Platinum
+  - Find in Page (Cmd-F) with Find Again (Cmd-G)
+  - Print support (Cmd-P) via Printing Manager
+  - Text selection and copy to clipboard (Cmd-C)
+  - Keyboard link navigation with Up/Down arrows
+  - Save Page As (Cmd-S) for text and directory pages
+  - CP437 character set and Unicode glyph rendering
+  - Local page cache for instant back/forward
+  - Gopher+ protocol support
+  - MacTCP pre-loaded at startup for fast first connect
+  - Dynamic directory capacity up to 2,000 items
+  - Page styles: Traditional, Plain, Markdown
+  - Font selection: Chicago, Monaco, Courier, Geneva
 
 
 System Requirements
@@ -42,6 +73,10 @@ System Requirements
   - 4 MB RAM recommended
   - Network connection (Ethernet or compatible)
 
+Color themes require Mac II or later with Color
+QuickDraw. Monochrome themes (Light, Dark) work
+on all systems including Mac Plus.
+
 
 Getting Started
 ---------------
@@ -52,13 +87,13 @@ Getting Started
 
 2. Double-click the Geomys application to launch it.
 
-3. Geomys opens to its home page (default:
-   gopher://sdf.org). You can change the home page
-   in Options > Home Page.
+3. Geomys opens to a blank page. Set your home page
+   in Options > Home Page, or type a Gopher URL in
+   the address bar and press Return.
 
 4. Click on directory items to navigate. Click on
-   text items to read them. Use the address bar to
-   enter a Gopher URL directly.
+   text items to read them. Click on binary, image,
+   or sound items to save them to disk.
 
 5. Use the Back and Forward buttons (or Cmd-[ and
    Cmd-]) to navigate through your browsing history.
@@ -69,7 +104,10 @@ Getting Started
    to copy. The address bar also supports Cut,
    Copy, and Paste via the Edit menu.
 
-7. To quit, choose Quit from the File menu or press
+7. Press Cmd-. to cancel an in-progress download
+   or page load.
+
+8. To quit, choose Quit from the File menu or press
    Command-Q.
 
 

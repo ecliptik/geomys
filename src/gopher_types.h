@@ -21,4 +21,7 @@ const char *gopher_type_label(char type);
 /* Return true if this type is navigable (click should fetch) */
 Boolean gopher_type_navigable(char type);
 
+/* Return true if this type triggers a file download/save */
+Boolean gopher_type_is_download(char type);
+
 #endif /* GOPHER_TYPES_H */

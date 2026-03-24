@@ -50,6 +50,12 @@ conn_ensure_tcp(void)
 	return err;
 }
 
+void
+conn_init_tcp(void)
+{
+	(void)conn_ensure_tcp();
+}
+
 static Boolean
 conn_validate_host(const char *host)
 {

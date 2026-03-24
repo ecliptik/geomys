@@ -308,10 +308,76 @@ Clipboard support for content area and address bar. Edit menu wired to focus con
 
 ---
 
-## Future Features (Post-MVP)
+## v0.9.0 — Type Handlers
 
-- **Chrome theming** — Themed nav bar, status bar, and address bar colors
-- **File downloads** — Save binary files (types 4, 5, 6, 9, d) to disk
-- **Image display** — Inline GIF/PNG viewing (types g, I, p)
-- **System 7 enhancements** — Preferences folder, Apple Events, Notification Manager
-- **Keyboard navigation** — Tab through links, Enter to follow
+### Phase 1: Binary File Downloads
+**Status: Complete**
+
+Streaming binary file downloads to disk via SFPutFile with progress display.
+
+- PAGE_DOWNLOAD mode: streams received data directly to disk via FSWrite (near-zero memory overhead)
+- SFPutFile dialog shown before network connection (System 6 and System 7 dual-path)
+- Default filename derived from Gopher selector path (last component, sanitized, max 31 chars)
+- File type/creator codes mapped per Gopher type (BinHex→TEXT/ttxt, Sound→sfil/SCPL, RTF→TEXT/MSWD)
+- Download progress in status bar ("Downloading... N bytes")
+- Cmd-. cancel with partial file cleanup
+- Error handling: disk full detection, connection timeout warnings
+- Types supported: 4 (BinHex), 5 (DOS binary), 6 (UUEncoded), 9 (binary), d (document)
+
+### Phase 2: Image Metadata & Save
+**Status: Complete**
+
+Image header sniffing with format/dimension detection and save-to-disk.
+
+- PAGE_IMAGE mode: buffers first 26 bytes to detect GIF/PNG format, then streams remainder to disk
+- GIF header parsing: magic detection (GIF87a/GIF89a), little-endian width/height at bytes 6-9
+- PNG header parsing: 8-byte magic, big-endian IHDR dimensions at bytes 16-23
+- 68000-safe byte-level reads (no unaligned memory access)
+- Image metadata displayed in status bar after save (format, dimensions, file size)
+- File type/creator: GIF→GIFf/8BIM, PNG→PNGf/8BIM, unknown→????/8BIM
+- Types supported: g (GIF), I (generic image), p (PNG)
+
+### Phase 3: HTML URL Extraction
+**Status: Complete**
+
+Proper handling of type h (HTML) items with URL extraction and display.
+
+- `URL:` prefix in selector: extracts URL, shows in copyable dialog
+- `GET /` prefix in selector: builds HTTP URL from host/port/path, shows in dialog
+- Bare HTML selectors: fetched and displayed as plain text (PAGE_TEXT)
+- HTML type changed from navigable to explicitly handled in click paths
+- HTML URL dialog with explanatory text and OK button
+
+### Phase 4: Remaining Types
+**Status: Complete**
+
+Sound, RTF, and error type handling.
+
+- Sound (type s): download to disk via PAGE_DOWNLOAD, sfil/SCPL type/creator
+- RTF (type r): download to disk via PAGE_DOWNLOAD, TEXT/MSWD type/creator
+- Error (type 3): fetched and displayed as PAGE_TEXT with "Server Error" status
+- Telnet types (8, T): unchanged, show informational message
+
+### Phase 5: Download UX & Browser Chrome
+**Status: Complete**
+
+Download progress dialog, visual metadata, navigation improvements.
+
+- Download progress dialog: movable modal with filename, live byte count, Stop button
+- Download-specific visual indicators: angle bracket labels (`<BIN>` vs `[TXT]`), distinct theme color, status bar hover hints
+- `gopher_type_is_download()` centralized helper function
+- Combined stop/go/refresh action button right of address bar
+- Go menu: Back (Cmd-[), Forward (Cmd-]), Home, Refresh (Cmd-R), Stop (Cmd-.), Open Location (Cmd-L), browsing history
+- History list moved from Window menu to Go menu
+- Refresh no longer pushes to navigation history
+- MacTCP pre-loaded at startup with status feedback
+- Dynamic directory item array: 64 initial, grows to 2,000 max
+- Previous page preserved during downloads (directory stays visible)
+- Address bar cursor flicker fix
+
+---
+
+## Future Features
+
+- **Inline image display** — Render GIF/PNG images in the content area (stretch goal beyond save-to-disk)
+- **System 7 enhancements** — Preferences folder, Apple Events

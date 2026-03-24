@@ -20,15 +20,20 @@ void browser_set_focus(short focus);
 #define NAV_BTN_SIZE      20
 #define NAV_BTN_MARGIN     3
 #define NAV_BTN_Y          5   /* vertical offset within nav bar */
-#define ADDR_BAR_LEFT    100   /* after 4 buttons */
-#define ADDR_BAR_MARGIN   6
+#define ADDR_BAR_LEFT     78   /* after 3 buttons */
+#define ADDR_BAR_MARGIN    6
+#define ACTION_BTN_SIZE   20   /* stop/go/refresh button right of addr bar */
 
-/* Navigation button IDs */
+/* Navigation button IDs (left-side buttons) */
 #define NAV_BTN_BACK      0
 #define NAV_BTN_FORWARD   1
-#define NAV_BTN_REFRESH   2
-#define NAV_BTN_HOME      3
-#define NAV_BTN_COUNT     4
+#define NAV_BTN_HOME      2
+#define NAV_BTN_COUNT     3
+
+/* Dynamic action button states (right of address bar) */
+#define ACTION_STOP       0    /* loading — click cancels */
+#define ACTION_GO         1    /* idle, URL changed — click navigates */
+#define ACTION_REFRESH    2    /* idle, URL same — click reloads */
 
 /* Button states */
 #define BTN_ENABLED       0
@@ -58,9 +63,13 @@ void browser_get_url(char *buf, short buf_size);
 /* Enable/disable nav buttons */
 void browser_set_button_state(short btn_id, short state);
 
+/* Action button (stop/go/refresh) */
+void browser_set_action_state(short state);
+short browser_get_action_state(void);
+
 /* Handle click in nav bar area.
  * Returns: -1 = not in chrome, -2 = address bar, -3 = disabled btn,
- *          0-3 = nav button ID clicked */
+ *          -4 = action button, 0-2 = nav button ID clicked */
 short browser_click(WindowPtr win, Point local_pt);
 
 /* Handle keystroke in address bar. Returns true if handled. */

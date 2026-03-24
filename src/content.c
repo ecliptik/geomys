@@ -19,6 +19,7 @@
 #include "main.h"
 #include "settings.h"
 #include "session.h"
+#include "savefile.h"
 #include "theme.h"
 #include "color.h"
 #include "gopher_icons.h"
@@ -442,8 +443,13 @@ content_draw_row(WindowPtr win, short row_index)
 						theme_set_fg(&t->link_error);
 					else if (ti->type == GOPHER_SEARCH)
 						theme_set_fg(&t->link_search);
-					else if (gopher_type_navigable(
+					else if (gopher_type_is_download(
 					    ti->type))
+						theme_set_fg(
+						    &t->link_download);
+					else if (gopher_type_navigable(
+					    ti->type) ||
+					    ti->type == GOPHER_HTML)
 						theme_set_fg(&t->link);
 					else
 						theme_set_fg(
@@ -510,7 +516,23 @@ content_draw_row(WindowPtr win, short row_index)
 				snprintf(line, sizeof(line),
 				    "      %.*s",
 				    name_len, disp);
-			else {
+			else if (gopher_type_is_download(
+			    item->type)) {
+#ifdef GEOMYS_GOPHER_PLUS
+				if (item->has_plus)
+					snprintf(line,
+					    sizeof(line),
+					    " <%s+> %.*s",
+					    label,
+					    name_len, disp);
+				else
+#endif
+					snprintf(line,
+					    sizeof(line),
+					    " <%s> %.*s",
+					    label,
+					    name_len, disp);
+			} else {
 #ifdef GEOMYS_GOPHER_PLUS
 				if (item->has_plus)
 					snprintf(line,
@@ -580,8 +602,16 @@ content_draw_row(WindowPtr win, short row_index)
 						theme_set_fg(
 						    &lt->link_search);
 					else if (
-					    gopher_type_navigable(
+					    gopher_type_is_download(
 					    ci->type))
+						theme_set_fg(
+						    &lt->
+						    link_download);
+					else if (
+					    gopher_type_navigable(
+					    ci->type) ||
+					    ci->type ==
+					    GOPHER_HTML)
 						theme_set_fg(
 						    &lt->link);
 					else
@@ -611,8 +641,16 @@ content_draw_row(WindowPtr win, short row_index)
 					theme_set_fg(
 					    &lt->link_search);
 				else if (
-				    gopher_type_navigable(
+				    gopher_type_is_download(
 				    ci->type))
+					theme_set_fg(
+					    &lt->
+					    link_download);
+				else if (
+				    gopher_type_navigable(
+				    ci->type) ||
+				    ci->type ==
+				    GOPHER_HTML)
 					theme_set_fg(
 					    &lt->link);
 				else
@@ -1443,7 +1481,23 @@ content_row_text(short row, char *buf, short bufsiz)
 				len = snprintf(buf, bufsiz,
 				    "      %.*s",
 				    name_len, disp);
-			else {
+			else if (gopher_type_is_download(
+			    item->type)) {
+#ifdef GEOMYS_GOPHER_PLUS
+				if (item->has_plus)
+					len = snprintf(buf,
+					    bufsiz,
+					    " <%s+> %.*s",
+					    label,
+					    name_len, disp);
+				else
+#endif
+					len = snprintf(buf,
+					    bufsiz,
+					    " <%s> %.*s",
+					    label,
+					    name_len, disp);
+			} else {
 #ifdef GEOMYS_GOPHER_PLUS
 				if (item->has_plus)
 					len = snprintf(buf,
@@ -1807,6 +1861,59 @@ do_directory_navigate(WindowPtr win, GopherState *gs,
 		return true;
 	}
 
+	/* HTML type — extract URL or fetch as text */
+	if (item->type == GOPHER_HTML) {
+		if (strncmp(item->selector, "URL:", 4) == 0) {
+			do_html_url_dialog(item->selector + 4,
+			    item->display);
+			content_draw(win);
+			return true;
+		}
+		if (strncmp(item->selector, "GET ", 4) == 0) {
+			char url[300];
+			snprintf(url, sizeof(url),
+			    "http://%s:%d%s",
+			    item->host, item->port,
+			    item->selector + 4);
+			do_html_url_dialog(url, item->display);
+			content_draw(win);
+			return true;
+		}
+		/* Bare HTML — fetch as text */
+		{
+			char uri[300];
+			gopher_build_uri(uri, sizeof(uri),
+			    item->host, item->port,
+			    GOPHER_TEXT, item->selector);
+			do_navigate_url_titled(uri,
+			    item->display[0] ?
+			    item->display : item->host);
+			return true;
+		}
+	}
+
+#ifdef GEOMYS_DOWNLOAD
+	/* Download types — save to disk */
+	if (item->type == GOPHER_BINHEX ||
+	    item->type == GOPHER_DOS ||
+	    item->type == GOPHER_UUENCODE ||
+	    item->type == GOPHER_BINARY ||
+	    item->type == GOPHER_DOC ||
+	    item->type == GOPHER_SOUND ||
+	    item->type == GOPHER_RTF) {
+		do_download_file(item);
+		return true;
+	}
+
+	/* Image types — save to disk with header sniffing */
+	if (item->type == GOPHER_GIF ||
+	    item->type == GOPHER_IMAGE ||
+	    item->type == GOPHER_PNG) {
+		do_image_save(item);
+		return true;
+	}
+#endif
+
 	/* Navigable types — build URI and navigate */
 	if (gopher_type_navigable(item->type)) {
 		char uri[300];
@@ -1866,6 +1973,53 @@ content_click_row(WindowPtr win, GopherState *gs, short row)
 		content_draw(win);
 		return true;
 	}
+	if (item->type == GOPHER_HTML) {
+		if (strncmp(item->selector, "URL:", 4) == 0) {
+			do_html_url_dialog(item->selector + 4,
+			    item->display);
+			content_draw(win);
+			return true;
+		}
+		if (strncmp(item->selector, "GET ", 4) == 0) {
+			char url[300];
+			snprintf(url, sizeof(url),
+			    "http://%s:%d%s",
+			    item->host, item->port,
+			    item->selector + 4);
+			do_html_url_dialog(url, item->display);
+			content_draw(win);
+			return true;
+		}
+		{
+			char uri[300];
+			gopher_build_uri(uri, sizeof(uri),
+			    item->host, item->port,
+			    GOPHER_TEXT, item->selector);
+			do_navigate_url_titled(uri,
+			    item->display[0] ?
+			    item->display : item->host);
+			return true;
+		}
+	}
+#ifdef GEOMYS_DOWNLOAD
+	/* Download types — save to disk */
+	if (item->type == GOPHER_BINHEX ||
+	    item->type == GOPHER_DOS ||
+	    item->type == GOPHER_UUENCODE ||
+	    item->type == GOPHER_BINARY ||
+	    item->type == GOPHER_DOC ||
+	    item->type == GOPHER_SOUND ||
+	    item->type == GOPHER_RTF) {
+		do_download_file(item);
+		return true;
+	}
+	if (item->type == GOPHER_GIF ||
+	    item->type == GOPHER_IMAGE ||
+	    item->type == GOPHER_PNG) {
+		do_image_save(item);
+		return true;
+	}
+#endif
 	if (gopher_type_navigable(item->type)) {
 		char uri[300];
 
@@ -2033,6 +2187,61 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 			content_draw(win);
 			return true;
 		}
+
+		if (item->type == GOPHER_HTML) {
+			if (strncmp(item->selector,
+			    "URL:", 4) == 0) {
+				do_html_url_dialog(
+				    item->selector + 4,
+				    item->display);
+				content_draw(win);
+				return true;
+			}
+			if (strncmp(item->selector,
+			    "GET ", 4) == 0) {
+				char url[300];
+				snprintf(url, sizeof(url),
+				    "http://%s:%d%s",
+				    item->host, item->port,
+				    item->selector + 4);
+				do_html_url_dialog(url,
+				    item->display);
+				content_draw(win);
+				return true;
+			}
+			{
+				char uri[300];
+				gopher_build_uri(uri,
+				    sizeof(uri),
+				    item->host,
+				    item->port,
+				    GOPHER_TEXT,
+				    item->selector);
+				do_navigate_url_titled(uri,
+				    item->display[0] ?
+				    item->display :
+				    item->host);
+				return true;
+			}
+		}
+
+#ifdef GEOMYS_DOWNLOAD
+		/* Download types — save to disk */
+		if (item->type == GOPHER_BINHEX ||
+		    item->type == GOPHER_DOS ||
+		    item->type == GOPHER_UUENCODE ||
+		    item->type == GOPHER_BINARY ||
+		    item->type == GOPHER_DOC) {
+			do_download_file(item);
+			return true;
+		}
+		if (item->type == GOPHER_GIF ||
+		    item->type == GOPHER_IMAGE ||
+		    item->type == GOPHER_PNG) {
+			do_image_save(item);
+			return true;
+		}
+#endif
 
 		if (gopher_type_navigable(item->type)) {
 			char uri[300];
@@ -2393,7 +2602,7 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		return;
 	}
 
-	/* Check if hovering over a navigable item */
+	/* Check if hovering over a clickable item */
 	if (g_page && g_page->page_type == PAGE_DIRECTORY &&
 	    g_page->item_count > 0) {
 		row = g_scroll_pos +
@@ -2403,7 +2612,9 @@ content_cursor_update(WindowPtr win, Point local_pt)
 			GopherItem *item = &g_page->items[row];
 
 			if (item->type != GOPHER_INFO &&
-			    gopher_type_navigable(item->type))
+			    (gopher_type_navigable(item->type) ||
+			    item->type == GOPHER_HTML ||
+			    gopher_type_is_download(item->type)))
 				new_hover = row;
 		}
 	}
@@ -2423,6 +2634,74 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		}
 	}
 
+	/* Status bar hover hints — only update when row changes */
+	{
+		static short prev_status_row = -1;
+
+		row = -1;
+		if (g_page && g_page->page_type ==
+		    PAGE_DIRECTORY && g_page->item_count > 0) {
+			row = g_scroll_pos +
+			    (local_pt.v - r.top) / g_row_height;
+			if (row < 0 || row >= g_page->item_count)
+				row = -1;
+		}
+
+		if (row != prev_status_row) {
+			prev_status_row = row;
+			if (row >= 0) {
+				GopherItem *item =
+				    &g_page->items[row];
+				char hint[80];
+
+				if (item->type == GOPHER_INFO) {
+					browser_set_status("");
+				} else if (
+				    gopher_type_is_download(
+				    item->type)) {
+					const char *lbl =
+					    gopher_type_label(
+					    item->type);
+					snprintf(hint,
+					    sizeof(hint),
+					    "%s file \xD0 "
+					    "click to save "
+					    "to disk", lbl);
+					browser_set_status(hint);
+				} else if (item->type ==
+				    GOPHER_HTML &&
+				    strncmp(item->selector,
+				    "URL:", 4) == 0) {
+					snprintf(hint,
+					    sizeof(hint),
+					    "%.76s",
+					    item->selector + 4);
+					browser_set_status(hint);
+				} else if (item->type ==
+				    GOPHER_TELNET ||
+				    item->type ==
+				    GOPHER_TN3270) {
+					browser_set_status(
+					    "Telnet session "
+					    "(not supported)");
+				} else {
+					char uri[300];
+
+					gopher_build_uri(uri,
+					    sizeof(uri),
+					    item->host,
+					    item->port,
+					    item->type,
+					    item->selector);
+					browser_set_status(uri);
+				}
+			} else {
+				browser_set_status("");
+			}
+			browser_draw_status(win);
+		}
+	}
+
 	/* Update cursor */
 	if (new_hover >= 0) {
 		if (g_hand_cursor)
@@ -2438,6 +2717,9 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		    (local_pt.v - r.top) / g_row_height;
 		if (row >= 0 && row < g_page->item_count &&
 		    !gopher_type_navigable(
+		    g_page->items[row].type) &&
+		    g_page->items[row].type != GOPHER_HTML &&
+		    !gopher_type_is_download(
 		    g_page->items[row].type)) {
 			if (g_ibeam_cursor)
 				SetCursor(*g_ibeam_cursor);
@@ -2760,7 +3042,26 @@ content_calc_max_width(WindowPtr win)
 					    sizeof(line),
 					    "      %.*s",
 					    name_len, disp);
-				else {
+				else if (
+				    gopher_type_is_download(
+				    item->type)) {
+#ifdef GEOMYS_GOPHER_PLUS
+					if (item->has_plus)
+						snprintf(line,
+						    sizeof(line),
+						    " <%s+> %.*s",
+						    label,
+						    name_len,
+						    disp);
+					else
+#endif
+						snprintf(line,
+						    sizeof(line),
+						    " <%s> %.*s",
+						    label,
+						    name_len,
+						    disp);
+				} else {
 #ifdef GEOMYS_GOPHER_PLUS
 					if (item->has_plus)
 						snprintf(line,

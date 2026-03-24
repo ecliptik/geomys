@@ -27,7 +27,8 @@ typedef struct {
 	ThemeRGB text;                 /* info items / plain text */
 	ThemeRGB link;                 /* navigable links (dirs, text files) */
 	ThemeRGB link_search;          /* search items (type 7) */
-	ThemeRGB link_external;        /* external/download items */
+	ThemeRGB link_external;        /* external/unsupported items */
+	ThemeRGB link_download;        /* download items (files, images) */
 	ThemeRGB link_error;           /* error items (type 3) */
 	ThemeRGB label;                /* type labels (DIR, TXT, etc.) */
 	ThemeRGB metadata;             /* right-aligned metadata (host:port) */

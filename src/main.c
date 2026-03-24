@@ -38,6 +38,11 @@
 #endif
 #include "color.h"
 #include "theme.h"
+#ifdef GEOMYS_DOWNLOAD
+#include <Files.h>
+#include "savefile.h"
+#include "imgparse.h"
+#endif
 
 /* Globals */
 Boolean g_running = true;
@@ -51,6 +56,14 @@ static short saved_key_rep_thresh;
 /* Notification Manager — alert user when page loads in background */
 static NMRec g_nm_rec;
 static Boolean g_nm_posted = false;
+
+/* Download progress dialog */
+#ifdef GEOMYS_DOWNLOAD
+static DialogPtr g_dl_dialog = 0L;
+static void dl_progress_open(void);
+static void dl_progress_update(long bytes);
+static void dl_progress_close(void);
+#endif
 
 /* g_window, g_app_state, g_gopher are macros in main.h
  * pointing to active_session fields.
@@ -69,8 +82,9 @@ static void handle_update(EventRecord *event);
 static void handle_activate(EventRecord *event);
 /* do_navigate_url declared in main.h */
 static void handle_nav_button(short btn_id);
+static void handle_action_button(void);
 static void update_nav_buttons(void);
-static void navigate_history_entry(const HistoryEntry *e, short direction);
+void navigate_history_entry(const HistoryEntry *e, short direction);
 static void handle_page_loaded(void);
 
 /*
@@ -169,6 +183,19 @@ main(void)
 #ifdef GEOMYS_CACHE
 	cache_init();
 #endif
+
+	/* Pre-load MacTCP driver so first connection is fast */
+	SetCursor(*GetCursor(watchCursor));
+	browser_set_status("Loading MacTCP\311");
+	{
+		GrafPtr save;
+		GetPort(&save);
+		SetPort(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
+	}
+	conn_init_tcp();
+	InitCursor();
 
 	/* Navigate to home page (or show blank if empty) */
 	if (g_prefs.home_url[0])
@@ -345,6 +372,215 @@ handle_page_loaded(void)
 	char uri[300];
 	GrafPtr save;
 
+#ifdef GEOMYS_DOWNLOAD
+	/* Download completion — close file, show result, restore UI */
+	if (g_gopher.page_type == PAGE_DOWNLOAD) {
+		char fname[64];
+		short flen;
+
+		g_app_state = APP_STATE_IDLE;
+		InitCursor();
+		dl_progress_close();
+
+		/* Extract C string filename for status */
+		flen = g_gopher.dl_filename[0];
+		if (flen > 63) flen = 63;
+		memcpy(fname, g_gopher.dl_filename + 1, flen);
+		fname[flen] = '\0';
+
+		if (g_gopher.dl_refnum) {
+			FSClose(g_gopher.dl_refnum);
+			FlushVol(0L, g_gopher.dl_vrefnum);
+		}
+
+		if (g_gopher.dl_error) {
+			/* Write error — delete partial file */
+			if (g_gopher.dl_filename[0])
+				FSDelete(g_gopher.dl_filename,
+				    g_gopher.dl_vrefnum);
+			show_error_alert(
+			    "Error writing file. "
+			    "The disk may be full.");
+		} else if (g_gopher.conn.timed_out &&
+		    g_gopher.dl_written == 0) {
+			show_error_alert(
+			    "The download failed. "
+			    "The connection timed out "
+			    "before any data was "
+			    "received.");
+		} else {
+			snprintf(uri, sizeof(uri),
+			    "Downloaded %s \xD0 %ld bytes",
+			    fname, g_gopher.dl_written);
+			browser_set_status(uri);
+		}
+
+		/* Reset download state */
+		g_gopher.dl_refnum = 0;
+		g_gopher.dl_written = 0;
+		g_gopher.dl_error = false;
+		g_gopher.dl_vrefnum = 0;
+		g_gopher.dl_filename[0] = 0;
+
+		/* Restore previous page and redraw. The old page
+		 * data (items/text) was preserved during download
+		 * so the directory listing is still intact. */
+		g_gopher.page_type = g_gopher.dl_prev_page;
+
+		/* Restore title bar from history */
+		{
+			const HistoryEntry *he;
+
+			he = history_current();
+			if (he && he->title[0])
+				set_wtitlef(g_window, "%s",
+				    he->title);
+			else
+				set_wtitlef(g_window, "%s",
+				    g_gopher.cur_host);
+		}
+
+		/* Redraw entire window and update button state */
+		update_nav_buttons();
+		GetPort(&save);
+		SetPort(g_window);
+		content_mark_all_dirty();
+		content_draw(g_window);
+		content_update_scroll(g_window);
+		browser_draw(g_window);
+		SetPort(save);
+
+		return;
+	}
+
+	/* Image download completion — close file, show image
+	 * info, restore UI. Header bytes were already written
+	 * to disk in gopher_process_data when sniffing completed. */
+	if (g_gopher.page_type == PAGE_IMAGE) {
+		g_app_state = APP_STATE_IDLE;
+		InitCursor();
+		dl_progress_close();
+
+		/* If image was smaller than sniff buffer, the
+		 * header bytes weren't written yet — write them
+		 * now before closing the file. */
+		if (g_gopher.dl_refnum &&
+		    !g_gopher.img_sniffed &&
+		    g_gopher.img_header_len > 0) {
+			long hc = g_gopher.img_header_len;
+			OSErr he = FSWrite(g_gopher.dl_refnum,
+			    &hc, g_gopher.img_header);
+			if (he != noErr)
+				g_gopher.dl_error = true;
+			g_gopher.dl_written += hc;
+		}
+
+		if (g_gopher.dl_refnum) {
+			FSClose(g_gopher.dl_refnum);
+			FlushVol(0L, g_gopher.dl_vrefnum);
+		}
+
+		if (g_gopher.dl_error) {
+			if (g_gopher.dl_filename[0])
+				FSDelete(g_gopher.dl_filename,
+				    g_gopher.dl_vrefnum);
+			show_error_alert(
+			    "Error writing file. "
+			    "The disk may be full.");
+		} else if (g_gopher.conn.timed_out &&
+		    g_gopher.dl_written == 0) {
+			show_error_alert(
+			    "The download failed. "
+			    "The connection timed out "
+			    "before any data was "
+			    "received.");
+		} else {
+			/* Success — show image info */
+			Str255 pmsg;
+			char msg[200];
+			short fmt;
+			unsigned short img_w, img_h;
+
+			fmt = img_detect_format(
+			    g_gopher.img_header,
+			    g_gopher.img_header_len);
+
+			if (img_parse_dimensions(
+			    g_gopher.img_header,
+			    g_gopher.img_header_len,
+			    fmt, &img_w, &img_h)) {
+				snprintf(msg, sizeof(msg),
+				    "Image saved. "
+				    "Format: %s, "
+				    "Size: %ld bytes, "
+				    "Dimensions: %u \xD7 %u",
+				    img_format_name(
+				    g_gopher.img_header,
+				    g_gopher.img_header_len,
+				    fmt),
+				    g_gopher.dl_written,
+				    img_w, img_h);
+			} else {
+				snprintf(msg, sizeof(msg),
+				    "Image saved. "
+				    "Format: %s, "
+				    "Size: %ld bytes",
+				    img_format_name(
+				    g_gopher.img_header,
+				    g_gopher.img_header_len,
+				    fmt),
+				    g_gopher.dl_written);
+			}
+
+			c2pstr(pmsg, msg);
+			ParamText(pmsg, "\p", "\p", "\p");
+			NoteAlert(128, 0L);
+
+			snprintf(uri, sizeof(uri),
+			    "Image saved \xD0 %ld bytes",
+			    g_gopher.dl_written);
+			browser_set_status(uri);
+		}
+
+		/* Reset download + image state */
+		g_gopher.dl_refnum = 0;
+		g_gopher.dl_written = 0;
+		g_gopher.dl_error = false;
+		g_gopher.dl_vrefnum = 0;
+		g_gopher.dl_filename[0] = 0;
+		g_gopher.img_header_len = 0;
+		g_gopher.img_sniffed = false;
+
+		/* Restore previous page and redraw */
+		g_gopher.page_type = g_gopher.dl_prev_page;
+
+		/* Restore title bar from history */
+		{
+			const HistoryEntry *he;
+
+			he = history_current();
+			if (he && he->title[0])
+				set_wtitlef(g_window, "%s",
+				    he->title);
+			else
+				set_wtitlef(g_window, "%s",
+				    g_gopher.cur_host);
+		}
+
+		/* Redraw entire window and update button state */
+		update_nav_buttons();
+		GetPort(&save);
+		SetPort(g_window);
+		content_mark_all_dirty();
+		content_draw(g_window);
+		content_update_scroll(g_window);
+		browser_draw(g_window);
+		SetPort(save);
+
+		return;
+	}
+#endif
+
 	g_app_state = APP_STATE_IDLE;
 	InitCursor();
 
@@ -369,6 +605,8 @@ handle_page_loaded(void)
 	if (g_gopher.conn.timed_out) {
 		browser_set_status("Connection timed out");
 		g_gopher.conn.timed_out = false;
+	} else if (g_gopher.cur_type == GOPHER_ERROR) {
+		browser_set_status("Server Error");
 	} else {
 		if (g_gopher.page_type == PAGE_DIRECTORY)
 			snprintf(uri, sizeof(uri),
@@ -416,6 +654,12 @@ handle_page_loaded(void)
 		g_pending_scroll = -1;
 	}
 
+	/* Force full redraw on page load completion.
+	 * Incremental draws during loading may leave the shadow
+	 * buffer valid with stale dirty flags, causing the final
+	 * draw to skip rows if a hover event set a dirty flag
+	 * between intermediate draws. */
+	content_mark_all_dirty();
 	content_draw(g_window);
 	content_update_scroll(g_window);
 	browser_draw(g_window);
@@ -505,6 +749,18 @@ main_event_loop(void)
 							GrafPtr sp;
 							char pg[80];
 
+#ifdef GEOMYS_DOWNLOAD
+							if (g_gopher.page_type
+							    == PAGE_DOWNLOAD ||
+							    g_gopher.page_type
+							    == PAGE_IMAGE) {
+								if (!g_dl_dialog)
+									dl_progress_open();
+								dl_progress_update(
+								    g_gopher.dl_written);
+							} else
+#endif
+							{
 							if (g_gopher.page_type
 							    == PAGE_DIRECTORY)
 								snprintf(pg,
@@ -517,14 +773,24 @@ main_event_loop(void)
 								    "Loading\311 %ld bytes",
 								    g_gopher.text_len);
 							browser_set_status(pg);
+							}
 
 							GetPort(&sp);
 							SetPort(
 							    g_window);
+#ifdef GEOMYS_DOWNLOAD
+							if (g_gopher.page_type
+							    != PAGE_DOWNLOAD &&
+							    g_gopher.page_type
+							    != PAGE_IMAGE) {
+#endif
 							content_draw(
 							    g_window);
 							content_update_scroll(
 							    g_window);
+#ifdef GEOMYS_DOWNLOAD
+							}
+#endif
 							browser_draw_status(
 							    g_window);
 							SetPort(sp);
@@ -585,6 +851,18 @@ main_event_loop(void)
 					GrafPtr save;
 					char prog[80];
 
+#ifdef GEOMYS_DOWNLOAD
+					if (g_gopher.page_type ==
+					    PAGE_DOWNLOAD ||
+					    g_gopher.page_type ==
+					    PAGE_IMAGE) {
+						if (!g_dl_dialog)
+							dl_progress_open();
+						dl_progress_update(
+						    g_gopher.dl_written);
+					} else
+#endif
+					{
 					if (g_gopher.page_type ==
 					    PAGE_DIRECTORY)
 						snprintf(prog,
@@ -597,12 +875,22 @@ main_event_loop(void)
 						    "Loading\311 %ld bytes",
 						    g_gopher.text_len);
 					browser_set_status(prog);
+					}
 
 					GetPort(&save);
 					SetPort(g_window);
+#ifdef GEOMYS_DOWNLOAD
+					if (g_gopher.page_type !=
+					    PAGE_DOWNLOAD &&
+					    g_gopher.page_type !=
+					    PAGE_IMAGE) {
+#endif
 					content_draw(g_window);
 					content_update_scroll(
 					    g_window);
+#ifdef GEOMYS_DOWNLOAD
+					}
+#endif
 					browser_draw_status(g_window);
 					SetPort(save);
 				}
@@ -631,6 +919,15 @@ main_event_loop(void)
 			}
 			break;
 		case keyDown:
+#ifdef GEOMYS_DOWNLOAD
+			/* Cmd-. cancels download even with dialog up */
+			if (g_dl_dialog &&
+			    (event.modifiers & cmdKey) &&
+			    (event.message & charCodeMask) == '.') {
+				do_cancel_loading();
+				break;
+			}
+#endif
 			handle_key_down(&event);
 			break;
 		case autoKey:
@@ -655,9 +952,35 @@ main_event_loop(void)
 			}
 			break;
 		case mouseDown:
+#ifdef GEOMYS_DOWNLOAD
+			/* Check for download dialog Stop button */
+			if (g_dl_dialog &&
+			    IsDialogEvent(&event)) {
+				DialogPtr dlg;
+				short item;
+
+				if (DialogSelect(&event,
+				    &dlg, &item) &&
+				    dlg == g_dl_dialog &&
+				    item == 1) {
+					do_cancel_loading();
+				}
+				break;
+			}
+#endif
 			handle_mouse_down(&event);
 			break;
 		case updateEvt:
+#ifdef GEOMYS_DOWNLOAD
+			/* Let Dialog Manager handle dialog updates */
+			if (g_dl_dialog &&
+			    IsDialogEvent(&event)) {
+				DialogPtr dlg;
+				short item;
+				DialogSelect(&event, &dlg, &item);
+				break;
+			}
+#endif
 			handle_update(&event);
 			break;
 		case activateEvt:
@@ -718,6 +1041,167 @@ main_event_loop(void)
 /* Forward declaration for keyboard refresh shortcut */
 static void handle_nav_button(short btn_id);
 
+#ifdef GEOMYS_DOWNLOAD
+/*
+ * Download progress dialog — open, update, close.
+ * Uses SetDialogItemText to update byte count directly
+ * rather than ParamText (which would overwrite filename).
+ */
+static Str255 g_dl_pname;  /* filename for ParamText ^0 */
+
+static void
+dl_progress_open(void)
+{
+	char cname[64];
+	short len;
+	Str255 pbytes;
+
+	if (g_dl_dialog)
+		return;
+
+	/* Convert Pascal dl_filename to C string */
+	len = g_gopher.dl_filename[0];
+	if (len > 63) len = 63;
+	memcpy(cname, g_gopher.dl_filename + 1, len);
+	cname[len] = '\0';
+
+	c2pstr(g_dl_pname, cname);
+	c2pstr(pbytes, "0");
+	ParamText(g_dl_pname, pbytes, "\p", "\p");
+
+	g_dl_dialog = GetNewDialog(DLOG_DL_PROGRESS_ID,
+	    0L, (WindowPtr)-1);
+	if (g_dl_dialog) {
+		center_dialog_on_screen(g_dl_dialog);
+		ShowWindow((WindowPtr)g_dl_dialog);
+		DrawDialog(g_dl_dialog);
+	}
+}
+
+static void
+dl_progress_update(long bytes)
+{
+	Str255 pbytes;
+	char buf[32];
+	GrafPtr save;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+
+	if (!g_dl_dialog)
+		return;
+
+	/* Update byte count — only redraw the text item,
+	 * not the entire dialog, to avoid flicker */
+	snprintf(buf, sizeof(buf), "%ld bytes received",
+	    bytes);
+	c2pstr(pbytes, buf);
+
+	GetDialogItem(g_dl_dialog, 3, &item_type,
+	    &item_h, &item_rect);
+	SetDialogItemText(item_h, pbytes);
+
+	GetPort(&save);
+	SetPort((WindowPtr)g_dl_dialog);
+	EraseRect(&item_rect);
+	TETextBox(buf, (long)strlen(buf),
+	    &item_rect, teFlushDefault);
+	SetPort(save);
+}
+
+static void
+dl_progress_close(void)
+{
+	if (g_dl_dialog) {
+		DisposeDialog(g_dl_dialog);
+		g_dl_dialog = 0L;
+	}
+}
+#endif
+
+/*
+ * Cancel any in-progress page load or download.
+ * Used by Cmd-., Stop button, and Go > Stop menu.
+ */
+void
+do_cancel_loading(void)
+{
+	char status[80];
+
+	if (g_app_state != APP_STATE_LOADING ||
+	    !g_gopher.receiving)
+		return;
+
+	conn_close(&g_gopher.conn);
+	g_gopher.receiving = false;
+
+#ifdef GEOMYS_DOWNLOAD
+	dl_progress_close();
+	if (g_gopher.page_type == PAGE_DOWNLOAD ||
+	    g_gopher.page_type == PAGE_IMAGE) {
+		/* Close and delete partial download file */
+		if (g_gopher.dl_refnum) {
+			FSClose(g_gopher.dl_refnum);
+			FlushVol(0L, g_gopher.dl_vrefnum);
+			FSDelete(g_gopher.dl_filename,
+			    g_gopher.dl_vrefnum);
+			g_gopher.dl_refnum = 0;
+		}
+
+		snprintf(status, sizeof(status),
+		    "Stopped \xD0 %ld bytes",
+		    g_gopher.dl_written);
+
+		g_gopher.dl_written = 0;
+		g_gopher.dl_error = false;
+		g_gopher.dl_vrefnum = 0;
+		g_gopher.dl_filename[0] = 0;
+		g_gopher.img_header_len = 0;
+		g_gopher.img_sniffed = false;
+
+		/* Restore page and title from before download */
+		g_gopher.page_type = g_gopher.dl_prev_page;
+		{
+			const HistoryEntry *he;
+
+			he = history_current();
+			if (he && he->title[0])
+				set_wtitlef(g_window, "%s",
+				    he->title);
+			else
+				set_wtitlef(g_window, "%s",
+				    g_gopher.cur_host);
+		}
+	} else
+#endif
+	if (g_gopher.page_type == PAGE_DIRECTORY) {
+		snprintf(status, sizeof(status),
+		    "Stopped \xD0 %d items",
+		    g_gopher.item_count);
+	} else {
+		snprintf(status, sizeof(status),
+		    "Stopped \xD0 %ld bytes",
+		    g_gopher.text_len);
+	}
+
+	g_app_state = APP_STATE_IDLE;
+	InitCursor();
+	browser_set_status(status);
+	update_nav_buttons();
+
+	{
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(g_window);
+		content_mark_all_dirty();
+		content_draw(g_window);
+		content_update_scroll(g_window);
+		browser_draw(g_window);
+		SetPort(save);
+	}
+}
+
 /*
  * handle_key_down - process keyDown events
  */
@@ -749,22 +1233,8 @@ handle_key_down(EventRecord *event)
 			return;
 		}
 
-		/* Cmd-L = focus address bar (select all) */
-		if (key == 'l') {
-			browser_set_focus(FOCUS_ADDR_BAR);
-			browser_activate(true);
-#ifdef GEOMYS_CLIPBOARD
-			browser_edit_select_all();
-#endif
-			return;
-		}
-
-		/* Cmd-R = refresh current page */
-		if (key == 'r') {
-			if (g_gopher.cur_host[0])
-				handle_nav_button(NAV_BTN_REFRESH);
-			return;
-		}
+		/* Cmd-R, Cmd-L, Cmd-. handled via Go menu
+		 * through MenuKey below */
 
 		update_menus();
 		handle_menu(MenuKey(key));
@@ -949,6 +1419,57 @@ do_navigate_url_titled(const char *url, const char *title)
 		history_push(host, port, type, selector,
 		    (title && title[0]) ? title : host,
 		    0L);
+		update_nav_buttons();
+	}
+}
+
+/*
+ * Refresh the current page — re-fetches without
+ * pushing a new history entry.
+ */
+void
+do_refresh(void)
+{
+	if (!g_gopher.cur_host[0] ||
+	    g_app_state != APP_STATE_IDLE)
+		return;
+
+#ifdef GEOMYS_CACHE
+	cache_invalidate(active_session->id,
+	    history_current_index());
+#endif
+
+	g_app_state = APP_STATE_LOADING;
+	browser_set_status("Loading\311");
+	{
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
+	}
+
+	set_wtitlef(g_window, "Loading %s\311",
+	    g_gopher.cur_host);
+	SetCursor(*GetCursor(watchCursor));
+
+	if (!gopher_navigate(&g_gopher,
+	    g_gopher.cur_host, g_gopher.cur_port,
+	    g_gopher.cur_type, g_gopher.cur_selector)) {
+		GrafPtr save;
+
+		g_app_state = APP_STATE_IDLE;
+		InitCursor();
+		browser_set_status("Connection failed");
+
+		GetPort(&save);
+		SetPort(g_window);
+		content_draw(g_window);
+		content_update_scroll(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
+	} else {
 		update_nav_buttons();
 	}
 }
@@ -1249,16 +1770,6 @@ do_type_message(char type, const char *display,
 		    "Sound playback is not supported "
 		    "in this version of Geomys.");
 		break;
-	case GOPHER_HTML: {
-		/* Show the URL if display starts with "URL:" */
-		const char *url = display;
-		if (strncmp(display, "URL:", 4) == 0)
-			url = display + 4;
-		snprintf(msg, sizeof(msg),
-		    "External link: %.120s\n"
-		    "Copy this URL to a web browser.", url);
-		break;
-	}
 	default:
 		snprintf(msg, sizeof(msg),
 		    "This item type is not supported "
@@ -1271,6 +1782,58 @@ do_type_message(char type, const char *display,
 	NoteAlert(128, 0L);
 }
 
+/*
+ * Show a dialog with an external URL from a type h item.
+ * The URL is placed in an editable text field so the user
+ * can Cmd-C to copy it.
+ */
+void
+do_html_url_dialog(const char *url, const char *display)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+
+	(void)display;
+
+	browser_activate(false);
+
+	dlg = GetNewDialog(DLOG_HTML_URL_ID, 0L, 0L);
+	if (!dlg) {
+		browser_activate(true);
+		return;
+	}
+	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
+
+	/* Set URL in the EditText field */
+	c2pstr(pstr, url);
+	GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	setup_default_button_outline(dlg, 5);
+	SelectDialogItemText(dlg, 4, 0, 32767);
+
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	} while (item != 1 && item != 2);
+
+	DisposeDialog(dlg);
+	browser_activate(true);
+
+	/* Invalidate window behind dismissed dialog */
+	{
+		GrafPtr save;
+		GetPort(&save);
+		SetPort(g_window);
+		InvalRect(&g_window->portRect);
+		SetPort(save);
+	}
+}
+
 static void
 update_nav_buttons(void)
 {
@@ -1280,6 +1843,27 @@ update_nav_buttons(void)
 	    history_can_back() ? BTN_ENABLED : BTN_DISABLED);
 	browser_set_button_state(NAV_BTN_FORWARD,
 	    history_can_forward() ? BTN_ENABLED : BTN_DISABLED);
+
+	/* Update action button: stop during loading,
+	 * go if URL was edited, refresh otherwise */
+	if (g_app_state == APP_STATE_LOADING &&
+	    g_gopher.receiving) {
+		browser_set_action_state(ACTION_STOP);
+	} else {
+		char url[300];
+		char cur[300];
+
+		browser_get_url(url, sizeof(url));
+		gopher_build_uri(cur, sizeof(cur),
+		    g_gopher.cur_host, g_gopher.cur_port,
+		    g_gopher.cur_type,
+		    g_gopher.cur_selector);
+		if (strcmp(url, cur) != 0 &&
+		    url[0] != '\0')
+			browser_set_action_state(ACTION_GO);
+		else
+			browser_set_action_state(ACTION_REFRESH);
+	}
 
 	GetPort(&save);
 	SetPort(g_window);
@@ -1291,7 +1875,7 @@ update_nav_buttons(void)
  * Navigate to a history entry.
  * direction: -1 = came from back, +1 = came from forward
  */
-static void
+void
 navigate_history_entry(const HistoryEntry *e, short direction)
 {
 	char uri[300];
@@ -1532,23 +2116,32 @@ handle_nav_button(short btn_id)
 		history_set_scroll(content_get_scroll_pos());
 		navigate_history_entry(history_forward(), 1);
 		break;
-	case NAV_BTN_REFRESH: {
-		char url[300];
-
-#ifdef GEOMYS_CACHE
-		/* Invalidate cached copy so we re-fetch from server */
-		cache_invalidate(active_session->id,
-		    history_current_index());
-#endif
-		gopher_build_uri(url, sizeof(url),
-		    g_gopher.cur_host, g_gopher.cur_port,
-		    g_gopher.cur_type, g_gopher.cur_selector);
-		do_navigate_url(url);
-		break;
-	}
 	case NAV_BTN_HOME:
 		if (g_prefs.home_url[0])
 			do_navigate_url(g_prefs.home_url);
+		break;
+	}
+}
+
+/*
+ * Handle action button click — dynamic stop/go/refresh.
+ */
+static void
+handle_action_button(void)
+{
+	switch (browser_get_action_state()) {
+	case ACTION_STOP:
+		do_cancel_loading();
+		break;
+	case ACTION_GO: {
+		char url[300];
+		browser_get_url(url, sizeof(url));
+		if (url[0])
+			do_navigate_url(url);
+		break;
+	}
+	case ACTION_REFRESH:
+		do_refresh();
 		break;
 	}
 }
@@ -1672,6 +2265,9 @@ handle_mouse_down(EventRecord *event)
 			if (click_result >= 0) {
 				/* Nav button clicked */
 				handle_nav_button(click_result);
+			} else if (click_result == -4) {
+				/* Action button (stop/go/refresh) */
+				handle_action_button();
 			} else if (click_result == -1) {
 				/* Check scroll bars first */
 				ControlHandle hit_ctl;
