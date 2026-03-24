@@ -914,10 +914,22 @@ content_draw_row(WindowPtr win, short row_index)
 		if (show_underline) {
 			/* line now contains only prefix + name
 			 * (no metadata), so underline it all */
+#ifdef GEOMYS_THEMES
+			if (t && t->is_dark && !theme_is_color()) {
+				/* Mono dark: pen is black on black bg.
+				 * Use patBic to draw white underline
+				 * matching the srcBic text. */
+				PenMode(patBic);
+			}
+#endif
 			MoveTo(r.left + 4 - g_hscroll_pos,
 			    y - 1);
 			LineTo(r.left + 4 - g_hscroll_pos +
 			    TextWidth(line, 0, len), y - 1);
+#ifdef GEOMYS_THEMES
+			if (t && t->is_dark && !theme_is_color())
+				PenNormal();
+#endif
 		}
 	}
 
