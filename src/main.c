@@ -2299,6 +2299,69 @@ do_home_page_dialog(void)
 	DisposeDialog(dlg);
 }
 
+void
+do_dns_server_dialog(void)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+
+	dlg = GetNewDialog(DLOG_DNS_ID, 0L, 0L);
+	if (!dlg)
+		return;
+	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
+
+	/* Pre-fill current DNS server */
+	c2pstr(pstr, g_prefs.dns_server);
+	GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	setup_default_button_outline(dlg, 5);
+
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	} while (item != 1 && item != 2);
+
+	if (item == 1) {
+		short len;
+
+		GetDialogItem(dlg, 4, &item_type, &item_h,
+		    &item_rect);
+		GetDialogItemText(item_h, pstr);
+		len = pstr[0];
+		if (len >= (short)sizeof(g_prefs.dns_server))
+			len = sizeof(g_prefs.dns_server) - 1;
+		memcpy(g_prefs.dns_server, pstr + 1, len);
+		g_prefs.dns_server[len] = '\0';
+
+		/* Validate — revert to default if invalid */
+		if (ip2long(g_prefs.dns_server) == 0) {
+			strncpy(g_prefs.dns_server, "1.1.1.1",
+			    sizeof(g_prefs.dns_server) - 1);
+			g_prefs.dns_server[
+			    sizeof(g_prefs.dns_server) - 1] = '\0';
+		}
+		prefs_save(&g_prefs);
+
+		/* Update DNS server for all active sessions */
+		{
+			short i;
+			for (i = 0; i < GEOMYS_MAX_WINDOWS; i++) {
+				BrowserSession *s = session_get(i);
+				if (s)
+					s->gopher.conn.dns_server =
+					    ip2long(g_prefs.dns_server);
+			}
+		}
+	}
+
+	DisposeDialog(dlg);
+}
+
 static void
 handle_nav_button(short btn_id)
 {

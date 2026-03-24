@@ -68,13 +68,14 @@
 
 /* Options menu items */
 #define OPT_MENU_HOME       1
-/* separator = 2 */
-#define OPT_MENU_FONT       3   /* hierarchical submenu trigger */
-#define OPT_MENU_STYLE      4   /* hierarchical submenu trigger */
-#define OPT_MENU_THEME      5   /* hierarchical submenu trigger */
-/* separator = 6 */
-#define OPT_MENU_DETAILS    7   /* "Show Details" toggle */
-#define OPT_MENU_STATUS_BAR 8   /* "Status Bar" toggle */
+#define OPT_MENU_DNS        2
+/* separator = 3 */
+#define OPT_MENU_FONT       4   /* hierarchical submenu trigger */
+#define OPT_MENU_STYLE      5   /* hierarchical submenu trigger */
+#define OPT_MENU_THEME      6   /* hierarchical submenu trigger */
+/* separator = 7 */
+#define OPT_MENU_DETAILS    8   /* "Show Details" toggle */
+#define OPT_MENU_STATUS_BAR 9   /* "Status Bar" toggle */
 
 /* Font submenu items */
 #define FONT_MONACO9        1
@@ -111,6 +112,7 @@
 #define DLOG_HTML_URL_ID    138
 #define DLOG_DL_PROGRESS_ID 139
 #define DLOG_TELNET_ID      140
+#define DLOG_DNS_ID         141
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -133,6 +135,7 @@ void do_search_dialog(const char *title, const char *host,
 void do_type_message(char type, const char *display,
     const char *host, short port);
 void do_home_page_dialog(void);
+void do_dns_server_dialog(void);
 void do_html_url_dialog(const char *url, const char *display);
 #ifdef GEOMYS_TELNET
 void do_telnet_dialog(char type, const char *display,

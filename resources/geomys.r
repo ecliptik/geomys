@@ -74,6 +74,7 @@ resource 'MENU' (132, "Options") {
 	132, textMenuProc, allEnabled, enabled, "Options",
 	{
 		"Home Page\311", noIcon, noKey, noMark, plain;
+		"DNS Server\311", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Font", noIcon, noKey, noMark, plain;
 		"Page Style", noIcon, noKey, noMark, plain;
@@ -619,6 +620,41 @@ resource 'DITL' (140, "Telnet") {
 		/* 13: TN3270 note (hidden unless type T) */
 		{112, 15, 144, 345},
 		StaticText { disabled, "" };
+	}
+};
+
+resource 'DLOG' (141, "DNS Server") {
+	{80, 100, 175, 400},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	141,
+	"DNS Server",
+	noAutoCenter
+};
+
+resource 'DITL' (141, "DNS Server") {
+	{
+		/* 1: OK button */
+		{60, 210, 80, 280},
+		Button { enabled, "OK" };
+
+		/* 2: Cancel button */
+		{60, 120, 80, 190},
+		Button { enabled, "Cancel" };
+
+		/* 3: DNS Server label */
+		{15, 15, 31, 110},
+		StaticText { disabled, "DNS Server:" };
+
+		/* 4: DNS Server IP field */
+		{15, 115, 31, 275},
+		EditText { enabled, "" };
+
+		/* 5: Default button outline (UserItem) */
+		{56, 206, 84, 284},
+		UserItem { disabled };
 	}
 };
 

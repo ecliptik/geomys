@@ -739,6 +739,9 @@ handle_menu(long menu_id)
 		case OPT_MENU_HOME:
 			do_home_page_dialog();
 			break;
+		case OPT_MENU_DNS:
+			do_dns_server_dialog();
+			break;
 		case OPT_MENU_DETAILS:
 			g_prefs.show_details =
 			    !g_prefs.show_details;
