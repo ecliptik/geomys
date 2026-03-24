@@ -377,6 +377,39 @@ Download progress dialog, visual metadata, navigation improvements.
 
 ---
 
+## v0.10.0 — HTML Renderer & Telnet Handoff
+
+### Phase 1: HTML Tag-Stripping Renderer
+**Status: Complete**
+
+Single-pass streaming HTML tag stripper for type h items with bare selectors.
+
+- 5-state parser state machine: TEXT, TAG_OPEN, TAG_CLOSE, ENTITY, SKIP
+- Parser state (~32 bytes) added to GopherState under `#ifdef GEOMYS_HTML`
+- Tag support: `<br>` newline, `<p>` blank line, `<pre>` preserve whitespace, `<h1>`–`<h6>` visual separation, `<li>` bullet, `<hr>` dash line
+- `<script>` and `<style>` content skipped until closing tag
+- Entity decoding: `&amp;` `&lt;` `&gt;` `&quot;`
+- Whitespace collapsed outside `<pre>` blocks
+- PAGE_HTML page type: tag-stripped content rendered via text display pipeline
+- New files: `src/html.c`, `src/html.h`
+- Feature-flagged with `GEOMYS_HTML`
+
+### Phase 2: Telnet Connection Dialog
+**Status: Complete**
+
+Enhanced telnet connection dialog replacing NoteAlert for type 8/T items, with System 7 app launching.
+
+- Movable modal dialog (DLOG 140): shows host, port, and login (if selector present)
+- Copy Host button copies host:port to clipboard (guarded by `GEOMYS_CLIPBOARD`)
+- Done button as default (rightmost, bold outline)
+- Type T (TN3270) variant includes TN3270 mode note
+- System 7 LaunchApplication: searches for Flynn or NCSA Telnet, launches with `launchContinue` flag
+- System 6 fallback: dialog only (no launch capability)
+- Status bar hover shows "Telnet: host:port" instead of "Telnet session (not supported)"
+- Feature-flagged with `GEOMYS_TELNET`
+
+---
+
 ## Future Features
 
 - **Inline image display** — Render GIF/PNG images in the content area (stretch goal beyond save-to-disk)

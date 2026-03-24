@@ -47,6 +47,9 @@
 #define PAGE_ERROR          3
 #define PAGE_DOWNLOAD       4
 #define PAGE_IMAGE          5
+#ifdef GEOMYS_HTML
+#define PAGE_HTML           6
+#endif
 
 typedef struct {
 	char    type;
@@ -103,6 +106,18 @@ typedef struct {
 	char        img_header[26]; /* enough for GIF or PNG header */
 	short       img_header_len; /* bytes collected so far */
 	Boolean     img_sniffed;    /* header parsed, waiting for user */
+#endif
+
+#ifdef GEOMYS_HTML
+	/* HTML tag-stripping parser state */
+	short       html_state;         /* TEXT=0, TAG_OPEN=1, ENTITY=2, SKIP=3 */
+	char        html_tag[16];       /* current tag name accumulator */
+	short       html_tag_len;
+	char        html_entity[8];     /* entity accumulator */
+	short       html_ent_len;
+	Boolean     html_in_pre;        /* inside <pre> block */
+	Boolean     html_had_space;     /* whitespace collapse flag */
+	char        html_in_skip_tag[8]; /* tag name being skipped (script/style) */
 #endif
 } GopherState;
 

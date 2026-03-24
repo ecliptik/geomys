@@ -22,6 +22,9 @@
 #ifdef GEOMYS_DOWNLOAD
 #include "imgparse.h"
 #endif
+#ifdef GEOMYS_HTML
+#include "html.h"
+#endif
 
 /* Forward declarations */
 static void gopher_parse_line(GopherState *gs, const char *line, short len);
@@ -90,6 +93,10 @@ gopher_clear_page(GopherState *gs)
 	gs->dl_filename[0] = 0;
 #endif
 
+#ifdef GEOMYS_HTML
+	html_init(gs);
+#endif
+
 	gs->page_type = PAGE_NONE;
 	gs->line_len = 0;
 }
@@ -117,8 +124,17 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		    (long)sizeof(GopherItem) * GOPHER_INIT_ITEMS);
 		if (!new_items)
 			return false;
-	} else if (type == GOPHER_TEXT || type == GOPHER_ERROR) {
+	} else if (type == GOPHER_TEXT || type == GOPHER_ERROR
+#ifdef GEOMYS_HTML
+	    || type == GOPHER_HTML
+#endif
+	    ) {
+#ifdef GEOMYS_HTML
+		new_page_type = (type == GOPHER_HTML) ?
+		    PAGE_HTML : PAGE_TEXT;
+#else
 		new_page_type = PAGE_TEXT;
+#endif
 		new_text = NewPtr(GOPHER_TEXT_BUFSIZ);
 		if (!new_text)
 			return false;
@@ -325,6 +341,13 @@ gopher_process_data(GopherState *gs)
 				gs->dl_error = true;
 			gs->dl_written += count;
 		}
+		return;
+	}
+#endif
+
+#ifdef GEOMYS_HTML
+	if (gs->page_type == PAGE_HTML) {
+		html_process_data(gs, buf, len);
 		return;
 	}
 #endif

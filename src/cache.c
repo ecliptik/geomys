@@ -153,8 +153,11 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 		}
 	}
 
-	if (gs->page_type == PAGE_TEXT && gs->text_buf &&
-	    gs->text_len > 0) {
+	if ((gs->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || gs->page_type == PAGE_HTML
+#endif
+	    ) && gs->text_buf && gs->text_len > 0) {
 		slot->text_buf = NewPtr(gs->text_len);
 		if (slot->text_buf) {
 			memcpy(slot->text_buf, gs->text_buf,
@@ -234,7 +237,11 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 		return true;
 	}
 
-	if (slot->page_type == PAGE_TEXT && slot->text_buf) {
+	if ((slot->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || slot->page_type == PAGE_HTML
+#endif
+	    ) && slot->text_buf) {
 		if (!gs->text_buf) {
 			gs->text_buf = NewPtr(GOPHER_TEXT_BUFSIZ);
 			if (!gs->text_buf)

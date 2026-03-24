@@ -43,6 +43,11 @@
 #include "savefile.h"
 #include "imgparse.h"
 #endif
+#ifdef GEOMYS_TELNET
+#include <Gestalt.h>
+#include <Files.h>
+#include "sysutil.h"
+#endif
 
 /* Globals */
 Boolean g_running = true;
@@ -1740,10 +1745,15 @@ do_type_message(char type, const char *display,
 	switch (type) {
 	case GOPHER_TELNET:
 	case GOPHER_TN3270:
+#ifdef GEOMYS_TELNET
+		do_telnet_dialog(type, display, host, port, "");
+		return;
+#else
 		snprintf(msg, sizeof(msg),
 		    "\"%.60s\" requires a telnet client. "
 		    "Use Flynn to connect.", display);
 		break;
+#endif
 	case GOPHER_BINHEX:
 	case GOPHER_DOS:
 	case GOPHER_UUENCODE:
@@ -1833,6 +1843,166 @@ do_html_url_dialog(const char *url, const char *display)
 		SetPort(save);
 	}
 }
+
+#ifdef GEOMYS_TELNET
+/*
+ * Show a telnet connection dialog with host, port, and
+ * optional login info.  Type T (TN3270) gets an extra note.
+ * Copy Host copies "host:port" to the system clipboard.
+ * On System 7, attempts to find and launch a telnet app.
+ */
+void
+do_telnet_dialog(char type, const char *display,
+    const char *host, short port, const char *selector)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+	char buf[128];
+	Boolean has_login;
+	Boolean is_sys7 = false;
+	long sysver;
+
+	browser_activate(false);
+
+	dlg = GetNewDialog(DLOG_TELNET_ID, 0L, 0L);
+	if (!dlg) {
+		browser_activate(true);
+		return;
+	}
+	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
+
+	/* Item 2: hidden Cancel (for Escape/Cmd-.) */
+	HideDialogItem(dlg, 2);
+
+	/* Item 4: display name */
+	snprintf(buf, sizeof(buf), "\xd2%.60s\xd3", display);
+	c2pstr(pstr, buf);
+	GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	/* Item 6: host (editable for Cmd-C) */
+	c2pstr(pstr, host);
+	GetDialogItem(dlg, 6, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	/* Item 8: port */
+	snprintf(buf, sizeof(buf), "%d", port);
+	c2pstr(pstr, buf);
+	GetDialogItem(dlg, 8, &item_type, &item_h, &item_rect);
+	SetDialogItemText(item_h, pstr);
+
+	/* Item 9 & 10: login — show only if selector non-empty */
+	has_login = (selector && selector[0] != '\0');
+	if (has_login) {
+		c2pstr(pstr, selector);
+		GetDialogItem(dlg, 10, &item_type, &item_h,
+		    &item_rect);
+		SetDialogItemText(item_h, pstr);
+	} else {
+		/* Hide login label and value */
+		HideDialogItem(dlg, 9);
+		HideDialogItem(dlg, 10);
+	}
+
+	/* Item 13: TN3270 note — only shown for type T */
+	if (type == GOPHER_TN3270) {
+		/* Hide instructions, show TN3270 note */
+		HideDialogItem(dlg, 11);
+		c2pstr(pstr,
+		    "This server requires a TN3270-compatible "
+		    "client.");
+		GetDialogItem(dlg, 13, &item_type, &item_h,
+		    &item_rect);
+		SetDialogItemText(item_h, pstr);
+	}
+
+	/* Check for System 7 (for LaunchApplication) */
+	if (TrapAvailable(_GestaltDispatch) &&
+	    Gestalt(gestaltSystemVersion, &sysver) == noErr &&
+	    sysver >= 0x0700)
+		is_sys7 = true;
+
+#ifndef GEOMYS_CLIPBOARD
+	/* No clipboard — hide Copy Host button */
+	HideDialogItem(dlg, 3);
+#endif
+
+	setup_default_button_outline(dlg, 12);
+	SelectDialogItemText(dlg, 6, 0, 32767);
+
+	/* Dialog event loop */
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+
+#ifdef GEOMYS_CLIPBOARD
+		if (item == 3) {
+			/* Copy Host: put "host:port" on clipboard */
+			long len;
+			snprintf(buf, sizeof(buf), "%s:%d",
+			    host, port);
+			len = strlen(buf);
+			ZeroScrap();
+			PutScrap(len, 'TEXT', buf);
+		}
+#endif
+	} while (item != 1 && item != 2);
+
+	DisposeDialog(dlg);
+	browser_activate(true);
+
+	/* Invalidate window behind dismissed dialog */
+	{
+		GrafPtr save;
+		GetPort(&save);
+		SetPort(g_window);
+		InvalRect(&g_window->portRect);
+		SetPort(save);
+	}
+
+	/* System 7: attempt to launch a telnet application
+	 * Only if user pressed Done (item 1), not Cancel/Escape */
+	if (is_sys7 && item == 1) {
+		FSSpec app_spec;
+		LaunchParamBlockRec lpb;
+		OSErr err;
+
+		/* Look for Flynn (creator 'FLYN') on boot volume */
+		err = FSMakeFSSpec(0, 0, "\pFlynn", &app_spec);
+		if (err != noErr) {
+			/* Try common names */
+			err = FSMakeFSSpec(0, 0, "\pNCSA Telnet",
+			    &app_spec);
+		}
+
+		if (err == noErr) {
+			memset(&lpb, 0, sizeof(lpb));
+			lpb.launchBlockID = extendedBlock;
+			lpb.launchEPBLength = extendedBlockLen;
+			lpb.launchControlFlags =
+			    launchContinue | 0x0800;
+			lpb.launchAppSpec = &app_spec;
+			lpb.launchAppParameters = 0L;
+
+			err = LaunchApplication(&lpb);
+		}
+
+		if (err != noErr) {
+			Str255 emsg;
+			c2pstr(emsg,
+			    "No telnet application was found. "
+			    "To connect, install a telnet "
+			    "application such as Flynn.");
+			ParamText(emsg, "\p", "\p", "\p");
+			NoteAlert(128, 0L);
+		}
+	}
+}
+#endif /* GEOMYS_TELNET */
 
 static void
 update_nav_buttons(void)

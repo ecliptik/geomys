@@ -23,6 +23,7 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Binary file downloads: save types 4, 5, 6, 9, d, s, r to disk via SFPutFile with progress dialog and Stop button
 - Image save with metadata: GIF/PNG header detection, format and dimensions shown after save
 - HTML URL extraction: type h links displayed in copyable dialog
+- HTML tag-stripping renderer: bare HTML pages rendered as clean plain text with entity decoding
 - Download-specific visual indicators: angle bracket labels, distinct theme colors, status bar hover hints
 - [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol support (`+ADMIN`, `+VIEWS` parsing)
 - Blank default home page (user-changeable via Options > Home Page)
@@ -57,6 +58,8 @@ This project is 100% vibe coded using [Claude Code](https://docs.anthropic.com/e
 - Bottom status bar with connection info and loading progress
 - Menus: File, Edit, Favorites, Window, Options
 - Movable modal dialogs on System 7 (fixed position on System 6)
+- Telnet connection dialog: host/port/login display with Copy Host button for type 8/T items
+- System 7 LaunchApplication: launch Flynn or NCSA Telnet directly from telnet dialog
 - Aligned with Apple Human Interface Guidelines (1992)
 
 **Networking**

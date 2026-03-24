@@ -283,7 +283,11 @@ do_print(void)
 
 	PrOpenPage(prPort, 0L);
 	if (PrError() == noErr) {
-		if (gs->page_type == PAGE_TEXT)
+		if (gs->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+		    || gs->page_type == PAGE_HTML
+#endif
+		    )
 			print_text_page(gs, prPort, title, uri);
 		else
 			print_directory_page(gs, prPort,

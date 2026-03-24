@@ -103,7 +103,11 @@ count_rows(void)
 		return 0;
 	if (g_page->page_type == PAGE_DIRECTORY)
 		return g_page->item_count;
-	if (g_page->page_type == PAGE_TEXT)
+	if (g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    )
 		return g_page->text_line_count;
 	return 0;
 }
@@ -896,7 +900,11 @@ content_draw_text_row(WindowPtr win, short line_index)
 	short line_len;
 	RgnHandle save_clip = 0L;
 
-	if (!g_page || g_page->page_type != PAGE_TEXT)
+	if (!g_page || (g_page->page_type != PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    && g_page->page_type != PAGE_HTML
+#endif
+	    ))
 		return;
 	if (!g_page->text_buf || !g_page->text_lines)
 		return;
@@ -1233,7 +1241,11 @@ content_draw(WindowPtr win)
 		if (end_row > start_row)
 			last_y = r.top + (end_row - start_row)
 			    * g_row_height;
-	} else if (g_page->page_type == PAGE_TEXT) {
+	} else if (g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    ) {
 		short text_end;
 
 		if (!g_page->text_buf || !g_page->text_lines)
@@ -1518,7 +1530,11 @@ content_row_text(short row, char *buf, short bufsiz)
 		if (len >= bufsiz) len = bufsiz - 1;
 		return len;
 
-	} else if (g_page->page_type == PAGE_TEXT) {
+	} else if (g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    ) {
 		const char *line_start;
 		short line_len;
 
@@ -1879,18 +1895,35 @@ do_directory_navigate(WindowPtr win, GopherState *gs,
 			content_draw(win);
 			return true;
 		}
-		/* Bare HTML — fetch as text */
+		/* Bare HTML — fetch and render */
 		{
 			char uri[300];
 			gopher_build_uri(uri, sizeof(uri),
 			    item->host, item->port,
-			    GOPHER_TEXT, item->selector);
+#ifdef GEOMYS_HTML
+			    GOPHER_HTML,
+#else
+			    GOPHER_TEXT,
+#endif
+			    item->selector);
 			do_navigate_url_titled(uri,
 			    item->display[0] ?
 			    item->display : item->host);
 			return true;
 		}
 	}
+
+#ifdef GEOMYS_TELNET
+	/* Telnet types — show connection dialog */
+	if (item->type == GOPHER_TELNET ||
+	    item->type == GOPHER_TN3270) {
+		do_telnet_dialog(item->type, item->display,
+		    item->host, item->port,
+		    item->selector);
+		content_draw(win);
+		return true;
+	}
+#endif
 
 #ifdef GEOMYS_DOWNLOAD
 	/* Download types — save to disk */
@@ -1994,13 +2027,29 @@ content_click_row(WindowPtr win, GopherState *gs, short row)
 			char uri[300];
 			gopher_build_uri(uri, sizeof(uri),
 			    item->host, item->port,
-			    GOPHER_TEXT, item->selector);
+#ifdef GEOMYS_HTML
+			    GOPHER_HTML,
+#else
+			    GOPHER_TEXT,
+#endif
+			    item->selector);
 			do_navigate_url_titled(uri,
 			    item->display[0] ?
 			    item->display : item->host);
 			return true;
 		}
 	}
+#ifdef GEOMYS_TELNET
+	/* Telnet types — show connection dialog */
+	if (item->type == GOPHER_TELNET ||
+	    item->type == GOPHER_TN3270) {
+		do_telnet_dialog(item->type, item->display,
+		    item->host, item->port,
+		    item->selector);
+		content_draw(win);
+		return true;
+	}
+#endif
 #ifdef GEOMYS_DOWNLOAD
 	/* Download types — save to disk */
 	if (item->type == GOPHER_BINHEX ||
@@ -2215,7 +2264,11 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 				    sizeof(uri),
 				    item->host,
 				    item->port,
+#ifdef GEOMYS_HTML
+				    GOPHER_HTML,
+#else
 				    GOPHER_TEXT,
+#endif
 				    item->selector);
 				do_navigate_url_titled(uri,
 				    item->display[0] ?
@@ -2224,6 +2277,19 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 				return true;
 			}
 		}
+
+#ifdef GEOMYS_TELNET
+		/* Telnet types — show connection dialog */
+		if (item->type == GOPHER_TELNET ||
+		    item->type == GOPHER_TN3270) {
+			do_telnet_dialog(item->type,
+			    item->display,
+			    item->host, item->port,
+			    item->selector);
+			content_draw(win);
+			return true;
+		}
+#endif
 
 #ifdef GEOMYS_DOWNLOAD
 		/* Download types — save to disk */
@@ -2353,7 +2419,11 @@ scroll_action(ControlHandle ctl, short part)
 
 	if ((delta == 1 || delta == -1) &&
 	    g_page && (g_page->page_type == PAGE_DIRECTORY ||
-	    g_page->page_type == PAGE_TEXT)) {
+	    g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    )) {
 		/* Line scroll — use ScrollRect for speed */
 		Rect cr;
 		RgnHandle update_rgn = NewRgn();
@@ -2614,6 +2684,8 @@ content_cursor_update(WindowPtr win, Point local_pt)
 			if (item->type != GOPHER_INFO &&
 			    (gopher_type_navigable(item->type) ||
 			    item->type == GOPHER_HTML ||
+			    item->type == GOPHER_TELNET ||
+			    item->type == GOPHER_TN3270 ||
 			    gopher_type_is_download(item->type)))
 				new_hover = row;
 		}
@@ -2681,9 +2753,12 @@ content_cursor_update(WindowPtr win, Point local_pt)
 				    GOPHER_TELNET ||
 				    item->type ==
 				    GOPHER_TN3270) {
-					browser_set_status(
-					    "Telnet session "
-					    "(not supported)");
+					snprintf(hint,
+					    sizeof(hint),
+					    "Telnet: %s:%d",
+					    item->host,
+					    item->port);
+					browser_set_status(hint);
 				} else {
 					char uri[300];
 
@@ -2707,7 +2782,11 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		if (g_hand_cursor)
 			SetCursor(*g_hand_cursor);
 #ifdef GEOMYS_CLIPBOARD
-	} else if (g_page && g_page->page_type == PAGE_TEXT) {
+	} else if (g_page && (g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    )) {
 		/* I-beam over text pages */
 		if (g_ibeam_cursor)
 			SetCursor(*g_ibeam_cursor);
@@ -2791,7 +2870,11 @@ content_clear_selection(WindowPtr win)
 			content_mark_dirty(i);
 			if (g_page->page_type == PAGE_DIRECTORY)
 				content_draw_row(win, i);
-			else if (g_page->page_type == PAGE_TEXT)
+			else if (g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+			    || g_page->page_type == PAGE_HTML
+#endif
+			    )
 				content_draw_text_row(win, i);
 		}
 		SetPort(save);
@@ -3088,8 +3171,11 @@ content_calc_max_width(WindowPtr win)
 			if (w > g_content_max_width)
 				g_content_max_width = w;
 		}
-	} else if (g_page->page_type == PAGE_TEXT &&
-	    g_page->text_buf && g_page->text_lines) {
+	} else if ((g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    ) && g_page->text_buf && g_page->text_lines) {
 		for (i = 0; i < total; i++) {
 			const char *ls;
 			short ll;

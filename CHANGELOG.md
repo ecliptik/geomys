@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] — HTML Renderer & Telnet Handoff
+
+### Added
+- HTML tag-stripping renderer: single-pass streaming parser strips tags and renders as plain text (PAGE_HTML)
+- HTML entity decoding: `&amp;` `&lt;` `&gt;` `&quot;`
+- HTML tag support: `<br>`, `<p>`, `<pre>`, `<h1>`–`<h6>`, `<li>`, `<hr>`, `<a>` with URL extraction
+- HTML `<script>` and `<style>` content skipped entirely
+- Whitespace collapse outside `<pre>` blocks
+- `GEOMYS_HTML` feature flag with `html.c`/`html.h` module
+- Telnet connection dialog: movable modal (DLOG 140) showing host, port, and login for type 8/T items
+- Copy Host button in telnet dialog copies host:port to clipboard
+- System 7 LaunchApplication: launch Flynn or NCSA Telnet with `launchContinue` flag
+- `GEOMYS_TELNET` feature flag with conditional compilation
+
+### Changed
+- Type h (HTML) bare selectors now rendered with tag stripping instead of raw plain text
+- Type 8/T (Telnet/TN3270) replaced NoteAlert with enhanced connection info dialog
+- Status bar hover for telnet items shows "Telnet: host:port" instead of "Telnet session (not supported)"
+
 ## [0.9.0] — Type Handlers & Downloads
 
 ### Added

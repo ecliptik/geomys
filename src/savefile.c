@@ -237,7 +237,11 @@ do_save_page(void)
 			return;
 		}
 
-		if (gs->page_type == PAGE_TEXT)
+		if (gs->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+		    || gs->page_type == PAGE_HTML
+#endif
+		    )
 			err = write_text_page(refNum, gs);
 		else
 			err = write_directory_page(refNum, gs);
@@ -288,7 +292,11 @@ do_save_page(void)
 			return;
 		}
 
-		if (gs->page_type == PAGE_TEXT)
+		if (gs->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+		    || gs->page_type == PAGE_HTML
+#endif
+		    )
 			err = write_text_page(refNum, gs);
 		else
 			err = write_directory_page(refNum, gs);

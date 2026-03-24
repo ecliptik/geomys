@@ -17,6 +17,12 @@
 #define DL_NAV false
 #endif
 
+#ifdef GEOMYS_HTML
+#define HTML_NAV true
+#else
+#define HTML_NAV false
+#endif
+
 static const GopherTypeInfo type_table[] = {
 	/* Canonical types (RFC 1436) */
 	{ GOPHER_TEXT,      "TXT",  true   },
@@ -35,7 +41,7 @@ static const GopherTypeInfo type_table[] = {
 
 	/* Non-canonical types */
 	{ GOPHER_DOC,       "DOC",  DL_NAV },
-	{ GOPHER_HTML,      "HTM",  false  },
+	{ GOPHER_HTML,      "HTM",  HTML_NAV },
 	{ GOPHER_INFO,      "   ",  false  },
 	{ GOPHER_PNG,       "PNG",  DL_NAV },
 	{ GOPHER_RTF,       "RTF",  DL_NAV },

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(Geomys VERSION 0.9.0)
+project(Geomys VERSION 0.10.0)
 
 # --- Feature flags with defaults (all ON for full preset) ---
 option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     ON)
@@ -15,6 +15,8 @@ option(GEOMYS_STYLES       "Enable page format styles"          ON)
 option(GEOMYS_CACHE        "Enable local page caching"          ON)
 option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
 option(GEOMYS_PRINT        "Enable printing support"            ON)
+option(GEOMYS_HTML         "Enable HTML tag stripping"          ON)
+option(GEOMYS_TELNET       "Enable telnet connection info"      ON)
 
 # Maximum simultaneous windows (1 = single-window, zero overhead)
 if(NOT DEFINED GEOMYS_MAX_WINDOWS)
@@ -80,6 +82,9 @@ endif()
 if(GEOMYS_PRINT)
     list(APPEND GEOMYS_SOURCES src/print.c)
 endif()
+if(GEOMYS_HTML)
+    list(APPEND GEOMYS_SOURCES src/html.c)
+endif()
 if(GEOMYS_COLOR)
     list(APPEND GEOMYS_SOURCES src/color.c)
 endif()
@@ -110,6 +115,8 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_CLIPBOARD}>:GEOMYS_CLIPBOARD>
     $<$<BOOL:${GEOMYS_THEMES}>:GEOMYS_THEMES>
     $<$<BOOL:${GEOMYS_PRINT}>:GEOMYS_PRINT>
+    $<$<BOOL:${GEOMYS_HTML}>:GEOMYS_HTML>
+    $<$<BOOL:${GEOMYS_TELNET}>:GEOMYS_TELNET>
     GEOMYS_MAX_WINDOWS=${GEOMYS_MAX_WINDOWS}
     CACHE_MAX=${CACHE_MAX}
 )

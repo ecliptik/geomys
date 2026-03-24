@@ -556,6 +556,74 @@ resource 'DITL' (139, "Download Progress") {
 	}
 };
 
+/* Telnet connection dialog — shows host, port, optional login */
+resource 'DLOG' (140, "Telnet") {
+	{70, 60, 260, 420},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	140,
+	"Telnet Connection",
+	noAutoCenter
+};
+
+resource 'DITL' (140, "Telnet") {
+	{
+		/* 1: Done button (default, rightmost) */
+		{155, 270, 175, 340},
+		Button { enabled, "Done" };
+
+		/* 2: Cancel button (hidden, for Escape/Cmd-.) */
+		{155, 270, 175, 340},
+		Button { enabled, "" };
+
+		/* 3: Copy Host button */
+		{155, 170, 175, 255},
+		Button { enabled, "Copy Host" };
+
+		/* 4: Display name (title of the item) */
+		{10, 15, 26, 345},
+		StaticText { disabled, "^0" };
+
+		/* 5: Host label */
+		{38, 15, 54, 55},
+		StaticText { disabled, "Host:" };
+
+		/* 6: Host value (editable for Cmd-C) */
+		{38, 60, 54, 345},
+		EditText { enabled, "" };
+
+		/* 7: Port label */
+		{62, 15, 78, 55},
+		StaticText { disabled, "Port:" };
+
+		/* 8: Port value */
+		{62, 60, 78, 120},
+		StaticText { disabled, "" };
+
+		/* 9: Login label */
+		{86, 15, 102, 55},
+		StaticText { disabled, "Login:" };
+
+		/* 10: Login value */
+		{86, 60, 102, 345},
+		StaticText { disabled, "" };
+
+		/* 11: Instructions text */
+		{112, 15, 144, 345},
+		StaticText { disabled, "To connect, copy the host and port, then open your telnet application." };
+
+		/* 12: Default button outline (UserItem) */
+		{151, 266, 179, 344},
+		UserItem { disabled };
+
+		/* 13: TN3270 note (hidden unless type T) */
+		{112, 15, 144, 345},
+		StaticText { disabled, "" };
+	}
+};
+
 /* Hand cursor for hovering over navigable items */
 /* Classic pointing hand — open palm with index finger up */
 data 'CURS' (129) {

@@ -112,6 +112,7 @@
 #define DLOG_FIND_ID        137
 #define DLOG_HTML_URL_ID    138
 #define DLOG_DL_PROGRESS_ID 139
+#define DLOG_TELNET_ID      140
 
 /* Window dimensions (Mac Plus: 512x342) */
 #define SCREEN_WIDTH        512
@@ -135,6 +136,10 @@ void do_type_message(char type, const char *display,
     const char *host, short port);
 void do_home_page_dialog(void);
 void do_html_url_dialog(const char *url, const char *display);
+#ifdef GEOMYS_TELNET
+void do_telnet_dialog(char type, const char *display,
+    const char *host, short port, const char *selector);
+#endif
 void do_find_dialog(void);
 void do_cancel_loading(void);
 void navigate_history_to(short index);
