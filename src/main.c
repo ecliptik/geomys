@@ -38,6 +38,7 @@
 #endif
 #include "color.h"
 #include "theme.h"
+#include "gopher_icons.h"
 #include <Files.h>
 #ifdef GEOMYS_DOWNLOAD
 #include "savefile.h"
@@ -91,6 +92,7 @@ static void handle_action_button(void);
 static void update_nav_buttons(void);
 void navigate_history_entry(const HistoryEntry *e, short direction);
 static void handle_page_loaded(void);
+static void calc_std_state(WindowPtr win);
 static void restore_title_bar(void);
 static void poll_active_session(void);
 #if GEOMYS_MAX_WINDOWS > 1
@@ -866,6 +868,9 @@ handle_page_loaded(void)
 	/* Calculate content width for horizontal scrollbar */
 	content_recalc_width(g_window);
 
+	/* Update zoom standard state to fit new content */
+	calc_std_state(g_window);
+
 	/* Restore deferred scroll position */
 	if (g_pending_scroll >= 0) {
 		content_update_scroll(g_window);
@@ -1040,6 +1045,9 @@ main_event_loop(void)
 #endif
 #ifdef GEOMYS_OFFSCREEN
 	offscreen_cleanup();
+#endif
+#ifdef GEOMYS_COLOR
+	gopher_cicn_cleanup();
 #endif
 
 	/* Destroy all remaining sessions (closes connections,
@@ -2476,6 +2484,58 @@ handle_action_button(void)
 	}
 }
 
+/*
+ * calc_std_state - Calculate the zoom standard (zoomed-out) state
+ * for a window based on current content width.
+ *
+ * Sets WStateData->stdState to fit content width plus chrome,
+ * clamped to screen bounds. Height fills available screen.
+ * Per Inside Macintosh: the standard state is the size that
+ * can best display the data in the document.
+ */
+static void
+calc_std_state(WindowPtr win)
+{
+	WStateData **wsd;
+	Rect screen, std;
+	short content_w, ideal_w, mbar_h;
+
+	if (!win)
+		return;
+
+	wsd = (WStateData **)((WindowPeek)win)->dataHandle;
+	if (!wsd)
+		return;
+
+	/* Screen bounds minus menu bar */
+	screen = qd.screenBits.bounds;
+	mbar_h = GetMBarHeight();
+
+	/* Content width + scrollbar + 1px border on each side */
+	content_w = content_get_max_width();
+	if (content_w < 200)
+		content_w = 200;
+	ideal_w = content_w + SCROLLBAR_WIDTH + 2;
+
+	/* Build standard state rect in global coordinates.
+	 * Leave 2px inset from screen edges for aesthetics,
+	 * and 2px below menu bar (Apple HIG). */
+	std.left = screen.left + 2;
+	std.top = mbar_h + 2;
+	std.right = std.left + ideal_w;
+	std.bottom = screen.bottom - 2;
+
+	/* Clamp to screen width */
+	if (std.right > screen.right - 2)
+		std.right = screen.right - 2;
+
+	/* Minimum usable size */
+	if (std.right - std.left < 200)
+		std.right = std.left + 200;
+
+	(*wsd)->stdState = std;
+}
+
 static void
 handle_mouse_down(EventRecord *event)
 {
@@ -2519,6 +2579,10 @@ handle_mouse_down(EventRecord *event)
 			if (gs && gs != active_session)
 				session_switch_to(gs);
 #endif
+			/* Set standard state before zoom so
+			 * ZoomWindow uses content-fitted size */
+			if (part == inZoomOut)
+				calc_std_state(win);
 			GetPort(&save);
 			SetPort(win);
 			EraseRect(&win->portRect);

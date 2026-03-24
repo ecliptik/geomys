@@ -74,8 +74,8 @@
 #define OPT_MENU_STYLE      5   /* hierarchical submenu trigger */
 #define OPT_MENU_THEME      6   /* hierarchical submenu trigger */
 /* separator = 7 */
-#define OPT_MENU_DETAILS    8   /* "Show Details" toggle */
-#define OPT_MENU_STATUS_BAR 9   /* "Status Bar" toggle */
+#define OPT_MENU_DETAILS    8   /* "Show/Hide Details" toggle */
+#define OPT_MENU_STATUS_BAR 9   /* "Show/Hide Status Bar" toggle */
 
 /* Font submenu items */
 #define FONT_MONACO9        1

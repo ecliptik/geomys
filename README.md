@@ -63,16 +63,19 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 **Display**
 - 9 built-in themes (Light, Dark, Solarized, Tokyo Night, Green Screen, Classic, Platinum)
 - 256-color on System 7; monochrome on System 6
+- ROM-based SICN/cicn icons for Gopher types and navigation buttons (color on Mac II+, mono fallback)
 - 6 fonts (Monaco 9/12, Courier 10, Chicago 12, Geneva 9/10)
 - Double-buffered rendering
+- Content-aware window zoom
 - Horizontal and vertical scrolling
 
 **Classic Mac Integration**
 - Telnet handoff dialog for type 8/T items (launch Flynn or NCSA Telnet on System 7)
 - Print support via Printing Manager
 - Save Page As TeachText-readable text file
+- List Manager for Favorites with keyboard type-ahead and scrolling
 - MultiFinder, Apple Events, and Notification Manager support
-- Balloon Help for all menus on System 7
+- Balloon Help and SICN menu icons on System 7
 - Dynamic window sizing for large screens and multi-monitor support
 - Aligned with Apple Human Interface Guidelines (1992)
 

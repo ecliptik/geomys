@@ -9,8 +9,10 @@
  */
 
 #include <Quickdraw.h>
+#include <Resources.h>
 #include "gopher_icons.h"
 #include "gopher.h"
+#include "color.h"
 
 /* --- Icon bitmap data (11x11, 22 bytes each) --- */
 
@@ -328,3 +330,140 @@ gopher_icon_draw(const GopherIcon *icon, short x, short y,
 	    &src_r, &dst_r,
 	    invert ? srcBic : srcOr, NULL);
 }
+
+/* --- SICN (16x16) icon support --- */
+
+short
+gopher_sicn_for_type(char type)
+{
+	switch (type) {
+	case GOPHER_TEXT:
+		return SICN_DOCUMENT;
+	case GOPHER_DIRECTORY:
+		return SICN_FOLDER;
+	case GOPHER_CSO:
+		return SICN_PHONEBOOK;
+	case GOPHER_ERROR:
+		return SICN_ERROR;
+	case GOPHER_BINHEX:
+	case GOPHER_DOS:
+	case GOPHER_UUENCODE:
+	case GOPHER_BINARY:
+		return SICN_BINARY;
+	case GOPHER_SEARCH:
+		return SICN_SEARCH;
+	case GOPHER_TELNET:
+	case GOPHER_TN3270:
+		return SICN_TERMINAL;
+	case GOPHER_GIF:
+	case GOPHER_IMAGE:
+	case GOPHER_PNG:
+		return SICN_IMAGE;
+	case GOPHER_DOC:
+	case GOPHER_RTF:
+		return SICN_DOCUMENT;
+	case GOPHER_HTML:
+		return SICN_GLOBE;
+	case GOPHER_INFO:
+		return 0;
+	case GOPHER_SOUND:
+		return SICN_SPEAKER;
+	default:
+		return SICN_UNKNOWN;
+	}
+}
+
+void
+gopher_sicn_draw(short sicn_id, short x, short y,
+    short invert)
+{
+	Handle h;
+	BitMap src_bits;
+	Rect src_r, dst_r;
+
+	if (sicn_id == 0)
+		return;
+
+	h = GetResource('SICN', sicn_id);
+	if (!h)
+		return;
+
+	/* Lock handle — CopyBits reads from the pointer,
+	 * which must not move during the blit. */
+	HLock(h);
+
+	/* SICN data: 16x16, 2 bytes/row, 32 bytes total.
+	 * First icon in the SICN list starts at offset 0. */
+	src_bits.baseAddr = *h;
+	src_bits.rowBytes = 2;
+	SetRect(&src_bits.bounds, 0, 0, 16, 16);
+	SetRect(&src_r, 0, 0, 16, 16);
+	SetRect(&dst_r, x, y, x + 16, y + 16);
+
+	CopyBits(&src_bits, &qd.thePort->portBits,
+	    &src_r, &dst_r,
+	    invert ? srcBic : srcOr, NULL);
+
+	HUnlock(h);
+}
+
+/* --- cicn (color icon) support --- */
+
+#ifdef GEOMYS_COLOR
+
+/* Cache covers SICN/cicn IDs 256-275 (Gopher types + nav) */
+#define CICN_BASE_ID    256
+#define CICN_CACHE_SIZE  20
+
+static CIconHandle g_cicn_cache[CICN_CACHE_SIZE];
+static unsigned char g_cicn_tried[CICN_CACHE_SIZE];
+
+static CIconHandle
+cicn_get_cached(short cicn_id)
+{
+	short idx;
+
+	idx = cicn_id - CICN_BASE_ID;
+	if (idx < 0 || idx >= CICN_CACHE_SIZE)
+		return NULL;
+
+	if (!g_cicn_tried[idx]) {
+		g_cicn_tried[idx] = 1;
+		g_cicn_cache[idx] = GetCIcon(cicn_id);
+	}
+	return g_cicn_cache[idx];
+}
+
+unsigned char
+gopher_cicn_draw(short sicn_id, short x, short y)
+{
+	CIconHandle cic;
+	Rect dst_r;
+
+	if (!g_has_color_qd || sicn_id == 0)
+		return 0;
+
+	cic = cicn_get_cached(sicn_id);
+	if (!cic)
+		return 0;
+
+	SetRect(&dst_r, x, y, x + 16, y + 16);
+	PlotCIcon(&dst_r, cic);
+	return 1;
+}
+
+void
+gopher_cicn_cleanup(void)
+{
+	short i;
+
+	for (i = 0; i < CICN_CACHE_SIZE; i++) {
+		if (g_cicn_cache[i]) {
+			DisposeCIcon(g_cicn_cache[i]);
+			g_cicn_cache[i] = NULL;
+			g_cicn_tried[i] = 0;
+		}
+	}
+}
+
+#endif /* GEOMYS_COLOR */

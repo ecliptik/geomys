@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — ROM Icons & List Manager
+
+### Added
+- SICN resources (16x16): 11 Gopher type icons (IDs 256–266: folder, document, search, error, binary, terminal, image, globe, speaker, phonebook, unknown) and 6 navigation button icons (IDs 270–275: back, forward, home, stop, go, refresh)
+- `cicn` color icons for all 17 SICN resources on Color QuickDraw systems: folder blue, error red, terminal green, globe teal, image purple, speaker magenta, nav buttons in themed colors; lazy-cached via `GetCIcon` with `PlotCIcon` drawing
+- SICN icons in menus: Home icon in Go menu, type-based icons on Favorites menu entries (System 7+ only, via `SetItemIcon`/`SetItemCmd(0x1E)` per Inside Macintosh)
+- List Manager for Favorites dialog: `LNew`/`LClick`/`LGetSelect` replace custom list drawing; adds keyboard type-ahead, native scrollbar, double-click to navigate, and proper `LUpdate` via UserItem draw proc
+- Content-aware zoom: `calc_std_state()` sets `WStateData->stdState` from content width plus chrome (scrollbar, borders), clamped to screen bounds with 200px minimum
+
+### Changed
+- Gopher type icons: 16x16 SICN resources loaded via `GetResource('SICN')` for fonts with row height ≥ 16; original 11x11 procedural bitmaps retained for Monaco 9
+- Navigation button icons: SICN resources replace ~185 lines of procedural QuickDraw polygon drawing (`OpenPoly`/`LineTo`/`PaintPoly`); disabled state uses standard `patBic` gray overlay
+- Color icon fallback: `gopher_cicn_draw()` attempts `cicn` first on color systems, falls back to monochrome SICN automatically
+- Show/Hide menu toggles: Options menu "Show Details"/"Hide Details" and "Show Status Bar"/"Hide Status Bar" use `SetMenuItemText` for HIG-compliant dynamic text labels (no checkmarks)
+- Favorites menu entries: duplicate SICN 289 for folder icon (SICN 256 maps to icon number 0 which means "no icon")
+
 ## [Unreleased] — System 7 Polish
 
 ### Added

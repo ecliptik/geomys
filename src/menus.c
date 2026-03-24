@@ -28,6 +28,8 @@
 #endif
 #include "savefile.h"
 #include "history.h"
+#include "gopher_icons.h"
+#include "sysutil.h"
 #ifdef GEOMYS_PRINT
 #include "print.h"
 #endif
@@ -47,6 +49,16 @@ static MenuHandle style_submenu;
 static MenuHandle theme_submenu;
 #endif
 
+/* System 7+ SICN menu icon support.
+ * Uses SetItemIcon + SetItemCmd(0x1E) per Inside Macintosh:
+ * Toolbox Essentials p.3-101. Only works on menu items
+ * WITHOUT keyboard shortcuts (0x1E replaces cmdChar byte). */
+static unsigned char g_has_menu_icons = 0;
+
+/* SICN 256 (Folder) maps to icon number 0 (= no icon).
+ * Use this duplicate at ID 289 (icon number 33) for menus. */
+#define SICN_MENU_FOLDER 289
+
 /* main.c globals and functions */
 extern GeomysPrefs g_prefs;
 extern void navigate_history_entry(const HistoryEntry *e,
@@ -57,6 +69,42 @@ extern void do_refresh(void);
 static void update_window_menu(void);
 static void handle_window_menu(short item);
 #endif
+
+unsigned char
+menu_has_icons(void)
+{
+	return g_has_menu_icons;
+}
+
+/*
+ * menu_set_item_sicn - Attach a SICN icon to a menu item.
+ *
+ * System 7+ only. Uses the 0x1E command byte convention
+ * from Inside Macintosh: Toolbox Essentials (p.3-101).
+ * WARNING: This replaces the keyboard equivalent byte,
+ * so only use on items WITHOUT Cmd-key shortcuts.
+ */
+void
+menu_set_item_sicn(MenuHandle menu, short item,
+    short sicn_id)
+{
+	short icon_num;
+
+	if (!g_has_menu_icons || !menu || sicn_id == 0)
+		return;
+
+	/* SICN 256 (Folder) maps to icon number 0
+	 * (= no icon). Use duplicate SICN 289 instead. */
+	if (sicn_id == SICN_FOLDER)
+		sicn_id = SICN_MENU_FOLDER;
+
+	icon_num = sicn_id - 256;
+	if (icon_num < 1 || icon_num > 255)
+		return;
+
+	SetItemIcon(menu, item, (Byte)icon_num);
+	SetItemCmd(menu, item, 0x1E);
+}
 
 void
 init_menus(void)
@@ -81,6 +129,15 @@ init_menus(void)
 	go_menu = GetMenuHandle(GO_MENU_ID);
 	favorites_menu = GetMenuHandle(FAVORITES_MENU_ID);
 	options_menu = GetMenuHandle(OPTIONS_MENU_ID);
+
+	/* Detect System 7+ for SICN menu icon support */
+	{
+		long sysv;
+		if (TrapAvailable(_GestaltDispatch) &&
+		    Gestalt(gestaltSystemVersion, &sysv) ==
+		    noErr && sysv >= 0x0700)
+			g_has_menu_icons = 1;
+	}
 
 	/* Window menu is in MBAR — loaded atomically by GetNewMBar.
 	 * Use GetMenuHandle (like Flynn), not GetMenu+InsertMenu
@@ -180,17 +237,26 @@ init_menus(void)
 	}
 #endif /* GEOMYS_THEMES */
 
-	/* Set initial Show Details checkmark */
+	/* Set initial Show/Hide Details text */
 	if (options_menu)
-		CheckItem(options_menu, OPT_MENU_DETAILS,
-		    g_prefs.show_details != 0);
+		SetMenuItemText(options_menu, OPT_MENU_DETAILS,
+		    g_prefs.show_details ?
+		    "\pHide Details" : "\pShow Details");
 
-	/* Set initial Status Bar checkmark */
+	/* Set initial Show/Hide Status Bar text */
 	if (options_menu)
-		CheckItem(options_menu, OPT_MENU_STATUS_BAR,
-		    g_prefs.show_status_bar != 0);
+		SetMenuItemText(options_menu, OPT_MENU_STATUS_BAR,
+		    g_prefs.show_status_bar ?
+		    "\pHide Status Bar" :
+		    "\pShow Status Bar");
 
 	/* Favorites menu — managed by favorites.c */
+
+	/* Add SICN icon to Go > Home (System 7+).
+	 * Other Go items have Cmd-key shortcuts which
+	 * conflict with the 0x1E SICN command byte. */
+	menu_set_item_sicn(go_menu, GO_MENU_HOME,
+	    SICN_HOME);
 
 	DrawMenuBar();
 }
@@ -746,9 +812,11 @@ handle_menu(long menu_id)
 			g_prefs.show_details =
 			    !g_prefs.show_details;
 			if (options_menu)
-				CheckItem(options_menu,
+				SetMenuItemText(options_menu,
 				    OPT_MENU_DETAILS,
-				    g_prefs.show_details != 0);
+				    g_prefs.show_details ?
+				    "\pHide Details" :
+				    "\pShow Details");
 			prefs_save(&g_prefs);
 			if (g_window) {
 				GrafPtr save;
@@ -763,9 +831,11 @@ handle_menu(long menu_id)
 			g_prefs.show_status_bar =
 			    !g_prefs.show_status_bar;
 			if (options_menu)
-				CheckItem(options_menu,
+				SetMenuItemText(options_menu,
 				    OPT_MENU_STATUS_BAR,
-				    g_prefs.show_status_bar != 0);
+				    g_prefs.show_status_bar ?
+				    "\pHide Status Bar" :
+				    "\pShow Status Bar");
 			prefs_save(&g_prefs);
 			/* Resize all windows to reclaim/add status bar space */
 			{

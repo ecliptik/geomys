@@ -24,6 +24,14 @@ void browser_set_focus(short focus);
 #define ADDR_BAR_MARGIN    6
 #define ACTION_BTN_SIZE   20   /* stop/go/refresh button right of addr bar */
 
+/* SICN resource IDs for nav button icons */
+#define SICN_BACK       270
+#define SICN_FORWARD    271
+#define SICN_HOME       272
+#define SICN_STOP       273
+#define SICN_GO         274
+#define SICN_REFRESH    275
+
 /* Navigation button IDs (left-side buttons) */
 #define NAV_BTN_BACK      0
 #define NAV_BTN_FORWARD   1

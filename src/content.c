@@ -822,34 +822,53 @@ content_draw_row(WindowPtr win, short row_index,
 	/* Draw icon for Icons style */
 	if (g_prefs.page_style == STYLE_ICONS &&
 	    item->type != GOPHER_INFO) {
-		const GopherIcon *gi;
-		gi = gopher_icon_for_type(
-		    item->type);
-		if (gi) {
-			short ix, iy, inv;
-			ix = r.left + 4 -
-			    g_hscroll_pos;
-			iy = y - g_row_height +
-			    (g_row_height -
-			    gi->height) / 2;
-			inv = 0;
+		short ix, iy, inv;
+
+		ix = r.left + 4 - g_hscroll_pos;
+		inv = 0;
 #ifdef GEOMYS_THEMES
-			/* Mono dark: use srcBic to
-			 * draw white icons on black
-			 * background */
-			if (theme_is_dark() &&
-			    !theme_is_color())
-				inv = 1;
+		/* Mono dark: use srcBic to
+		 * draw white icons on black
+		 * background */
+		if (theme_is_dark() &&
+		    !theme_is_color())
+			inv = 1;
 #if defined(GEOMYS_COLOR)
-			if (g_has_color_qd && t) {
-				theme_set_fg(
-				    &t->label);
-				inv = 0;
+		if (g_has_color_qd && t) {
+			theme_set_fg(&t->label);
+			inv = 0;
+		}
+#endif
+#endif
+		/* Use 16x16 SICN for larger fonts,
+		 * 11x11 bitmaps for small fonts */
+		if (g_row_height >= 16) {
+			short sid;
+			sid = gopher_sicn_for_type(
+			    item->type);
+			if (sid) {
+				iy = y - g_row_height +
+				    (g_row_height -
+				    16) / 2;
+#if defined(GEOMYS_COLOR)
+				if (!g_has_color_qd ||
+				    !gopher_cicn_draw(
+				    sid, ix, iy))
+#endif
+				gopher_sicn_draw(sid,
+				    ix, iy, inv);
 			}
-#endif
-#endif
-			gopher_icon_draw(gi,
-			    ix, iy, inv);
+		} else {
+			const GopherIcon *gi;
+			gi = gopher_icon_for_type(
+			    item->type);
+			if (gi) {
+				iy = y - g_row_height +
+				    (g_row_height -
+				    gi->height) / 2;
+				gopher_icon_draw(gi,
+				    ix, iy, inv);
+			}
 		}
 	}
 
@@ -2820,6 +2839,12 @@ short
 content_row_height(void)
 {
 	return g_row_height;
+}
+
+short
+content_get_max_width(void)
+{
+	return g_content_max_width;
 }
 
 void

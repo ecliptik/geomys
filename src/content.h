@@ -95,6 +95,9 @@ void content_update_font(void);
 /* Recalculate max content width for horizontal scrollbar */
 void content_recalc_width(WindowPtr win);
 
+/* Get max content width in pixels (for zoom standard state) */
+short content_get_max_width(void);
+
 /* Get current dynamic row height */
 short content_row_height(void);
 

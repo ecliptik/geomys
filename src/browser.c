@@ -8,6 +8,7 @@
 #include <Windows.h>
 #include <TextEdit.h>
 #include <Memory.h>
+#include <Resources.h>
 #include <ToolUtils.h>
 #include <Multiverse.h>
 #include <string.h>
@@ -20,6 +21,7 @@
 #include "settings.h"
 #include "theme.h"
 #include "color.h"
+#include "gopher_icons.h"
 #ifdef GEOMYS_CLIPBOARD
 #include "clipboard.h"
 #endif
@@ -118,12 +120,7 @@ browser_set_focus(short focus)
 /* Forward declarations */
 static void draw_nav_bar(WindowPtr win);
 static void draw_nav_button(short btn_id, Boolean pressed);
-static void draw_back_icon(Rect *r, Boolean dim);
-static void draw_forward_icon(Rect *r, Boolean dim);
-static void draw_home_icon(Rect *r, Boolean dim);
-static void draw_refresh_icon(Rect *r, Boolean dim);
-static void draw_stop_icon(Rect *r, Boolean dim);
-static void draw_go_icon(Rect *r, Boolean dim);
+static void draw_sicn_icon(Rect *r, short sicn_id, Boolean dim);
 static void draw_action_button(WindowPtr win, Boolean pressed);
 
 /*
@@ -329,204 +326,82 @@ draw_nav_button(short btn_id, Boolean pressed)
 		EraseRect(&inner);
 	}
 
-	/* Draw icon */
+	/* Draw SICN icon */
 	switch (btn_id) {
 	case NAV_BTN_BACK:
-		draw_back_icon(&r, dim);
+		draw_sicn_icon(&r, SICN_BACK, dim);
 		break;
 	case NAV_BTN_FORWARD:
-		draw_forward_icon(&r, dim);
+		draw_sicn_icon(&r, SICN_FORWARD, dim);
 		break;
 	case NAV_BTN_HOME:
-		draw_home_icon(&r, dim);
+		draw_sicn_icon(&r, SICN_HOME, dim);
 		break;
 	}
 }
 
-/* Back arrow: filled left-pointing triangle with frame for clean edges */
+/*
+ * draw_sicn_icon - Draw a 16x16 SICN resource centered in a
+ * button rect. Uses CopyBits for clean pixel-aligned rendering.
+ * Dim mode overlays gray pattern to match standard Mac dimming.
+ */
 static void
-draw_back_icon(Rect *r, Boolean dim)
+draw_sicn_icon(Rect *r, short sicn_id, Boolean dim)
 {
+	Handle h;
+	BitMap src_bits;
+	Rect src_r, dst_r;
 	short cx, cy;
-	PolyHandle poly;
 
+	/* Center 16x16 icon in button rect */
 	cx = (r->left + r->right) / 2;
 	cy = (r->top + r->bottom) / 2;
 
-	if (dim) PenPat(&qd.gray);
-	PenSize(1, 1);
-
-	poly = OpenPoly();
-	MoveTo(cx + 4, cy - 5);
-	LineTo(cx - 3, cy);
-	LineTo(cx + 4, cy + 5);
-	LineTo(cx + 4, cy - 5);
-	ClosePoly();
-	if (dim)
-		FillPoly(poly, &qd.gray);
-	else
-		PaintPoly(poly);
-	FramePoly(poly);
-	KillPoly(poly);
-
-	PenNormal();
-}
-
-/* Forward arrow: filled right-pointing triangle with frame for clean edges */
-static void
-draw_forward_icon(Rect *r, Boolean dim)
-{
-	short cx, cy;
-	PolyHandle poly;
-
-	cx = (r->left + r->right) / 2;
-	cy = (r->top + r->bottom) / 2;
-
-	if (dim) PenPat(&qd.gray);
-	PenSize(1, 1);
-
-	poly = OpenPoly();
-	MoveTo(cx - 4, cy - 5);
-	LineTo(cx + 3, cy);
-	LineTo(cx - 4, cy + 5);
-	LineTo(cx - 4, cy - 5);
-	ClosePoly();
-	if (dim)
-		FillPoly(poly, &qd.gray);
-	else
-		PaintPoly(poly);
-	FramePoly(poly);
-	KillPoly(poly);
-
-	PenNormal();
-}
-
-/* Refresh: bold circular arrow with filled arrowhead */
-static void
-draw_refresh_icon(Rect *r, Boolean dim)
-{
-	Rect arc_r;
-	short cx, cy;
-	PolyHandle poly;
-
-	cx = (r->left + r->right) / 2;
-	cy = (r->top + r->bottom) / 2;
-
-	if (dim) PenPat(&qd.gray);
-	PenSize(2, 2);
-	SetRect(&arc_r, cx - 5, cy - 5, cx + 5, cy + 5);
-	FrameArc(&arc_r, 45, 300);
-	PenSize(1, 1);
-
-	/* Filled arrowhead at arc start (~2 o'clock),
-	 * pointing down-left to follow clockwise flow */
-	poly = OpenPoly();
-	MoveTo(cx + 1, cy + 1);    /* tip: down-left */
-	LineTo(cx + 6, cy - 4);   /* upper-right wing */
-	LineTo(cx + 2, cy - 5);   /* upper-left wing */
-	LineTo(cx + 1, cy + 1);
-	ClosePoly();
-	if (dim)
-		FillPoly(poly, &qd.gray);
-	else
-		PaintPoly(poly);
-	KillPoly(poly);
-	PenNormal();
-}
-
-/* Home: filled house shape */
-static void
-draw_home_icon(Rect *r, Boolean dim)
-{
-	short cx, cy;
-	PolyHandle poly;
-	Rect door_r;
-
-	cx = (r->left + r->right) / 2;
-	cy = (r->top + r->bottom) / 2;
-
-	if (dim) PenPat(&qd.gray);
-	PenSize(1, 1);
-
-	/* Filled roof triangle */
-	poly = OpenPoly();
-	MoveTo(cx - 7, cy);
-	LineTo(cx, cy - 6);
-	LineTo(cx + 7, cy);
-	LineTo(cx - 7, cy);
-	ClosePoly();
-	if (dim)
-		FillPoly(poly, &qd.gray);
-	else
-		PaintPoly(poly);
-	KillPoly(poly);
-
-	/* Filled walls */
-	{
-		Rect wall_r;
-		SetRect(&wall_r, cx - 5, cy, cx + 5, cy + 6);
-		if (dim)
-			FillRect(&wall_r, &qd.gray);
-		else
-			PaintRect(&wall_r);
+#ifdef GEOMYS_COLOR
+	/* Try color icon first on Color QuickDraw systems */
+	if (g_has_color_qd &&
+	    gopher_cicn_draw(sicn_id, cx - 8, cy - 8)) {
+		/* Dim color icon with gray pattern */
+		if (dim) {
+			SetRect(&dst_r, cx - 8, cy - 8,
+			    cx + 8, cy + 8);
+			PenPat(&qd.gray);
+			PenMode(patBic);
+			PaintRect(&dst_r);
+			PenNormal();
+		}
+		return;
 	}
+#endif
 
-	/* Door cutout (white) */
-	SetRect(&door_r, cx - 2, cy + 2, cx + 2, cy + 6);
-	EraseRect(&door_r);
+	h = GetResource('SICN', sicn_id);
+	if (!h)
+		return;
 
-	PenNormal();
-}
+	/* Lock handle — CopyBits reads from the pointer,
+	 * which must not move during the blit. */
+	HLock(h);
 
-/* Stop: filled square (standard stop icon) */
-static void
-draw_stop_icon(Rect *r, Boolean dim)
-{
-	short cx, cy;
-	Rect sq;
+	src_bits.baseAddr = *h;
+	src_bits.rowBytes = 2;
+	SetRect(&src_bits.bounds, 0, 0, 16, 16);
+	SetRect(&src_r, 0, 0, 16, 16);
+	SetRect(&dst_r, cx - 8, cy - 8,
+	    cx + 8, cy + 8);
 
-	cx = (r->left + r->right) / 2;
-	cy = (r->top + r->bottom) / 2;
+	CopyBits(&src_bits, &qd.thePort->portBits,
+	    &src_r, &dst_r, srcOr, NULL);
 
-	if (dim) PenPat(&qd.gray);
-	PenSize(1, 1);
+	HUnlock(h);
 
-	SetRect(&sq, cx - 4, cy - 4, cx + 4, cy + 4);
-	if (dim)
-		FillRect(&sq, &qd.gray);
-	else
-		PaintRect(&sq);
-
-	PenNormal();
-}
-
-/* Go: right-pointing arrow (navigate) */
-static void
-draw_go_icon(Rect *r, Boolean dim)
-{
-	short cx, cy;
-	PolyHandle poly;
-
-	cx = (r->left + r->right) / 2;
-	cy = (r->top + r->bottom) / 2;
-
-	if (dim) PenPat(&qd.gray);
-	PenSize(1, 1);
-
-	/* Filled right arrow */
-	poly = OpenPoly();
-	MoveTo(cx - 4, cy - 5);
-	LineTo(cx + 4, cy);
-	LineTo(cx - 4, cy + 5);
-	LineTo(cx - 4, cy - 5);
-	ClosePoly();
-	if (dim)
-		FillPoly(poly, &qd.gray);
-	else
-		PaintPoly(poly);
-	KillPoly(poly);
-
-	PenNormal();
+	/* Standard Mac dimming: erase every other pixel
+	 * with gray pattern using patBic mode */
+	if (dim) {
+		PenPat(&qd.gray);
+		PenMode(patBic);
+		PaintRect(&dst_r);
+		PenNormal();
+	}
 }
 
 /* Draw the action button (stop/go/refresh) */
@@ -544,13 +419,13 @@ draw_action_button(WindowPtr win, Boolean pressed)
 
 	switch (g_action_state) {
 	case ACTION_STOP:
-		draw_stop_icon(&r, false);
+		draw_sicn_icon(&r, SICN_STOP, false);
 		break;
 	case ACTION_GO:
-		draw_go_icon(&r, false);
+		draw_sicn_icon(&r, SICN_GO, false);
 		break;
 	case ACTION_REFRESH:
-		draw_refresh_icon(&r, false);
+		draw_sicn_icon(&r, SICN_REFRESH, false);
 		break;
 	}
 }
