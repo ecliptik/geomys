@@ -310,18 +310,13 @@ dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server)
 	short result, retry;
 
 	{
-		unsigned long secs;
-		Point mouse;
 		static unsigned short dns_counter = 0;
 
-		ReadDateTime(&secs);
-		GetMouse(&mouse);
+		/* TickCount is cheap (low memory global), counter
+		 * with Knuth multiplicative hash guarantees
+		 * uniqueness across sequential lookups. */
 		txn_id = (unsigned short)(
-		    (TickCount() ^ secs ^
-		    (unsigned long)&txn_id ^
-		    ((unsigned long)mouse.h << 8) ^
-		    (unsigned long)mouse.v ^
-		    (unsigned long)FreeMem() ^
+		    (TickCount() ^
 		    (unsigned long)(++dns_counter * 2654435761UL))
 		    & 0xFFFF);
 	}

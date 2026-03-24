@@ -642,11 +642,50 @@ set_item_fg_color(const ThemeColors *t, char type)
 }
 #endif
 
+#ifdef GEOMYS_THEMES
+/*
+ * theme_erase_row - Erase a row with theme-appropriate background.
+ * Handles three code paths: Color QD + theme, mono dark + theme, fallback.
+ * Sets foreground to theme text color on color path.
+ * is_hover: highlight with hover_bg instead of bg (directory rows only).
+ */
+static void
+theme_erase_row(const Rect *erase_r, short is_hover,
+    const ThemeColors *t)
+{
+	short did_erase = 0;
+
+	if (t) {
+#ifdef GEOMYS_COLOR
+		if (g_has_color_qd) {
+			if (is_hover)
+				theme_set_bg(&t->hover_bg);
+			else
+				theme_set_bg(&t->bg);
+			theme_set_fg(&t->text);
+			EraseRect(erase_r);
+			did_erase = 1;
+		} else
+#endif
+		if (t->is_dark) {
+			PaintRect(erase_r);
+			TextMode(srcBic);
+			did_erase = 1;
+		}
+	}
+	if (!did_erase)
+		EraseRect(erase_r);
+}
+#endif
+
 /* Draw a single directory row.
  * Self-contained — sets clip, font, erases, draws.
- * row_index is the absolute index in g_page->items[]. */
+ * row_index is the absolute index in g_page->items[].
+ * content_r: pre-computed content rect (avoids per-row recomputation).
+ * theme: pre-fetched theme pointer (avoids per-row theme_current() call). */
 static void
-content_draw_row(WindowPtr win, short row_index)
+content_draw_row(WindowPtr win, short row_index,
+    const Rect *content_r, const void *theme)
 {
 	Rect r, erase_r;
 	short y, content_width;
@@ -656,7 +695,9 @@ content_draw_row(WindowPtr win, short row_index)
 	Str255 ps;
 	extern GeomysPrefs g_prefs;
 #ifdef GEOMYS_THEMES
-	const ThemeColors *t;
+	const ThemeColors *t = (const ThemeColors *)theme;
+#else
+	(void)theme;
 #endif
 
 	if (!g_page || g_page->page_type != PAGE_DIRECTORY)
@@ -664,7 +705,7 @@ content_draw_row(WindowPtr win, short row_index)
 	if (row_index < 0 || row_index >= g_page->item_count)
 		return;
 
-	content_get_rect(win, &r);
+	r = *content_r;
 
 	/* Skip if not visible */
 	if (row_index < g_scroll_pos ||
@@ -683,43 +724,17 @@ content_draw_row(WindowPtr win, short row_index)
 	    r.right, y);
 
 #ifdef GEOMYS_THEMES
-	t = theme_current();
-	{
-		short did_erase = 0;
-
-		if (t) {
+	theme_erase_row(&erase_r,
+	    (row_index == g_hover_row), t);
 #ifdef GEOMYS_COLOR
-			if (g_has_color_qd) {
-				/* Color path: set RGB background */
-				if (row_index == g_hover_row)
-					theme_set_bg(&t->hover_bg);
-				else
-					theme_set_bg(&t->bg);
-				EraseRect(&erase_r);
-				did_erase = 1;
+	/* Override foreground per item type (directory rows) */
+	if (g_has_color_qd && t) {
+		GopherItem *ti = &g_page->items[row_index];
 
-				/* Set foreground per item type */
-				{
-					GopherItem *ti =
-					    &g_page->items[row_index];
-					if (ti->type == GOPHER_INFO)
-						theme_set_fg(&t->text);
-					else
-						set_item_fg_color(t,
-						    ti->type);
-				}
-			} else
-#endif
-			if (t->is_dark) {
-				/* Mono dark: black bg, white text */
-				PaintRect(&erase_r);
-				TextMode(srcBic);
-				did_erase = 1;
-			}
-		}
-		if (!did_erase)
-			EraseRect(&erase_r);
+		if (ti->type != GOPHER_INFO)
+			set_item_fg_color(t, ti->type);
 	}
+#endif
 #else
 	EraseRect(&erase_r);
 #endif
@@ -1013,9 +1028,12 @@ content_draw_row(WindowPtr win, short row_index)
 
 /* Draw a single text row by index.
  * Self-contained — sets clip, font, erases, draws.
- * Uses text_lines[] for O(1) offset lookup. */
+ * Uses text_lines[] for O(1) offset lookup.
+ * content_r: pre-computed content rect (avoids per-row recomputation).
+ * theme: pre-fetched theme pointer (avoids per-row theme_current() call). */
 static void
-content_draw_text_row(WindowPtr win, short line_index)
+content_draw_text_row(WindowPtr win, short line_index,
+    const Rect *content_r, const void *theme)
 {
 	Rect r, erase_r;
 	short y;
@@ -1034,7 +1052,7 @@ content_draw_text_row(WindowPtr win, short line_index)
 	    line_index >= g_page->text_line_count)
 		return;
 
-	content_get_rect(win, &r);
+	r = *content_r;
 
 	/* Skip if not visible */
 	if (line_index < g_scroll_pos ||
@@ -1054,29 +1072,10 @@ content_draw_text_row(WindowPtr win, short line_index)
 	    r.right, y);
 
 #ifdef GEOMYS_THEMES
-	{
-		const ThemeColors *t = theme_current();
-		short did_erase = 0;
-
-		if (t) {
-#ifdef GEOMYS_COLOR
-			if (g_has_color_qd) {
-				theme_set_bg(&t->bg);
-				theme_set_fg(&t->text);
-				EraseRect(&erase_r);
-				did_erase = 1;
-			} else
-#endif
-			if (t->is_dark) {
-				PaintRect(&erase_r);
-				TextMode(srcBic);
-				did_erase = 1;
-			}
-		}
-		if (!did_erase)
-			EraseRect(&erase_r);
-	}
+	theme_erase_row(&erase_r, 0,
+	    (const ThemeColors *)theme);
 #else
+	(void)theme;
 	EraseRect(&erase_r);
 #endif
 
@@ -1192,6 +1191,7 @@ content_draw(WindowPtr win)
 	Rect r, erase_r;
 	short i, start_row, end_row;
 	short last_y;
+	const void *draw_theme;   /* pre-fetched theme for row draws */
 #ifdef GEOMYS_CLIPBOARD
 	short norm_sr = -1, norm_sc = -1;
 	short norm_er = -1, norm_ec = -1;
@@ -1222,6 +1222,7 @@ content_draw(WindowPtr win)
 #ifdef GEOMYS_THEMES
 	theme_reset_cache();
 #endif
+	draw_theme = theme_current();
 
 #ifdef GEOMYS_OFFSCREEN
 	use_offscreen = offscreen_is_ready();
@@ -1300,7 +1301,8 @@ content_draw(WindowPtr win)
 				need_draw = 0;
 
 			if (need_draw) {
-				content_draw_row(win, i);
+				content_draw_row(win, i, &r,
+				    draw_theme);
 #ifdef GEOMYS_OFFSCREEN
 				if (slot < dirty_lo)
 					dirty_lo = slot;
@@ -1356,7 +1358,8 @@ content_draw(WindowPtr win)
 				need_draw = 0;
 
 			if (need_draw) {
-				content_draw_text_row(win, i);
+				content_draw_text_row(win, i, &r,
+				    draw_theme);
 #ifdef GEOMYS_OFFSCREEN
 				if (slot < dirty_lo)
 					dirty_lo = slot;
@@ -1957,10 +1960,12 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 					if (g_page->page_type ==
 					    PAGE_DIRECTORY)
 						content_draw_row(
-						    win, rr);
+						    win, rr, &r,
+						    theme_current());
 					else
 						content_draw_text_row(
-						    win, rr);
+						    win, rr, &r,
+						    theme_current());
 				}
 			}
 		}
@@ -2291,10 +2296,12 @@ content_click(WindowPtr win, Point local_pt, GopherState *gs)
 			/* Redraw to show word highlight */
 			if (gs->page_type == PAGE_DIRECTORY)
 				content_draw_row(win,
-				    clicked_row);
+				    clicked_row, &r,
+				    theme_current());
 			else
 				content_draw_text_row(win,
-				    clicked_row);
+				    clicked_row, &r,
+				    theme_current());
 
 			/* Track drag extension */
 			track_content_drag(win, local_pt,
@@ -2569,25 +2576,33 @@ scroll_action(ControlHandle ctl, short part)
 		    update_rgn);
 		DisposeRgn(update_rgn);
 
-		if (g_page->page_type == PAGE_DIRECTORY) {
-			if (delta > 0) {
-				content_draw_row(win,
-				    g_scroll_pos + vis - 1);
-				content_draw_row(win,
-				    g_scroll_pos + vis);
+		{
+			const void *st = theme_current();
+
+			if (g_page->page_type == PAGE_DIRECTORY) {
+				if (delta > 0) {
+					content_draw_row(win,
+					    g_scroll_pos + vis - 1,
+					    &cr, st);
+					content_draw_row(win,
+					    g_scroll_pos + vis,
+					    &cr, st);
+				} else {
+					content_draw_row(win,
+					    g_scroll_pos, &cr, st);
+				}
 			} else {
-				content_draw_row(win,
-				    g_scroll_pos);
-			}
-		} else {
-			if (delta > 0) {
-				content_draw_text_row(win,
-				    g_scroll_pos + vis - 1);
-				content_draw_text_row(win,
-				    g_scroll_pos + vis);
-			} else {
-				content_draw_text_row(win,
-				    g_scroll_pos);
+				if (delta > 0) {
+					content_draw_text_row(win,
+					    g_scroll_pos + vis - 1,
+					    &cr, st);
+					content_draw_text_row(win,
+					    g_scroll_pos + vis,
+					    &cr, st);
+				} else {
+					content_draw_text_row(win,
+					    g_scroll_pos, &cr, st);
+				}
 			}
 		}
 	} else {
@@ -2799,7 +2814,8 @@ content_cursor_update(WindowPtr win, Point local_pt)
 			short old_hover = g_hover_row;
 
 			g_hover_row = -1;
-			content_draw_row(win, old_hover);
+			content_draw_row(win, old_hover, &r,
+			    theme_current());
 		}
 		InitCursor();
 		return;
@@ -2827,15 +2843,16 @@ content_cursor_update(WindowPtr win, Point local_pt)
 	/* Update hover — redraw only affected rows */
 	if (new_hover != g_hover_row) {
 		short old_hover = g_hover_row;
+		const void *ht = theme_current();
 
 		g_hover_row = new_hover;
 		if (old_hover >= 0) {
 			content_mark_dirty(old_hover);
-			content_draw_row(win, old_hover);
+			content_draw_row(win, old_hover, &r, ht);
 		}
 		if (new_hover >= 0) {
 			content_mark_dirty(new_hover);
-			content_draw_row(win, new_hover);
+			content_draw_row(win, new_hover, &r, ht);
 		}
 	}
 
@@ -2996,19 +3013,23 @@ content_clear_selection(WindowPtr win)
 	if (win && g_page) {
 		short i;
 		GrafPtr save;
+		Rect cr;
+		const void *ct = theme_current();
 
+		content_get_rect(win, &cr);
 		GetPort(&save);
 		SetPort(win);
 		for (i = old_start; i <= old_end; i++) {
 			content_mark_dirty(i);
 			if (g_page->page_type == PAGE_DIRECTORY)
-				content_draw_row(win, i);
+				content_draw_row(win, i, &cr, ct);
 			else if (g_page->page_type == PAGE_TEXT
 #ifdef GEOMYS_HTML
 			    || g_page->page_type == PAGE_HTML
 #endif
 			    )
-				content_draw_text_row(win, i);
+				content_draw_text_row(win, i,
+				    &cr, ct);
 		}
 		SetPort(save);
 	}
@@ -3587,10 +3608,13 @@ content_clear_kbd_selection(WindowPtr win)
 	content_mark_dirty(old);
 	if (win) {
 		GrafPtr save;
+		Rect cr;
 
+		content_get_rect(win, &cr);
 		GetPort(&save);
 		SetPort(win);
-		content_draw_row(win, old);
+		content_draw_row(win, old, &cr,
+		    theme_current());
 		SetPort(save);
 	}
 }
@@ -3620,12 +3644,15 @@ content_select_next(WindowPtr win)
 		content_set_scroll_pos(next - visible_rows(win) + 1);
 	else if (win) {
 		GrafPtr save;
+		Rect cr;
+		const void *kt = theme_current();
 
+		content_get_rect(win, &cr);
 		GetPort(&save);
 		SetPort(win);
 		if (old >= 0)
-			content_draw_row(win, old);
-		content_draw_row(win, next);
+			content_draw_row(win, old, &cr, kt);
+		content_draw_row(win, next, &cr, kt);
 		SetPort(save);
 	}
 	return next;
@@ -3661,12 +3688,15 @@ content_select_prev(WindowPtr win)
 		content_set_scroll_pos(prev - visible_rows(win) + 1);
 	else if (win) {
 		GrafPtr save;
+		Rect cr;
+		const void *kt = theme_current();
 
+		content_get_rect(win, &cr);
 		GetPort(&save);
 		SetPort(win);
 		if (old >= 0)
-			content_draw_row(win, old);
-		content_draw_row(win, prev);
+			content_draw_row(win, old, &cr, kt);
+		content_draw_row(win, prev, &cr, kt);
 		SetPort(save);
 	}
 	return prev;

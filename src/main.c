@@ -152,9 +152,13 @@ ae_open_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 			if (err == noErr) {
 				char buf[300];
 				long rd = sizeof(buf) - 1;
+				OSErr read_err;
 
-				FSRead(refnum, &rd, buf);
+				read_err = FSRead(refnum, &rd, buf);
 				FSClose(refnum);
+				if (read_err != noErr &&
+				    read_err != eofErr)
+					rd = 0;
 				buf[rd] = '\0';
 
 				/* Strip trailing whitespace */
@@ -461,15 +465,48 @@ poll_active_session(void)
 		} else
 #endif
 		{
+			/* Manual formatting — avoids snprintf
+			 * overhead in this hot path */
+			char *p = prog;
+			long val;
+
+			memcpy(p, "Loading\311 ", 10);
+			p += 10;
+
 			if (g_gopher.page_type ==
 			    PAGE_DIRECTORY)
-				snprintf(prog, sizeof(prog),
-				    "Loading\311 %d items",
-				    g_gopher.item_count);
+				val = g_gopher.item_count;
 			else
-				snprintf(prog, sizeof(prog),
-				    "Loading\311 %ld bytes",
-				    g_gopher.text_len);
+				val = g_gopher.text_len;
+
+			/* Convert number to decimal */
+			{
+				char digits[12];
+				short dc = 0;
+				long v = val;
+
+				if (v == 0)
+					digits[dc++] = '0';
+				else {
+					while (v > 0) {
+						digits[dc++] =
+						    '0' + (v % 10);
+						v /= 10;
+					}
+				}
+				while (dc > 0)
+					*p++ = digits[--dc];
+			}
+
+			if (g_gopher.page_type ==
+			    PAGE_DIRECTORY) {
+				memcpy(p, " items", 6);
+				p += 6;
+			} else {
+				memcpy(p, " bytes", 6);
+				p += 6;
+			}
+			*p = '\0';
 			browser_set_status(prog);
 		}
 
@@ -587,6 +624,161 @@ finish_download(void)
 }
 #endif
 
+#ifdef GEOMYS_DOWNLOAD
+/*
+ * handle_download_completed - Handle completion of a file download.
+ * Closes file, shows result in status bar, restores previous page.
+ */
+static void
+handle_download_completed(void)
+{
+	char fname[64];
+	char stat[300];
+	short flen;
+
+	g_app_state = APP_STATE_IDLE;
+	InitCursor();
+	dl_progress_close();
+
+	/* Extract C string filename for status */
+	flen = g_gopher.dl_filename[0];
+	if (flen > 63) flen = 63;
+	memcpy(fname, g_gopher.dl_filename + 1, flen);
+	fname[flen] = '\0';
+
+	if (g_gopher.dl_refnum) {
+		FSClose(g_gopher.dl_refnum);
+		FlushVol(0L, g_gopher.dl_vrefnum);
+	}
+
+	if (g_gopher.dl_error) {
+		/* Write error — delete partial file */
+		if (g_gopher.dl_filename[0])
+			FSDelete(g_gopher.dl_filename,
+			    g_gopher.dl_vrefnum);
+		show_error_alert(
+		    "Error writing file. "
+		    "The disk may be full.");
+	} else if (g_gopher.conn.timed_out &&
+	    g_gopher.dl_written == 0) {
+		show_error_alert(
+		    "The download failed. "
+		    "The connection timed out "
+		    "before any data was "
+		    "received.");
+	} else {
+		snprintf(stat, sizeof(stat),
+		    "Downloaded %s \xD0 %ld bytes",
+		    fname, g_gopher.dl_written);
+		browser_set_status(stat);
+	}
+
+	finish_download();
+}
+
+/*
+ * handle_image_completed - Handle completion of an image download.
+ * Flushes unsniffed header bytes, closes file, shows image info
+ * in an alert, then restores previous page.
+ */
+static void
+handle_image_completed(void)
+{
+	char stat[300];
+
+	g_app_state = APP_STATE_IDLE;
+	InitCursor();
+	dl_progress_close();
+
+	/* If image was smaller than sniff buffer, the
+	 * header bytes weren't written yet — write them
+	 * now before closing the file. */
+	if (g_gopher.dl_refnum &&
+	    !g_gopher.img_sniffed &&
+	    g_gopher.img_header_len > 0) {
+		long hc = g_gopher.img_header_len;
+		OSErr he = FSWrite(g_gopher.dl_refnum,
+		    &hc, g_gopher.img_header);
+		if (he != noErr)
+			g_gopher.dl_error = true;
+		g_gopher.dl_written += hc;
+	}
+
+	if (g_gopher.dl_refnum) {
+		FSClose(g_gopher.dl_refnum);
+		FlushVol(0L, g_gopher.dl_vrefnum);
+	}
+
+	if (g_gopher.dl_error) {
+		if (g_gopher.dl_filename[0])
+			FSDelete(g_gopher.dl_filename,
+			    g_gopher.dl_vrefnum);
+		show_error_alert(
+		    "Error writing file. "
+		    "The disk may be full.");
+	} else if (g_gopher.conn.timed_out &&
+	    g_gopher.dl_written == 0) {
+		show_error_alert(
+		    "The download failed. "
+		    "The connection timed out "
+		    "before any data was "
+		    "received.");
+	} else {
+		/* Success — show image info */
+		Str255 pmsg;
+		char msg[200];
+		short fmt;
+		unsigned short img_w, img_h;
+
+		fmt = img_detect_format(
+		    g_gopher.img_header,
+		    g_gopher.img_header_len);
+
+		if (img_parse_dimensions(
+		    g_gopher.img_header,
+		    g_gopher.img_header_len,
+		    fmt, &img_w, &img_h)) {
+			snprintf(msg, sizeof(msg),
+			    "Image saved. "
+			    "Format: %s, "
+			    "Size: %ld bytes, "
+			    "Dimensions: %u \xD7 %u",
+			    img_format_name(
+			    g_gopher.img_header,
+			    g_gopher.img_header_len,
+			    fmt),
+			    g_gopher.dl_written,
+			    img_w, img_h);
+		} else {
+			snprintf(msg, sizeof(msg),
+			    "Image saved. "
+			    "Format: %s, "
+			    "Size: %ld bytes",
+			    img_format_name(
+			    g_gopher.img_header,
+			    g_gopher.img_header_len,
+			    fmt),
+			    g_gopher.dl_written);
+		}
+
+		c2pstr(pmsg, msg);
+		ParamText(pmsg, "\p", "\p", "\p");
+		NoteAlert(128, 0L);
+
+		snprintf(stat, sizeof(stat),
+		    "Image saved \xD0 %ld bytes",
+		    g_gopher.dl_written);
+		browser_set_status(stat);
+	}
+
+	/* Reset image-specific state */
+	g_gopher.img_header_len = 0;
+	g_gopher.img_sniffed = false;
+
+	finish_download();
+}
+#endif
+
 /*
  * handle_page_loaded - Handle completion of a Gopher page load.
  * Updates title, address bar, status bar, caches page,
@@ -599,146 +791,12 @@ handle_page_loaded(void)
 	GrafPtr save;
 
 #ifdef GEOMYS_DOWNLOAD
-	/* Download completion — close file, show result, restore UI */
 	if (g_gopher.page_type == PAGE_DOWNLOAD) {
-		char fname[64];
-		short flen;
-
-		g_app_state = APP_STATE_IDLE;
-		InitCursor();
-		dl_progress_close();
-
-		/* Extract C string filename for status */
-		flen = g_gopher.dl_filename[0];
-		if (flen > 63) flen = 63;
-		memcpy(fname, g_gopher.dl_filename + 1, flen);
-		fname[flen] = '\0';
-
-		if (g_gopher.dl_refnum) {
-			FSClose(g_gopher.dl_refnum);
-			FlushVol(0L, g_gopher.dl_vrefnum);
-		}
-
-		if (g_gopher.dl_error) {
-			/* Write error — delete partial file */
-			if (g_gopher.dl_filename[0])
-				FSDelete(g_gopher.dl_filename,
-				    g_gopher.dl_vrefnum);
-			show_error_alert(
-			    "Error writing file. "
-			    "The disk may be full.");
-		} else if (g_gopher.conn.timed_out &&
-		    g_gopher.dl_written == 0) {
-			show_error_alert(
-			    "The download failed. "
-			    "The connection timed out "
-			    "before any data was "
-			    "received.");
-		} else {
-			snprintf(uri, sizeof(uri),
-			    "Downloaded %s \xD0 %ld bytes",
-			    fname, g_gopher.dl_written);
-			browser_set_status(uri);
-		}
-
-		finish_download();
+		handle_download_completed();
 		return;
 	}
-
-	/* Image download completion — close file, show image
-	 * info, restore UI. Header bytes were already written
-	 * to disk in gopher_process_data when sniffing completed. */
 	if (g_gopher.page_type == PAGE_IMAGE) {
-		g_app_state = APP_STATE_IDLE;
-		InitCursor();
-		dl_progress_close();
-
-		/* If image was smaller than sniff buffer, the
-		 * header bytes weren't written yet — write them
-		 * now before closing the file. */
-		if (g_gopher.dl_refnum &&
-		    !g_gopher.img_sniffed &&
-		    g_gopher.img_header_len > 0) {
-			long hc = g_gopher.img_header_len;
-			OSErr he = FSWrite(g_gopher.dl_refnum,
-			    &hc, g_gopher.img_header);
-			if (he != noErr)
-				g_gopher.dl_error = true;
-			g_gopher.dl_written += hc;
-		}
-
-		if (g_gopher.dl_refnum) {
-			FSClose(g_gopher.dl_refnum);
-			FlushVol(0L, g_gopher.dl_vrefnum);
-		}
-
-		if (g_gopher.dl_error) {
-			if (g_gopher.dl_filename[0])
-				FSDelete(g_gopher.dl_filename,
-				    g_gopher.dl_vrefnum);
-			show_error_alert(
-			    "Error writing file. "
-			    "The disk may be full.");
-		} else if (g_gopher.conn.timed_out &&
-		    g_gopher.dl_written == 0) {
-			show_error_alert(
-			    "The download failed. "
-			    "The connection timed out "
-			    "before any data was "
-			    "received.");
-		} else {
-			/* Success — show image info */
-			Str255 pmsg;
-			char msg[200];
-			short fmt;
-			unsigned short img_w, img_h;
-
-			fmt = img_detect_format(
-			    g_gopher.img_header,
-			    g_gopher.img_header_len);
-
-			if (img_parse_dimensions(
-			    g_gopher.img_header,
-			    g_gopher.img_header_len,
-			    fmt, &img_w, &img_h)) {
-				snprintf(msg, sizeof(msg),
-				    "Image saved. "
-				    "Format: %s, "
-				    "Size: %ld bytes, "
-				    "Dimensions: %u \xD7 %u",
-				    img_format_name(
-				    g_gopher.img_header,
-				    g_gopher.img_header_len,
-				    fmt),
-				    g_gopher.dl_written,
-				    img_w, img_h);
-			} else {
-				snprintf(msg, sizeof(msg),
-				    "Image saved. "
-				    "Format: %s, "
-				    "Size: %ld bytes",
-				    img_format_name(
-				    g_gopher.img_header,
-				    g_gopher.img_header_len,
-				    fmt),
-				    g_gopher.dl_written);
-			}
-
-			c2pstr(pmsg, msg);
-			ParamText(pmsg, "\p", "\p", "\p");
-			NoteAlert(128, 0L);
-
-			snprintf(uri, sizeof(uri),
-			    "Image saved \xD0 %ld bytes",
-			    g_gopher.dl_written);
-			browser_set_status(uri);
-		}
-
-		/* Reset image-specific state */
-		g_gopher.img_header_len = 0;
-		g_gopher.img_sniffed = false;
-
-		finish_download();
+		handle_image_completed();
 		return;
 	}
 #endif

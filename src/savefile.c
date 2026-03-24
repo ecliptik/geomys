@@ -116,8 +116,11 @@ write_directory_page(short refNum, GopherState *gs)
 			label = gopher_type_label(item->type);
 
 			/* Format: [LABEL]  Display Name */
-			len = sprintf(line_buf, "[%s]  %s",
+			len = snprintf(line_buf,
+			    sizeof(line_buf), "[%s]  %s",
 			    label, item->display);
+			if (len >= (short)sizeof(line_buf))
+				len = sizeof(line_buf) - 1;
 			count = len;
 			err = FSWrite(refNum, &count, line_buf);
 			if (err != noErr)
@@ -134,8 +137,11 @@ write_directory_page(short refNum, GopherState *gs)
 				    item->host, item->port,
 				    item->type, item->selector);
 
-				len = sprintf(line_buf, "    %s",
-				    uri);
+				len = snprintf(line_buf,
+				    sizeof(line_buf),
+				    "    %s", uri);
+				if (len >= (short)sizeof(line_buf))
+					len = sizeof(line_buf) - 1;
 				count = len;
 				err = FSWrite(refNum, &count,
 				    line_buf);
@@ -395,11 +401,15 @@ dl_type_codes(char gopher_type, OSType *ftype, OSType *fcreator)
 }
 
 /*
- * do_download_file - Show SFPutFile, then start streaming download to disk.
- * File is opened BEFORE network connection starts.
+ * start_save_to_disk - Common implementation for file/image downloads.
+ * Shows SFPutFile dialog, creates file, redraws window behind dialog,
+ * then starts the Gopher connection. On failure, cleans up the file.
+ * prompt: Pascal string for SFPutFile (e.g. "\pSave file as:")
+ * status_msg: C string for status bar during download
  */
-void
-do_download_file(const GopherItem *item)
+static void
+start_save_to_disk(const GopherItem *item,
+    const unsigned char *prompt, const char *status_msg)
 {
 	GopherState *gs = &g_gopher;
 	Str255 default_name;
@@ -426,8 +436,8 @@ do_download_file(const GopherItem *item)
 		/* System 7: StandardPutFile with FSSpec */
 		StandardFileReply sf_reply;
 
-		StandardPutFile("\pSave file as:",
-		    default_name, &sf_reply);
+		StandardPutFile(prompt, default_name,
+		    &sf_reply);
 
 		if (!sf_reply.sfGood)
 			return;
@@ -472,7 +482,7 @@ do_download_file(const GopherItem *item)
 		where.h = 80;
 		where.v = 80;
 
-		SFPutFile(where, "\pSave file as:",
+		SFPutFile(where, prompt,
 		    default_name, 0L, &reply);
 
 		if (!reply.good)
@@ -549,20 +559,14 @@ do_download_file(const GopherItem *item)
 	g_app_state = APP_STATE_LOADING;
 	SetCursor(*GetCursor(watchCursor));
 
+	browser_set_status(status_msg);
 	{
-		char stat[80];
+		GrafPtr save;
 
-		snprintf(stat, sizeof(stat),
-		    "Downloading\311");
-		browser_set_status(stat);
-		{
-			GrafPtr save;
-
-			GetPort(&save);
-			SetPort(g_window);
-			browser_draw_status(g_window);
-			SetPort(save);
-		}
+		GetPort(&save);
+		SetPort(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
 	}
 
 	if (!gopher_navigate(gs, item->host, item->port,
@@ -591,199 +595,24 @@ do_download_file(const GopherItem *item)
 }
 
 /*
+ * do_download_file - Show SFPutFile, then start streaming download to disk.
+ */
+void
+do_download_file(const GopherItem *item)
+{
+	start_save_to_disk(item, "\pSave file as:",
+	    "Downloading\311");
+}
+
+/*
  * do_image_save - Show SFPutFile for an image item, then start
  * PAGE_IMAGE download which sniffs header and streams to disk.
  */
 void
 do_image_save(const GopherItem *item)
 {
-	GopherState *gs = &g_gopher;
-	Str255 default_name;
-	short refNum;
-	OSErr err;
-	long sysver;
-	Boolean use_std_file = false;
-	OSType ftype, fcreator;
-
-	/* Don't start a download while already loading */
-	if (g_app_state != APP_STATE_IDLE)
-		return;
-
-	derive_download_name(default_name, item);
-	dl_type_codes(item->type, &ftype, &fcreator);
-
-	/* Check for System 7+ StandardPutFile */
-	if (TrapAvailable(_GestaltDispatch) &&
-	    Gestalt(gestaltSystemVersion, &sysver) == noErr &&
-	    sysver >= 0x0700)
-		use_std_file = true;
-
-	if (use_std_file) {
-		/* System 7: StandardPutFile with FSSpec */
-		StandardFileReply sf_reply;
-
-		StandardPutFile("\pSave image as:",
-		    default_name, &sf_reply);
-
-		if (!sf_reply.sfGood)
-			return;
-
-		/* Delete existing file (ignore error) */
-		FSpDelete(&sf_reply.sfFile);
-
-		/* Create new file */
-		err = FSpCreate(&sf_reply.sfFile, fcreator,
-		    ftype, smSystemScript);
-		if (err != noErr) {
-			show_error_alert(
-			    "Could not create file. "
-			    "The disk may be full or "
-			    "locked.");
-			return;
-		}
-
-		/* Open for writing */
-		err = FSpOpenDF(&sf_reply.sfFile, fsWrPerm,
-		    &refNum);
-		if (err != noErr) {
-			show_error_alert(
-			    "Could not open file for "
-			    "writing. It may be in use "
-			    "by another application.");
-			return;
-		}
-
-		/* Store info for cleanup */
-		gs->dl_refnum = refNum;
-		gs->dl_written = 0;
-		gs->dl_error = false;
-		gs->dl_vrefnum = sf_reply.sfFile.vRefNum;
-		memcpy(gs->dl_filename, sf_reply.sfFile.name,
-		    sf_reply.sfFile.name[0] + 1);
-	} else {
-		/* System 6: SFPutFile with SFReply */
-		SFReply reply;
-		Point where;
-
-		where.h = 80;
-		where.v = 80;
-
-		SFPutFile(where, "\pSave image as:",
-		    default_name, 0L, &reply);
-
-		if (!reply.good)
-			return;
-
-		/* Delete existing file (ignore error) */
-		FSDelete(reply.fName, reply.vRefNum);
-
-		/* Create new file */
-		err = Create(reply.fName, reply.vRefNum,
-		    fcreator, ftype);
-		if (err != noErr) {
-			show_error_alert(
-			    "Could not create file. "
-			    "The disk may be full or "
-			    "locked.");
-			return;
-		}
-
-		/* Open for writing */
-		err = FSOpen(reply.fName, reply.vRefNum,
-		    &refNum);
-		if (err != noErr) {
-			show_error_alert(
-			    "Could not open file for "
-			    "writing. It may be in use "
-			    "by another application.");
-			return;
-		}
-
-		/* Store info for cleanup */
-		gs->dl_refnum = refNum;
-		gs->dl_written = 0;
-		gs->dl_error = false;
-		gs->dl_vrefnum = reply.vRefNum;
-		memcpy(gs->dl_filename, reply.fName,
-		    reply.fName[0] + 1);
-	}
-
-	/* Redraw window behind dismissed SFPutFile dialog */
-	{
-		GrafPtr save;
-
-		GetPort(&save);
-		SetPort(g_window);
-		InvalRect(&g_window->portRect);
-		BeginUpdate(g_window);
-		content_mark_all_dirty();
-		browser_draw(g_window);
-		content_draw(g_window);
-		content_update_scroll(g_window);
-		{
-			Rect clip_r;
-			RgnHandle sc = NewRgn();
-
-			GetClip(sc);
-			SetRect(&clip_r,
-			    g_window->portRect.right - 15,
-			    g_window->portRect.bottom - 15,
-			    g_window->portRect.right + 1,
-			    g_window->portRect.bottom + 1);
-			ClipRect(&clip_r);
-			EraseRect(&clip_r);
-			DrawGrowIcon(g_window);
-			SetClip(sc);
-			DisposeRgn(sc);
-		}
-		DrawControls(g_window);
-		EndUpdate(g_window);
-		SetPort(save);
-	}
-
-	/* Start the image download connection */
-	g_app_state = APP_STATE_LOADING;
-	SetCursor(*GetCursor(watchCursor));
-
-	{
-		char stat[80];
-
-		snprintf(stat, sizeof(stat),
-		    "Downloading image\311");
-		browser_set_status(stat);
-		{
-			GrafPtr save;
-
-			GetPort(&save);
-			SetPort(g_window);
-			browser_draw_status(g_window);
-			SetPort(save);
-		}
-	}
-
-	if (!gopher_navigate(gs, item->host, item->port,
-	    item->type, item->selector)) {
-		/* Connection failed — clean up file */
-		FSClose(refNum);
-		FlushVol(0L, gs->dl_vrefnum);
-		FSDelete(gs->dl_filename, gs->dl_vrefnum);
-		gs->dl_refnum = 0;
-		gs->dl_written = 0;
-		gs->dl_vrefnum = 0;
-		gs->dl_filename[0] = 0;
-
-		g_app_state = APP_STATE_IDLE;
-		InitCursor();
-		browser_set_status("Connection failed");
-		{
-			GrafPtr save;
-
-			GetPort(&save);
-			SetPort(g_window);
-			browser_draw_status(g_window);
-			SetPort(save);
-		}
-	}
+	start_save_to_disk(item, "\pSave image as:",
+	    "Downloading image\311");
 }
 
 #endif /* GEOMYS_DOWNLOAD */

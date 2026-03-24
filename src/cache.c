@@ -302,11 +302,25 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 	    || slot->page_type == PAGE_HTML
 #endif
 	    ) && slot->text_buf) {
-		if (!gs->text_buf) {
-			gs->text_buf = NewPtr(GOPHER_TEXT_BUFSIZ);
-			if (!gs->text_buf)
+		if (!gs->text_buf ||
+		    gs->text_buf_capacity < slot->text_len + 1) {
+			/* Allocate with 1KB headroom, clamped to
+			 * [GOPHER_TEXT_INIT_SIZE, GOPHER_TEXT_BUFSIZ].
+			 * Avoids wasting 30KB on small pages. */
+			long alloc_size = slot->text_len + 1024;
+
+			if (alloc_size < GOPHER_TEXT_INIT_SIZE)
+				alloc_size = GOPHER_TEXT_INIT_SIZE;
+			if (alloc_size > GOPHER_TEXT_BUFSIZ)
+				alloc_size = GOPHER_TEXT_BUFSIZ;
+			if (gs->text_buf)
+				DisposePtr(gs->text_buf);
+			gs->text_buf = NewPtr(alloc_size);
+			if (!gs->text_buf) {
+				gs->text_buf_capacity = 0;
 				return false;
-			gs->text_buf_capacity = GOPHER_TEXT_BUFSIZ;
+			}
+			gs->text_buf_capacity = alloc_size;
 		}
 		memcpy(gs->text_buf, slot->text_buf,
 		    slot->text_len);

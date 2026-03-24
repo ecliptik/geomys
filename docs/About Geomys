@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 0.9.0
+                   Version 0.11.2
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -55,7 +55,10 @@ Features
   - Keyboard link navigation with Up/Down arrows
   - Save Page As (Cmd-S) for text and directory pages
   - CP437 character set and Unicode glyph rendering
-  - Local page cache for instant back/forward
+  - HTML tag-stripping renderer for type h items
+  - Telnet connection dialog with Copy Host and
+    System 7 app launching for type 8/T items
+  - Local page cache with memory-aware sizing
   - Gopher+ protocol support
   - MacTCP pre-loaded at startup for fast first connect
   - Dynamic directory capacity up to 2,000 items

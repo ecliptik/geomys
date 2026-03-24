@@ -114,7 +114,7 @@ html_resolve_entity(const char *ent, short len)
 
 	/* Numeric entity: &#NN; or &#xNN; */
 	if (ent[0] == '#') {
-		short val = 0;
+		long val = 0;
 
 		if (len > 1 && (ent[1] == 'x' || ent[1] == 'X')) {
 			/* Hex */
@@ -128,6 +128,8 @@ html_resolve_entity(const char *ent, short len)
 					val = val * 16 + (c - 'A' + 10);
 				else
 					break;
+				if (val > 127)
+					return '?';
 			}
 		} else {
 			/* Decimal */
@@ -137,6 +139,8 @@ html_resolve_entity(const char *ent, short len)
 					val = val * 10 + (c - '0');
 				else
 					break;
+				if (val > 127)
+					return '?';
 			}
 		}
 

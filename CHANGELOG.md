@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.2] — Internal: Code Review Improvements
+
+### Performance
+- Address bar clip region pre-allocated once at init instead of `NewRgn()`/`DisposeRgn()` per draw cycle
+- Content rect and theme pointer passed directly to row-draw functions, eliminating redundant per-row recomputation and `theme_current()` calls
+- Manual string formatting in `poll_active_session()` data-receive path replaces `snprintf` overhead
+- Simplified DNS transaction ID entropy collection with fewer Toolbox trap calls
+
+### Memory
+- Cache text buffer sized to actual content length plus headroom on retrieve, instead of always allocating 32KB
+
+### Security
+- `FSRead` return value checked in Apple Event `odoc` handler — prevents navigating to garbage data on read failure
+- `sprintf` replaced with `snprintf` in save-file path construction (defensive bounds checking)
+- HTML numeric entity parser guards against `short` overflow on malformed `&#nnnnn;` sequences
+
+### Code Quality
+- Consolidated `do_download_file()` and `do_image_save()` into shared helpers, reducing ~150 lines of duplicated save logic
+- Extracted `handle_download_completed()` and `handle_image_completed()` from `handle_page_loaded()`, splitting a large function into focused handlers
+- Extracted theme row-erase helper, deduplicating background setup across draw paths
+
 ## [0.11.1] — Internal: Performance, Memory & Security Hardening
 
 ### Performance

@@ -74,6 +74,7 @@ static Rect g_addr_rect;
 static Rect g_action_rect;           /* stop/go/refresh button */
 static short g_action_state = ACTION_REFRESH;
 static short g_focus = FOCUS_ADDR_BAR;  /* which UI element has focus */
+static RgnHandle g_addr_clip_rgn = 0L;  /* pre-allocated clip save/restore */
 
 #ifdef GEOMYS_CLIPBOARD
 /* Undo buffer — single-level toggle (undo/redo) */
@@ -128,17 +129,18 @@ static void draw_action_button(WindowPtr win, Boolean pressed);
 /*
  * Clip TE drawing to text width so selection
  * highlight doesn't extend into empty space.
- * Saves current clip into *save_clip (caller must
- * call browser_end_addr_clip to restore).
+ * Uses pre-allocated g_addr_clip_rgn to save/restore
+ * clip — avoids NewRgn/DisposeRgn heap churn.
  */
 static void
-browser_begin_addr_clip(RgnHandle *save_clip)
+browser_begin_addr_clip(void)
 {
 	Rect text_clip;
 	short text_end_x, sf, ss;
 
-	*save_clip = NewRgn();
-	GetClip(*save_clip);
+	if (!g_addr_clip_rgn)
+		return;
+	GetClip(g_addr_clip_rgn);
 	sf = qd.thePort->txFont;
 	ss = qd.thePort->txSize;
 	TextFont((*g_addr_te)->txFont);
@@ -155,10 +157,11 @@ browser_begin_addr_clip(RgnHandle *save_clip)
 }
 
 static void
-browser_end_addr_clip(RgnHandle save_clip)
+browser_end_addr_clip(void)
 {
-	SetClip(save_clip);
-	DisposeRgn(save_clip);
+	if (!g_addr_clip_rgn)
+		return;
+	SetClip(g_addr_clip_rgn);
 }
 
 void
@@ -166,6 +169,10 @@ browser_init(WindowPtr win)
 {
 	Rect te_rect;
 	short i, x;
+
+	/* Pre-allocate clip save/restore region once */
+	if (!g_addr_clip_rgn)
+		g_addr_clip_rgn = NewRgn();
 
 	/* Reset status text for new session */
 	g_status[0] = '\0';
@@ -221,6 +228,10 @@ browser_cleanup(void)
 	if (g_addr_te) {
 		TEDispose(g_addr_te);
 		g_addr_te = 0L;
+	}
+	if (g_addr_clip_rgn) {
+		DisposeRgn(g_addr_clip_rgn);
+		g_addr_clip_rgn = 0L;
 	}
 }
 
@@ -281,11 +292,9 @@ draw_nav_bar(WindowPtr win)
 
 	/* Draw address bar content */
 	if (g_addr_te) {
-		RgnHandle save_clip;
-
-		browser_begin_addr_clip(&save_clip);
+		browser_begin_addr_clip();
 		TEUpdate(&g_addr_rect, g_addr_te);
-		browser_end_addr_clip(save_clip);
+		browser_end_addr_clip();
 	}
 
 	/* Restore default port colors */
@@ -771,13 +780,12 @@ browser_click(WindowPtr win, Point local_pt)
 			GrafPtr save;
 			static unsigned long last_click = 0;
 			unsigned long now;
-			RgnHandle save_clip;
 
 			GetPort(&save);
 			SetPort(win);
 
 			/* Clip must be set BEFORE TEActivate */
-			browser_begin_addr_clip(&save_clip);
+			browser_begin_addr_clip();
 
 			TEActivate(g_addr_te);
 
@@ -797,7 +805,7 @@ browser_click(WindowPtr win, Point local_pt)
 				last_click = now;
 			}
 
-			browser_end_addr_clip(save_clip);
+			browser_end_addr_clip();
 			SetPort(save);
 		}
 		return -2;
@@ -832,19 +840,17 @@ browser_key(WindowPtr win, EventRecord *event)
 void
 browser_activate(Boolean active)
 {
-	RgnHandle save_clip;
-
 	if (!g_addr_te)
 		return;
 
-	browser_begin_addr_clip(&save_clip);
+	browser_begin_addr_clip();
 
 	if (active)
 		TEActivate(g_addr_te);
 	else
 		TEDeactivate(g_addr_te);
 
-	browser_end_addr_clip(save_clip);
+	browser_end_addr_clip();
 }
 
 void

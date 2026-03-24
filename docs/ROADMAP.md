@@ -410,7 +410,51 @@ Enhanced telnet connection dialog replacing NoteAlert for type 8/T items, with S
 
 ---
 
+## v0.11.0 — Performance & Polish
+
+### Phase 1: Selection Drag Flash Optimization
+**Status: Complete**
+
+XOR delta rendering on monochrome eliminates flash during text selection drag. Pre-allocated clip region reduces Toolbox trap overhead.
+
+- `invert_xor_delta()` helper: computes symmetric difference of old/new selection pixel ranges
+- `sel_row_pixel_range()` helper: maps selection columns to pixel coordinates
+- Monochrome path: `InvertRect` only on changed pixels (no erase/draw/invert cycle)
+- Color path: clipped row redraws limited to changed rows
+- Pre-allocated `RgnHandle` outside `StillDown()` loop
+- Shadow buffer invalidated after drag for proper resync
+
+### Phase 2: Double Buffering Refinements
+**Status: Complete**
+
+All scroll paths now use offscreen double buffering with partial CopyBits, eliminating flash on page/thumb scroll.
+
+- Removed `g_scrolling` flag that bypassed offscreen during scroll
+- Page/thumb vertical scroll uses offscreen buffer
+- Horizontal scroll (action, thumb, scroll-to) uses offscreen buffer
+- Partial CopyBits limits blit to dirty row union (≤20 rows)
+
+### Phase 3: Local Page Cache Improvements
+**Status: Complete**
+
+Memory-aware dynamic cache sizing and weighted LRU eviction for smarter page caching.
+
+- `FreeMem()` at init determines active slot count (3–8, capped at `CACHE_MAX`)
+- Hit count field: frequently-accessed pages weighted higher in eviction score
+- Multi-slot eviction: if allocation fails, evicts additional LRU slots before giving up
+- Refresh (Cmd-R) verified to invalidate cache before re-fetching
+
+### Phase 4: System 7 Polish
+**Status: Complete**
+
+System 7-specific improvements for better Finder integration and Apple Events support.
+
+- `'vers'` resource (ID 1 and 2): version and description shown in Finder Get Info
+- Apple Events `odoc` handler: opens files containing `gopher://` URLs
+- About dialog version bumped to 0.11.0
+
+---
+
 ## Future Features
 
 - **Inline image display** — Render GIF/PNG images in the content area (stretch goal beyond save-to-disk)
-- **System 7 enhancements** — Preferences folder, Apple Events

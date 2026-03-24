@@ -5,7 +5,10 @@
  * Stores copies of page content (directory items or text buffer)
  * so back/forward navigation doesn't require re-fetching.
  *
- * Memory budget: ~100KB max (3 cached pages).
+ * Active slot count is determined at init based on FreeMem(),
+ * up to CACHE_MAX ceiling. Eviction uses weighted LRU
+ * (access_time + hit_count * 100) so frequently-visited
+ * pages stay cached longer.
  */
 
 #ifndef CACHE_H
