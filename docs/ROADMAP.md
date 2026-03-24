@@ -455,6 +455,38 @@ System 7-specific improvements for better Finder integration and Apple Events su
 
 ---
 
+## System 7 Polish
+
+### Phase 1: Quick Wins
+**Status: Complete**
+
+Modernize System 7 APIs and support larger screens.
+
+- Color QuickDraw detection via `Gestalt(gestaltQuickdrawVersion)` with `SysEnvirons` fallback for pre-6.0.4 systems
+- Dynamic window sizing: `create_session_window()` reads `qd.screenBits.bounds` for actual screen dimensions (512x342 minimum enforced)
+- Status window centering: `conn_status_show()` uses `qd.screenBits.bounds` instead of hardcoded 512x342
+- Multi-monitor drag/resize: `DragWindow` and `GrowWindow` use `GetGrayRgn` bounding box for full desktop area
+- `useTextEditServices` enabled in SIZE resource for TSM input method support
+
+### Phase 2: Balloon Help
+**Status: Complete**
+
+System 7 Balloon Help for all menus.
+
+- `hmnu` resources for all 7 menus: Apple, File, Edit, Go, Favorites, Options, Window
+- HIG-compliant help text describing each menu item's purpose
+
+### Phase 3: Temporary Memory
+**Status: Complete**
+
+Use MultiFinder temporary memory for cache allocations on System 7.
+
+- `cache_alloc()`/`cache_free()` helpers in `cache.c`: prefer `TempNewHandle` for cache slot allocations, fall back to `NewPtr` on System 6 or if temp memory is unavailable
+- Handle fields added to `CacheSlot` for tracking temp memory allocations
+- Keeps app heap free for working data while cache uses system temp memory
+
+---
+
 ## Future Features
 
-- **Inline image display** — Render GIF/PNG images in the content area (stretch goal beyond save-to-disk)
+(None planned)

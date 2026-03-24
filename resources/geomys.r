@@ -5,6 +5,7 @@
 #include "Menus.r"
 #include "Dialogs.r"
 #include "Processes.r"
+#include "Balloons.r"
 
 resource 'MBAR' (128) {
 	{ 128, 129, 130, 134, 131, 132, 133 }
@@ -1110,12 +1111,572 @@ resource 'SIZE' (-1) {
 	isHighLevelEventAware,
 	onlyLocalHLEvents,
 	notStationeryAware,
-	dontUseTextEditServices,
+	useTextEditServices,
 	reserved,
 	reserved,
 	reserved,
 	384 * 1024,
 	256 * 1024
+};
+
+/* ===== Balloon Help resources for all menus (System 7) ===== */
+
+/*
+ * Apple Menu (128)
+ * HMSkipItem for missing = no balloon on appended DA items
+ */
+resource 'hmnu' (128, "Apple") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"This menu lists desk accessories and "
+			"provides information about Geomys.",
+			"", "", ""
+		},
+		/* About Geomys... */
+		HMStringItem {
+			"Displays version, copyright, and system "
+			"information for Geomys.",
+			"", "", ""
+		}
+	}
+};
+
+/*
+ * File Menu (129)
+ * Items: New Window(1), Close Window(2), -(3),
+ *        Save Page As...(4), Page Setup...(5), Print...(6),
+ *        -(7), Quit(8)
+ */
+resource 'hmnu' (129, "File") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"File menu\nUse this menu to manage "
+			"windows, save pages, print, and quit.",
+			"", "", ""
+		},
+		/* 1: New Window */
+		HMStringItem {
+			"Opens a new Gopher browser window.",
+			"Not available because the maximum "
+			"number of windows are already open.",
+			"", ""
+		},
+		/* 2: Close Window */
+		HMStringItem {
+			"Closes the active browser window.",
+			"Not available because no windows "
+			"are open.",
+			"", ""
+		},
+		/* 3: separator */
+		HMSkipItem { },
+		/* 4: Save Page As... */
+		HMStringItem {
+			"Saves the current page to a file "
+			"on disk.",
+			"Not available because no page "
+			"is loaded.",
+			"", ""
+		},
+		/* 5: Page Setup... */
+		HMStringItem {
+			"Configures page layout options "
+			"for printing.",
+			"Not available because printing "
+			"is not enabled.",
+			"", ""
+		},
+		/* 6: Print... */
+		HMStringItem {
+			"Prints the current page.",
+			"Not available because no page is "
+			"loaded or a page is still loading.",
+			"", ""
+		},
+		/* 7: separator */
+		HMSkipItem { },
+		/* 8: Quit */
+		HMStringItem {
+			"Quits Geomys.",
+			"", "", ""
+		}
+	}
+};
+
+/*
+ * Edit Menu (130)
+ * Items: Undo(1), -(2), Cut(3), Copy(4), Paste(5), Clear(6),
+ *        -(7), Select All(8), -(9), Find...(10), Find Again(11)
+ */
+resource 'hmnu' (130, "Edit") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Edit menu\nUse this menu to undo changes, "
+			"work with the Clipboard, and find text.",
+			"", "", ""
+		},
+		/* 1: Undo */
+		HMStringItem {
+			"Cancels your last action.",
+			"Not available because there is "
+			"nothing to undo.",
+			"", ""
+		},
+		/* 2: separator */
+		HMSkipItem { },
+		/* 3: Cut */
+		HMStringItem {
+			"Removes the selected text and places "
+			"it on the Clipboard.",
+			"Not available because no text "
+			"is selected.",
+			"", ""
+		},
+		/* 4: Copy */
+		HMStringItem {
+			"Copies the selected text to "
+			"the Clipboard.",
+			"Not available because no text "
+			"is selected.",
+			"", ""
+		},
+		/* 5: Paste */
+		HMStringItem {
+			"Places the contents of the Clipboard "
+			"at the insertion point.",
+			"Not available because the Clipboard "
+			"is empty or no text field is active.",
+			"", ""
+		},
+		/* 6: Clear */
+		HMStringItem {
+			"Removes the selected text without "
+			"placing it on the Clipboard.",
+			"Not available because no text "
+			"is selected.",
+			"", ""
+		},
+		/* 7: separator */
+		HMSkipItem { },
+		/* 8: Select All */
+		HMStringItem {
+			"Selects all text in the active area.",
+			"Not available because there is "
+			"nothing to select.",
+			"", ""
+		},
+		/* 9: separator */
+		HMSkipItem { },
+		/* 10: Find... */
+		HMStringItem {
+			"Searches for text on the current page.",
+			"Not available because no page "
+			"is loaded.",
+			"", ""
+		},
+		/* 11: Find Again */
+		HMStringItem {
+			"Finds the next occurrence of the "
+			"search text.",
+			"Not available because no previous "
+			"search has been made.",
+			"", ""
+		}
+	}
+};
+
+/*
+ * Go Menu (134)
+ * Items: Back(1), Forward(2), Home(3), -(4),
+ *        Refresh(5), Stop(6), -(7), Open Location...(8)
+ */
+resource 'hmnu' (134, "Go") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Go menu\nUse this menu to navigate "
+			"between Gopher pages.",
+			"", "", ""
+		},
+		/* 1: Back */
+		HMStringItem {
+			"Goes to the previous page in your "
+			"browsing history.",
+			"Not available because there is "
+			"no previous page.",
+			"", ""
+		},
+		/* 2: Forward */
+		HMStringItem {
+			"Goes to the next page in your "
+			"browsing history.",
+			"Not available because there is "
+			"no next page.",
+			"", ""
+		},
+		/* 3: Home */
+		HMStringItem {
+			"Goes to your home page.",
+			"Not available because no home "
+			"page is set.",
+			"", ""
+		},
+		/* 4: separator */
+		HMSkipItem { },
+		/* 5: Refresh */
+		HMStringItem {
+			"Reloads the current page from "
+			"the server.",
+			"Not available because no page "
+			"is loaded.",
+			"", ""
+		},
+		/* 6: Stop */
+		HMStringItem {
+			"Stops loading the current page.",
+			"Not available because no page "
+			"is currently loading.",
+			"", ""
+		},
+		/* 7: separator */
+		HMSkipItem { },
+		/* 8: Open Location... */
+		HMStringItem {
+			"Lets you type a Gopher URL to visit.",
+			"", "", ""
+		}
+	}
+};
+
+/*
+ * Favorites Menu (131)
+ * Items: Manage Favorites...(1), Add Favorite...(2)
+ * Dynamic favorites appended — HMSkipItem covers those
+ */
+resource 'hmnu' (131, "Favorites") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Favorites menu\nUse this menu to save "
+			"and visit your favorite Gopher pages.",
+			"", "", ""
+		},
+		/* 1: Manage Favorites... */
+		HMStringItem {
+			"Opens a window to organize, edit, and "
+			"remove your saved favorites.",
+			"", "", ""
+		},
+		/* 2: Add Favorite... */
+		HMStringItem {
+			"Saves the current page as a favorite.",
+			"", "", ""
+		}
+	}
+};
+
+/*
+ * Options Menu (132)
+ * Items: Home Page...(1), DNS Server...(2), -(3),
+ *        Font(4), Page Style(5), Theme(6), -(7),
+ *        Show Details(8), Status Bar(9)
+ */
+resource 'hmnu' (132, "Options") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Options menu\nUse this menu to change "
+			"browser settings and appearance.",
+			"", "", ""
+		},
+		/* 1: Home Page... */
+		HMStringItem {
+			"Sets the page that opens when you "
+			"choose Home from the Go menu.",
+			"", "", ""
+		},
+		/* 2: DNS Server... */
+		HMStringItem {
+			"Sets the DNS server address used "
+			"for name resolution.",
+			"", "", ""
+		},
+		/* 3: separator */
+		HMSkipItem { },
+		/* 4: Font (hierarchical submenu) */
+		HMStringItem {
+			"Changes the font and size used to "
+			"display page content.",
+			"", "", ""
+		},
+		/* 5: Page Style (hierarchical submenu) */
+		HMStringItem {
+			"Switches between text and icon display "
+			"modes for Gopher directories.",
+			"", "", ""
+		},
+		/* 6: Theme (hierarchical submenu) */
+		HMStringItem {
+			"Changes the color scheme of "
+			"the browser.",
+			"", "", ""
+		},
+		/* 7: separator */
+		HMSkipItem { },
+		/* 8: Show Details (toggle — checkmark) */
+		HMStringItem {
+			"Shows Gopher type codes and port "
+			"numbers for each item.",
+			"",
+			"Hides Gopher type codes and port "
+			"numbers. Details are currently shown.",
+			""
+		},
+		/* 9: Status Bar (toggle — checkmark) */
+		HMStringItem {
+			"Shows the status bar at the bottom "
+			"of the window.",
+			"",
+			"Hides the status bar. The status bar "
+			"is currently shown.",
+			""
+		}
+	}
+};
+
+/*
+ * Window Menu (133)
+ * Items: "1 of 4 Windows"(1), -(2)
+ * Dynamic window items appended — HMSkipItem covers those
+ */
+resource 'hmnu' (133, "Window") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Window menu\nUse this menu to switch "
+			"between open browser windows.",
+			"", "", ""
+		},
+		/* 1: Window count display */
+		HMStringItem {
+			"Shows the number of open windows.",
+			"Shows the number of open windows.",
+			"", ""
+		}
+	}
+};
+
+/*
+ * Font Submenu (135)
+ * Items: Monaco 9(1), Monaco 12(2), Chicago 12(3),
+ *        Courier 10(4), Geneva 9(5), Geneva 10(6)
+ */
+resource 'hmnu' (135, "Font") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Font submenu\nChoose a font and size "
+			"for displaying page content.",
+			"", "", ""
+		},
+		/* 1: Monaco 9 */
+		HMStringItem {
+			"Displays page content in Monaco "
+			"9-point.",
+			"",
+			"Monaco 9-point is the current font.",
+			""
+		},
+		/* 2: Monaco 12 */
+		HMStringItem {
+			"Displays page content in Monaco "
+			"12-point.",
+			"",
+			"Monaco 12-point is the current font.",
+			""
+		},
+		/* 3: Chicago 12 */
+		HMStringItem {
+			"Displays page content in Chicago "
+			"12-point.",
+			"",
+			"Chicago 12-point is the current font.",
+			""
+		},
+		/* 4: Courier 10 */
+		HMStringItem {
+			"Displays page content in Courier "
+			"10-point.",
+			"",
+			"Courier 10-point is the current font.",
+			""
+		},
+		/* 5: Geneva 9 */
+		HMStringItem {
+			"Displays page content in Geneva "
+			"9-point.",
+			"",
+			"Geneva 9-point is the current font.",
+			""
+		},
+		/* 6: Geneva 10 */
+		HMStringItem {
+			"Displays page content in Geneva "
+			"10-point.",
+			"",
+			"Geneva 10-point is the current font.",
+			""
+		}
+	}
+};
+
+/*
+ * Page Style Submenu (136)
+ * Items: Text(1), Icons(2)
+ */
+resource 'hmnu' (136, "Page Style") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Page Style submenu\nChoose how Gopher "
+			"directory items are displayed.",
+			"", "", ""
+		},
+		/* 1: Text */
+		HMStringItem {
+			"Displays directory items as a text list.",
+			"",
+			"Directory items are displayed as text. "
+			"This is the current style.",
+			""
+		},
+		/* 2: Icons */
+		HMStringItem {
+			"Displays directory items with icons.",
+			"",
+			"Directory items are displayed with icons. "
+			"This is the current style.",
+			""
+		}
+	}
+};
+
+/*
+ * Theme Submenu (137)
+ * Items: Light(1), Dark(2), -(3), Solarized Light(4),
+ *        Solarized Dark(5), Tokyo Night Light(6),
+ *        Tokyo Night Dark(7), Green Screen(8),
+ *        Classic(9), Platinum(10)
+ */
+resource 'hmnu' (137, "Theme") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Theme submenu\nChoose a color scheme "
+			"for the browser.",
+			"", "", ""
+		},
+		/* 1: Light */
+		HMStringItem {
+			"Uses the Light color scheme with "
+			"dark text on a white background.",
+			"",
+			"The Light theme is currently active.",
+			""
+		},
+		/* 2: Dark */
+		HMStringItem {
+			"Uses the Dark color scheme with "
+			"light text on a dark background.",
+			"",
+			"The Dark theme is currently active.",
+			""
+		},
+		/* 3: separator */
+		HMSkipItem { },
+		/* 4: Solarized Light */
+		HMStringItem {
+			"Uses the Solarized Light color scheme.",
+			"Not available on monochrome displays.",
+			"The Solarized Light theme is "
+			"currently active.",
+			""
+		},
+		/* 5: Solarized Dark */
+		HMStringItem {
+			"Uses the Solarized Dark color scheme.",
+			"Not available on monochrome displays.",
+			"The Solarized Dark theme is "
+			"currently active.",
+			""
+		},
+		/* 6: Tokyo Night Light */
+		HMStringItem {
+			"Uses the Tokyo Night Light "
+			"color scheme.",
+			"Not available on monochrome displays.",
+			"The Tokyo Night Light theme is "
+			"currently active.",
+			""
+		},
+		/* 7: Tokyo Night Dark */
+		HMStringItem {
+			"Uses the Tokyo Night Dark "
+			"color scheme.",
+			"Not available on monochrome displays.",
+			"The Tokyo Night Dark theme is "
+			"currently active.",
+			""
+		},
+		/* 8: Green Screen */
+		HMStringItem {
+			"Uses the Green Screen color scheme "
+			"with green text on a black background.",
+			"Not available on monochrome displays.",
+			"The Green Screen theme is "
+			"currently active.",
+			""
+		},
+		/* 9: Classic */
+		HMStringItem {
+			"Uses the Classic color scheme "
+			"inspired by original Macintosh.",
+			"Not available on monochrome displays.",
+			"The Classic theme is currently active.",
+			""
+		},
+		/* 10: Platinum */
+		HMStringItem {
+			"Uses the Platinum color scheme "
+			"inspired by Mac OS 8.",
+			"Not available on monochrome displays.",
+			"The Platinum theme is currently active.",
+			""
+		}
+	}
 };
 
 /* Version resource — shown in Finder Get Info (System 7) */

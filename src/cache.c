@@ -7,30 +7,88 @@
  * Eviction uses weighted LRU: access_time + hit_count * 100,
  * so frequently-visited pages (e.g. home directory) stay cached.
  *
+ * On System 7+, large allocations use TempNewHandle to draw from
+ * temporary (MultiFinder) memory, keeping the app heap free for
+ * working data. Falls back to NewPtr on System 6 or if temp
+ * memory is unavailable.
+ *
  * Memory budget: ~50KB per slot worst case.
  */
 
 #ifdef GEOMYS_CACHE
 
 #include <Memory.h>
+#include <Gestalt.h>
 #include <string.h>
 
 #include "cache.h"
 #include "gopher.h"
+#include "sysutil.h"
 
 typedef struct {
 	short       session_id;     /* owning session, -1 = empty */
 	short       history_idx;    /* which history entry this caches */
 	short       page_type;      /* PAGE_DIRECTORY or PAGE_TEXT */
-	GopherItem  *items;         /* copied items array (NewPtr) */
+	GopherItem  *items;         /* copied items array */
 	short       item_count;
-	char        *text_buf;      /* copied text buffer (NewPtr) */
+	char        *text_buf;      /* copied text buffer */
 	long        text_len;
-	long        *text_lines;    /* copied line index (NewPtr) */
+	long        *text_lines;    /* copied line index */
 	short       text_line_count;
 	long        access_time;    /* tick count for LRU */
 	short       hit_count;      /* times retrieved (for weighted eviction) */
+	/* Handle tracking for TempNewHandle allocations.
+	 * Non-NULL means the pointer came from temp memory
+	 * and must be freed with DisposeHandle. */
+	Handle      items_h;
+	Handle      text_buf_h;
+	Handle      text_lines_h;
 } CacheSlot;
+
+static Boolean g_has_temp_mem = false;  /* System 7+ temp memory available */
+
+/*
+ * cache_alloc - Allocate memory, preferring temporary memory.
+ * Tries TempNewHandle first (System 7 MultiFinder temp memory),
+ * locks the handle, and returns the dereferenced pointer.
+ * Falls back to NewPtr if temp memory is unavailable.
+ * Sets *out_h to the Handle if temp memory was used, else NULL.
+ */
+static Ptr
+cache_alloc(long size, Handle *out_h)
+{
+	*out_h = 0L;
+
+	/* Try temporary memory first (System 7+ only) */
+	if (g_has_temp_mem) {
+		OSErr err;
+		Handle h;
+
+		h = TempNewHandle(size, &err);
+		if (h && err == noErr) {
+			MoveHHi(h);
+			HLock(h);
+			*out_h = h;
+			return *h;
+		}
+	}
+
+	/* Fall back to app heap */
+	return NewPtr(size);
+}
+
+/*
+ * cache_free - Free a pointer allocated by cache_alloc.
+ * Uses DisposeHandle if h is non-NULL, else DisposePtr.
+ */
+static void
+cache_free(Ptr p, Handle h)
+{
+	if (h)
+		DisposeHandle(h);
+	else if (p)
+		DisposePtr(p);
+}
 
 static CacheSlot g_cache[CACHE_MAX];
 static long g_tick = 0;       /* monotonic counter for LRU */
@@ -40,16 +98,19 @@ static void
 free_slot(CacheSlot *slot)
 {
 	if (slot->items) {
-		DisposePtr((Ptr)slot->items);
+		cache_free((Ptr)slot->items, slot->items_h);
 		slot->items = 0L;
+		slot->items_h = 0L;
 	}
 	if (slot->text_buf) {
-		DisposePtr(slot->text_buf);
+		cache_free(slot->text_buf, slot->text_buf_h);
 		slot->text_buf = 0L;
+		slot->text_buf_h = 0L;
 	}
 	if (slot->text_lines) {
-		DisposePtr((Ptr)slot->text_lines);
+		cache_free((Ptr)slot->text_lines, slot->text_lines_h);
 		slot->text_lines = 0L;
+		slot->text_lines_h = 0L;
 	}
 	slot->session_id = -1;
 	slot->history_idx = -1;
@@ -111,6 +172,16 @@ cache_init(void)
 	short i;
 	long free_mem;
 
+	/* Check for System 7+ temporary memory support */
+	g_has_temp_mem = false;
+	if (TrapAvailable(_GestaltDispatch)) {
+		long resp;
+
+		if (Gestalt(gestaltSystemVersion, &resp) == noErr &&
+		    resp >= 0x0700)
+			g_has_temp_mem = true;
+	}
+
 	/* Determine how many slots to use based on
 	 * available memory. Reserve 768KB for the app
 	 * (code + stack + working set) and use the rest
@@ -131,6 +202,9 @@ cache_init(void)
 		g_cache[i].items = 0L;
 		g_cache[i].text_buf = 0L;
 		g_cache[i].text_lines = 0L;
+		g_cache[i].items_h = 0L;
+		g_cache[i].text_buf_h = 0L;
+		g_cache[i].text_lines_h = 0L;
 		g_cache[i].page_type = PAGE_NONE;
 		g_cache[i].item_count = 0;
 		g_cache[i].text_len = 0;
@@ -182,7 +256,8 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 	    gs->item_count > 0) {
 		long size = (long)gs->item_count * sizeof(GopherItem);
 
-		slot->items = (GopherItem *)NewPtr(size);
+		slot->items = (GopherItem *)cache_alloc(size,
+		    &slot->items_h);
 		if (!slot->items) {
 			/* Allocation failed — try evicting
 			 * another slot to free memory */
@@ -190,7 +265,8 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 			if (victim != slot_idx) {
 				free_slot(&g_cache[victim]);
 				slot->items = (GopherItem *)
-				    NewPtr(size);
+				    cache_alloc(size,
+				    &slot->items_h);
 			}
 		}
 		if (slot->items) {
@@ -208,14 +284,16 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 	    || gs->page_type == PAGE_HTML
 #endif
 	    ) && gs->text_buf && gs->text_len > 0) {
-		slot->text_buf = NewPtr(gs->text_len);
+		slot->text_buf = cache_alloc(gs->text_len,
+		    &slot->text_buf_h);
 		if (!slot->text_buf) {
 			/* Try evicting another slot */
 			short victim = find_evict_slot();
 			if (victim != slot_idx) {
 				free_slot(&g_cache[victim]);
-				slot->text_buf =
-				    NewPtr(gs->text_len);
+				slot->text_buf = cache_alloc(
+				    gs->text_len,
+				    &slot->text_buf_h);
 			}
 		}
 		if (slot->text_buf) {
@@ -232,7 +310,8 @@ cache_store(short session_id, short history_idx, const GopherState *gs)
 			long lsize = (long)gs->text_line_count
 			    * sizeof(long);
 
-			slot->text_lines = (long *)NewPtr(lsize);
+			slot->text_lines = (long *)cache_alloc(
+			    lsize, &slot->text_lines_h);
 			if (slot->text_lines) {
 				memcpy(slot->text_lines,
 				    gs->text_lines, lsize);
@@ -333,11 +412,14 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 		if (slot->text_lines &&
 		    slot->text_line_count > 0) {
 			if (!gs->text_lines) {
+				short need = slot->text_line_count * 2;
+				if (need < GOPHER_INIT_TEXT_LINES)
+					need = GOPHER_INIT_TEXT_LINES;
+				if (need > GOPHER_MAX_TEXT_LINES)
+					need = GOPHER_MAX_TEXT_LINES;
 				gs->text_lines = (long *)NewPtr(
-				    (long)GOPHER_MAX_TEXT_LINES
-				    * sizeof(long));
-				gs->text_lines_capacity =
-				    GOPHER_MAX_TEXT_LINES;
+				    (long)need * sizeof(long));
+				gs->text_lines_capacity = need;
 			}
 			if (gs->text_lines) {
 				long lsize =
@@ -355,11 +437,12 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 		if (gs->text_line_count == 0 &&
 		    gs->text_len > 0) {
 			if (!gs->text_lines) {
+				short need = GOPHER_INIT_TEXT_LINES;
+				if (need > GOPHER_MAX_TEXT_LINES)
+					need = GOPHER_MAX_TEXT_LINES;
 				gs->text_lines = (long *)NewPtr(
-				    (long)GOPHER_MAX_TEXT_LINES
-				    * sizeof(long));
-				gs->text_lines_capacity =
-				    GOPHER_MAX_TEXT_LINES;
+				    (long)need * sizeof(long));
+				gs->text_lines_capacity = need;
 			}
 			if (gs->text_lines) {
 				long ti;

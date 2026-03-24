@@ -89,6 +89,7 @@ typedef struct {
 	short       line_len;
 	Boolean     selector_sent;
 	Boolean     receiving;
+	short       cso_last_entry;  /* CSO entry boundary tracker */
 
 	/* Current request */
 	char        cur_host[64];

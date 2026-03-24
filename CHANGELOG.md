@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — System 7 Polish
+
+### Added
+- Balloon Help: `hmnu` resources for all 7 menus (Apple, File, Edit, Go, Favorites, Options, Window) with HIG-compliant help text
+- Temporary memory for cache: `cache_alloc()`/`cache_free()` helpers use `TempNewHandle` for cache slot allocations on System 7, keeping the app heap free for working data; falls back to `NewPtr` on System 6
+- TSM input method support: `useTextEditServices` enabled in SIZE resource
+
+### Changed
+- Color QuickDraw detection: `Gestalt(gestaltQuickdrawVersion)` preferred over `SysEnvirons()`, with `SysEnvirons` fallback for pre-6.0.4 systems
+- Dynamic window sizing: windows sized to actual screen dimensions via `qd.screenBits.bounds` instead of hardcoded 512x342 (Mac Plus minimum enforced)
+- Status window centering: `conn_status_show()` uses `qd.screenBits.bounds` instead of hardcoded 512x342 coordinates
+- Multi-monitor drag/resize: `DragWindow` and `GrowWindow` use `GetGrayRgn` bounding box (full desktop area) instead of `qd.screenBits.bounds` (main monitor only)
+
+### Performance
+- `TempNewHandle` guarded with System 7 version check via `Gestalt` — cache operates safely on System 6 without MultiFinder
+- CSO phonebook entry tracker (`cso_last_entry`) moved from file-global to per-session `GopherState` field — fixes multi-window CSO response boundary corruption
+
+### Memory
+- Cache `text_lines` allocation right-sized to `max(actual * 2, GOPHER_INIT_TEXT_LINES)` instead of always allocating `GOPHER_MAX_TEXT_LINES` — saves up to 10KB per small cached page
+
+### Code Quality
+- Extracted `dismiss_modal()` helper, deduplicating 8 dialog dismiss + window invalidate call sites
+- Extracted `restore_title_bar()` helper, deduplicating 7 title-restore-from-history call sites
+- Fixed C89 declaration ordering in `do_search_dialog` and `do_cso_dialog`
+
 ## [Unreleased] — CSO Phonebook Support
 
 ### Added

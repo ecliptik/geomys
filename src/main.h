@@ -115,9 +115,9 @@
 #define DLOG_DNS_ID         141
 #define DLOG_CSO_ID         142
 
-/* Window dimensions (Mac Plus: 512x342) */
-#define SCREEN_WIDTH        512
-#define SCREEN_HEIGHT       342
+/* Minimum window dimensions (Mac Plus: 512x342) */
+#define MIN_WIN_WIDTH       512
+#define MIN_WIN_HEIGHT      342
 
 /* Default Gopher home page */
 #define DEFAULT_HOME_HOST   ""

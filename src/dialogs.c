@@ -29,16 +29,21 @@ conn_status_show(const char *msg)
 {
 	WindowPtr w;
 	Rect r;
+	Rect scr;
+	short scr_w, scr_h;
 	Str255 title;
 	GrafPtr save;
 	Str255 ps;
 	short len;
 
+	scr = qd.screenBits.bounds;
+	scr_w = scr.right - scr.left;
+	scr_h = scr.bottom - scr.top;
 	SetRect(&r,
-	    (512 - STATUS_WIN_W) / 2,
-	    (342 - STATUS_WIN_H) / 2 + 20,
-	    (512 + STATUS_WIN_W) / 2,
-	    (342 + STATUS_WIN_H) / 2 + 20);
+	    scr.left + (scr_w - STATUS_WIN_W) / 2,
+	    scr.top + (scr_h - STATUS_WIN_H) / 2 + 20,
+	    scr.left + (scr_w + STATUS_WIN_W) / 2,
+	    scr.top + (scr_h + STATUS_WIN_H) / 2 + 20);
 	title[0] = 0;
 	w = NewWindow(0L, &r, title, true, dBoxProc,
 	    (WindowPtr)-1L, false, 0L);

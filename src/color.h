@@ -1,7 +1,8 @@
 /*
  * color.h - Color QuickDraw detection for Geomys
  *
- * Detects Color QuickDraw at runtime via SysEnvirons().
+ * Detects Color QuickDraw at runtime via Gestalt(), with
+ * SysEnvirons() fallback for systems without Gestalt.
  * On System 6 / Mac Plus, hasColorQD will be false and
  * all color code is skipped at zero cost.
  */
@@ -15,7 +16,7 @@
 /* Global flag: true if Color QuickDraw is available */
 extern unsigned char g_has_color_qd;
 
-/* Detect Color QuickDraw at startup via SysEnvirons() */
+/* Detect Color QuickDraw at startup via Gestalt/SysEnvirons */
 void color_detect(void);
 
 #else

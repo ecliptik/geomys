@@ -36,6 +36,7 @@ gopher_init(GopherState *gs)
 {
 	memset(gs, 0, sizeof(GopherState));
 	gs->conn.dns_server = 0x01010101UL;  /* 1.1.1.1 default */
+	gs->cso_last_entry = -1;
 }
 
 void
@@ -620,8 +621,6 @@ cso_end_line(GopherState *gs)
  * Extracts "field: value" from data lines, inserts blank
  * lines between entries, shows errors inline.
  */
-static short g_cso_last_entry = -1;  /* track entry boundaries */
-
 static void
 cso_parse_line(GopherState *gs, const char *line, short len)
 {
@@ -674,11 +673,11 @@ cso_parse_line(GopherState *gs, const char *line, short len)
 	}
 
 	/* Insert blank line between different entries */
-	if (g_cso_last_entry >= 0 &&
-	    entry != g_cso_last_entry) {
+	if (gs->cso_last_entry >= 0 &&
+	    entry != gs->cso_last_entry) {
 		cso_end_line(gs);
 	}
-	g_cso_last_entry = entry;
+	gs->cso_last_entry = entry;
 
 	if (p >= end || *p != ':')
 		return;
@@ -707,7 +706,7 @@ cso_process_data(GopherState *gs, char *buf, short len)
 
 	/* Reset entry tracker on fresh page */
 	if (gs->text_len == 0)
-		g_cso_last_entry = -1;
+		gs->cso_last_entry = -1;
 
 	for (i = 0; i < len; i++) {
 		char c = buf[i];

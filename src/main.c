@@ -91,6 +91,7 @@ static void handle_action_button(void);
 static void update_nav_buttons(void);
 void navigate_history_entry(const HistoryEntry *e, short direction);
 static void handle_page_loaded(void);
+static void restore_title_bar(void);
 static void poll_active_session(void);
 #if GEOMYS_MAX_WINDOWS > 1
 static void poll_all_sessions(void);
@@ -314,16 +315,34 @@ static void
 create_session_window(BrowserSession *s)
 {
 	Rect bounds;
-#if GEOMYS_MAX_WINDOWS > 1
-	short offset = (g_cascade_count % 4) * CASCADE_OFFSET;
-	short w = SCREEN_WIDTH - 4;
-	short h = SCREEN_HEIGHT - 44;
+	Rect scr;
+	short scr_w, scr_h;
 
-	g_cascade_count++;
-	SetRect(&bounds, 2 + offset, 42 + offset,
-	    2 + offset + w, 42 + offset + h);
+	scr = qd.screenBits.bounds;
+	scr_w = scr.right - scr.left;
+	scr_h = scr.bottom - scr.top;
+
+	/* Enforce minimum dimensions for Mac Plus (512x342) */
+	if (scr_w < MIN_WIN_WIDTH)
+		scr_w = MIN_WIN_WIDTH;
+	if (scr_h < MIN_WIN_HEIGHT)
+		scr_h = MIN_WIN_HEIGHT;
+
+#if GEOMYS_MAX_WINDOWS > 1
+	{
+		short offset = (g_cascade_count % 4) * CASCADE_OFFSET;
+		short w = scr_w - 4;
+		short h = scr_h - 44;
+
+		g_cascade_count++;
+		SetRect(&bounds, scr.left + 2 + offset,
+		    scr.top + 42 + offset,
+		    scr.left + 2 + offset + w,
+		    scr.top + 42 + offset + h);
+	}
 #else
-	SetRect(&bounds, 2, 42, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2);
+	SetRect(&bounds, scr.left + 2, scr.top + 42,
+	    scr.left + scr_w - 2, scr.top + scr_h - 2);
 #endif
 
 	/* procID 8 = zoomDocProc: document window with zoom box + grow box */
@@ -600,17 +619,7 @@ finish_download(void)
 	g_gopher.page_type = g_gopher.dl_prev_page;
 
 	/* Restore title bar from history */
-	{
-		const HistoryEntry *he;
-
-		he = history_current();
-		if (he && he->title[0])
-			set_wtitlef(g_window, "%s",
-			    he->title);
-		else
-			set_wtitlef(g_window, "%s",
-			    g_gopher.cur_host);
-	}
+	restore_title_bar();
 
 	/* Redraw entire window and update button state */
 	update_nav_buttons();
@@ -804,17 +813,7 @@ handle_page_loaded(void)
 	g_app_state = APP_STATE_IDLE;
 	InitCursor();
 
-	{
-		const HistoryEntry *he;
-
-		he = history_current();
-		if (he && he->title[0])
-			set_wtitlef(g_window, "%s",
-			    he->title);
-		else
-			set_wtitlef(g_window, "%s",
-			    g_gopher.cur_host);
-	}
+	restore_title_bar();
 
 	/* Update address bar and status */
 	gopher_build_uri(uri, sizeof(uri),
@@ -1191,17 +1190,7 @@ do_cancel_loading(void)
 
 		/* Restore page and title from before download */
 		g_gopher.page_type = g_gopher.dl_prev_page;
-		{
-			const HistoryEntry *he;
-
-			he = history_current();
-			if (he && he->title[0])
-				set_wtitlef(g_window, "%s",
-				    he->title);
-			else
-				set_wtitlef(g_window, "%s",
-				    g_gopher.cur_host);
-		}
+		restore_title_bar();
 	} else
 #endif
 	if (g_gopher.page_type == PAGE_DIRECTORY) {
@@ -1414,21 +1403,13 @@ do_navigate_url_titled(const char *url, const char *title)
 	SetCursor(*GetCursor(watchCursor));
 	if (!gopher_navigate(&g_gopher, host, port, type, selector)) {
 		GrafPtr save;
-		const HistoryEntry *he;
 
 		InitCursor();
 
 		/* Navigate failed — old page preserved, force redraw */
 		g_app_state = APP_STATE_IDLE;
 
-		/* Restore title bar from current history entry */
-		he = history_current();
-		if (he && he->title[0])
-			set_wtitlef(g_window, "%s", he->title);
-		else if (he)
-			set_wtitlef(g_window, "%s", he->host);
-		else
-			set_wtitlef(g_window, "Geomys");
+		restore_title_bar();
 
 		browser_set_status("Connection failed");
 		GetPort(&save);
@@ -1507,6 +1488,43 @@ do_refresh(void)
 
 
 /*
+ * restore_title_bar - Restore window title from current history entry.
+ * Shows title if available, falls back to host, then "Geomys".
+ */
+static void
+restore_title_bar(void)
+{
+	const HistoryEntry *he;
+
+	he = history_current();
+	if (he && he->title[0])
+		set_wtitlef(g_window, "%s", he->title);
+	else if (he)
+		set_wtitlef(g_window, "%s", he->host);
+	else
+		set_wtitlef(g_window, "Geomys");
+}
+
+/*
+ * dismiss_modal - Common cleanup after closing a modal dialog.
+ * Disposes the dialog, reactivates the address bar, and
+ * invalidates the window behind it so it gets redrawn.
+ */
+static void
+dismiss_modal(DialogPtr dlg)
+{
+	GrafPtr save;
+
+	DisposeDialog(dlg);
+	browser_activate(true);
+
+	GetPort(&save);
+	SetPort(g_window);
+	InvalRect(&g_window->portRect);
+	SetPort(save);
+}
+
+/*
  * Search dialog — shown when clicking a Type 7 item
  */
 void
@@ -1519,9 +1537,9 @@ do_search_dialog(const char *title, const char *host,
 	Handle item_h;
 	Rect item_rect;
 	Str255 pstr;
+	char label[100];
 
 	InitCursor();
-	char label[100];
 
 	/* Deactivate address bar so modal dialog gets keystrokes */
 	browser_activate(false);
@@ -1566,20 +1584,7 @@ do_search_dialog(const char *title, const char *host,
 			query[len] = '\0';
 		}
 
-		DisposeDialog(dlg);
-		browser_activate(true);
-
-		/* Invalidate window behind dismissed dialog.
-		 * InvalRect queues an updateEvt so handle_update
-		 * does a full redraw (content_mark_all_dirty +
-		 * browser_draw + content_draw). */
-		{
-			GrafPtr save;
-			GetPort(&save);
-			SetPort(g_window);
-			InvalRect(&g_window->portRect);
-			SetPort(save);
-		}
+		dismiss_modal(dlg);
 
 		if (query[0]) {
 			char search_title[100];
@@ -1626,20 +1631,7 @@ do_search_dialog(const char *title, const char *host,
 				/* Navigate failed — restore state */
 				g_app_state = APP_STATE_IDLE;
 
-				/* Restore title bar */
-				{
-					const HistoryEntry *he =
-					    history_current();
-					if (he && he->title[0])
-						set_wtitlef(g_window,
-						    "%s", he->title);
-					else if (he)
-						set_wtitlef(g_window,
-						    "%s", he->host);
-					else
-						set_wtitlef(g_window,
-						    "Geomys");
-				}
+				restore_title_bar();
 
 				browser_set_status("Search failed");
 				{
@@ -1654,17 +1646,7 @@ do_search_dialog(const char *title, const char *host,
 			}
 		}
 	} else {
-		DisposeDialog(dlg);
-		browser_activate(true);
-
-		/* Invalidate window behind dismissed dialog */
-		{
-			GrafPtr save;
-			GetPort(&save);
-			SetPort(g_window);
-			InvalRect(&g_window->portRect);
-			SetPort(save);
-		}
+		dismiss_modal(dlg);
 	}
 }
 
@@ -1683,9 +1665,9 @@ do_cso_dialog(const char *title, const char *host,
 	Handle item_h;
 	Rect item_rect;
 	Str255 pstr;
+	char label[100];
 
 	InitCursor();
-	char label[100];
 
 	/* Deactivate address bar so modal dialog gets keystrokes */
 	browser_activate(false);
@@ -1727,17 +1709,7 @@ do_cso_dialog(const char *title, const char *host,
 			query[len] = '\0';
 		}
 
-		DisposeDialog(dlg);
-		browser_activate(true);
-
-		/* Invalidate window behind dismissed dialog */
-		{
-			GrafPtr save;
-			GetPort(&save);
-			SetPort(g_window);
-			InvalRect(&g_window->portRect);
-			SetPort(save);
-		}
+		dismiss_modal(dlg);
 
 		if (query[0]) {
 			char cso_title[100];
@@ -1782,20 +1754,7 @@ do_cso_dialog(const char *title, const char *host,
 
 				g_app_state = APP_STATE_IDLE;
 
-				/* Restore title bar */
-				{
-					const HistoryEntry *he =
-					    history_current();
-					if (he && he->title[0])
-						set_wtitlef(g_window,
-						    "%s", he->title);
-					else if (he)
-						set_wtitlef(g_window,
-						    "%s", he->host);
-					else
-						set_wtitlef(g_window,
-						    "Geomys");
-				}
+				restore_title_bar();
 
 				browser_set_status("Lookup failed");
 				{
@@ -1812,17 +1771,7 @@ do_cso_dialog(const char *title, const char *host,
 			}
 		}
 	} else {
-		DisposeDialog(dlg);
-		browser_activate(true);
-
-		/* Invalidate window behind dismissed dialog */
-		{
-			GrafPtr save;
-			GetPort(&save);
-			SetPort(g_window);
-			InvalRect(&g_window->portRect);
-			SetPort(save);
-		}
+		dismiss_modal(dlg);
 	}
 }
 
@@ -1886,32 +1835,12 @@ do_find_dialog(void)
 			query[len] = '\0';
 		}
 
-		DisposeDialog(dlg);
-		browser_activate(true);
-
-		/* Invalidate window behind dismissed dialog */
-		{
-			GrafPtr save;
-			GetPort(&save);
-			SetPort(g_window);
-			InvalRect(&g_window->portRect);
-			SetPort(save);
-		}
+		dismiss_modal(dlg);
 
 		if (query[0])
 			content_find(query);
 	} else {
-		DisposeDialog(dlg);
-		browser_activate(true);
-
-		/* Invalidate window behind dismissed dialog */
-		{
-			GrafPtr save;
-			GetPort(&save);
-			SetPort(g_window);
-			InvalRect(&g_window->portRect);
-			SetPort(save);
-		}
+		dismiss_modal(dlg);
 	}
 }
 #endif /* GEOMYS_CLIPBOARD */
@@ -2019,17 +1948,7 @@ do_html_url_dialog(const char *url, const char *display)
 		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
 	} while (item != 1 && item != 2);
 
-	DisposeDialog(dlg);
-	browser_activate(true);
-
-	/* Invalidate window behind dismissed dialog */
-	{
-		GrafPtr save;
-		GetPort(&save);
-		SetPort(g_window);
-		InvalRect(&g_window->portRect);
-		SetPort(save);
-	}
+	dismiss_modal(dlg);
 }
 
 #ifdef GEOMYS_TELNET
@@ -2141,17 +2060,7 @@ do_telnet_dialog(char type, const char *display,
 #endif
 	} while (item != 1 && item != 2);
 
-	DisposeDialog(dlg);
-	browser_activate(true);
-
-	/* Invalidate window behind dismissed dialog */
-	{
-		GrafPtr save;
-		GetPort(&save);
-		SetPort(g_window);
-		InvalRect(&g_window->portRect);
-		SetPort(save);
-	}
+	dismiss_modal(dlg);
 
 	/* System 7: attempt to launch a telnet application
 	 * Only if user pressed Done (item 1), not Cancel/Escape */
@@ -2351,16 +2260,7 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		g_app_state = APP_STATE_IDLE;
 		g_pending_scroll = -1;
 
-		/* Restore title bar */
-		{
-			const HistoryEntry *cur = history_current();
-			if (cur && cur->title[0])
-				set_wtitlef(g_window, "%s", cur->title);
-			else if (cur)
-				set_wtitlef(g_window, "%s", cur->host);
-			else
-				set_wtitlef(g_window, "Geomys");
-		}
+		restore_title_bar();
 
 		browser_set_status("Connection failed");
 		GetPort(&save);
@@ -2594,7 +2494,7 @@ handle_mouse_down(EventRecord *event)
 		break;
 	case inDrag:
 		DragWindow(win, event->where,
-		    &qd.screenBits.bounds);
+		    &(*LMGetGrayRgn())->rgnBBox);
 		break;
 	case inGoAway:
 		if (TrackGoAway(win, event->where)) {
@@ -2640,10 +2540,12 @@ handle_mouse_down(EventRecord *event)
 	case inGrow: {
 		long new_size;
 		Rect limit_rect;
+		Rect gray_bounds;
 
+		gray_bounds = (*LMGetGrayRgn())->rgnBBox;
 		SetRect(&limit_rect, 200, 150,
-		    qd.screenBits.bounds.right,
-		    qd.screenBits.bounds.bottom);
+		    gray_bounds.right - gray_bounds.left,
+		    gray_bounds.bottom - gray_bounds.top);
 		new_size = GrowWindow(win, event->where,
 		    &limit_rect);
 		if (new_size != 0) {

@@ -72,6 +72,8 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 - Print support via Printing Manager
 - Save Page As TeachText-readable text file
 - MultiFinder, Apple Events, and Notification Manager support
+- Balloon Help for all menus on System 7
+- Dynamic window sizing for large screens and multi-monitor support
 - Aligned with Apple Human Interface Guidelines (1992)
 
 ## Keyboard Shortcuts
