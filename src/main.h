@@ -20,6 +20,7 @@
 #define FONT_MENU_ID        135
 #define STYLE_MENU_ID       136
 #define THEME_MENU_ID       137
+#define SIZE_MENU_ID        138
 
 /* Go menu items */
 #define GO_MENU_BACK        1
@@ -28,8 +29,6 @@
 /* separator = 4 */
 #define GO_MENU_REFRESH     5
 #define GO_MENU_STOP        6
-/* separator = 7 */
-#define GO_MENU_OPEN_LOC    8
 
 /* Window menu items (dynamic: items 3+ are window list) */
 #define WIN_MENU_HEADER     1
@@ -40,14 +39,16 @@
 #define APPLE_MENU_ABOUT    1
 
 /* File menu items */
-#define FILE_MENU_NEW_WIN    1
-#define FILE_MENU_CLOSE      2
-/* separator = 3 */
-#define FILE_MENU_SAVE_AS    4
-#define FILE_MENU_PAGE_SETUP 5
-#define FILE_MENU_PRINT      6
-/* separator = 7 */
-#define FILE_MENU_QUIT       8
+#define FILE_MENU_NEW        1
+#define FILE_MENU_OPEN       2
+#define FILE_MENU_CLOSE      3
+/* separator = 4 */
+#define FILE_MENU_SAVE_AS    5
+/* separator = 6 */
+#define FILE_MENU_PAGE_SETUP 7
+#define FILE_MENU_PRINT      8
+/* separator = 9 */
+#define FILE_MENU_QUIT       10
 
 /* Edit menu items */
 #define EDIT_MENU_UNDO      1
@@ -61,29 +62,41 @@
 /* separator = 9 */
 #define EDIT_MENU_FIND      10
 #define EDIT_MENU_FIND_AGAIN 11
+/* separator = 12 */
+#define EDIT_MENU_SHOW_CLIP 13
 
 /* Favorites menu items */
 #define FAV_MENU_MANAGE     1
 #define FAV_MENU_ADD        2
 
 /* Options menu items */
-#define OPT_MENU_HOME       1
-#define OPT_MENU_DNS        2
-/* separator = 3 */
-#define OPT_MENU_FONT       4   /* hierarchical submenu trigger */
-#define OPT_MENU_STYLE      5   /* hierarchical submenu trigger */
-#define OPT_MENU_THEME      6   /* hierarchical submenu trigger */
-/* separator = 7 */
-#define OPT_MENU_DETAILS    8   /* "Show/Hide Details" toggle */
-#define OPT_MENU_STATUS_BAR 9   /* "Show/Hide Status Bar" toggle */
+#define OPT_MENU_FONT       1   /* hierarchical submenu trigger */
+#define OPT_MENU_SIZE       2   /* hierarchical submenu trigger */
+#define OPT_MENU_STYLE      3   /* hierarchical submenu trigger */
+#define OPT_MENU_THEME      4   /* hierarchical submenu trigger */
+/* separator = 5 */
+#define OPT_MENU_HOME       6
+#define OPT_MENU_DNS        7
+/* separator = 8 */
+#define OPT_MENU_DETAILS    9   /* "Show/Hide Details" toggle */
+#define OPT_MENU_STATUS_BAR 10  /* "Show/Hide Status Bar" toggle */
 
 /* Font submenu items */
-#define FONT_MONACO9        1
-#define FONT_MONACO12       2
-#define FONT_CHICAGO12      3
-#define FONT_COURIER10      4
-#define FONT_GENEVA9        5
-#define FONT_GENEVA10       6
+#define FONT_MONACO         1
+#define FONT_GENEVA         2
+#define FONT_CHICAGO        3
+#define FONT_COURIER        4
+#define FONT_NEWYORK        5
+/* System 7+ fonts (appended dynamically by init_menus) */
+#define FONT_HELVETICA      6
+#define FONT_TIMES          7
+#define FONT_PALATINO       8
+
+/* Size submenu items */
+#define SIZE_9              1
+#define SIZE_10             2
+#define SIZE_12             3
+#define SIZE_14             4
 
 /* Page Style submenu items */
 #define STYLE_ITEM_TEXT   1
@@ -114,7 +127,6 @@
 #define DLOG_TELNET_ID      140
 #define DLOG_DNS_ID         141
 #define DLOG_CSO_ID         142
-
 /* Minimum window dimensions (Mac Plus: 512x342) */
 #define MIN_WIN_WIDTH       512
 #define MIN_WIN_HEIGHT      342

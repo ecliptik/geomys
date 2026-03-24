@@ -30,10 +30,12 @@ resource 'MENU' (128, "Apple") {
 resource 'MENU' (129, "File") {
 	129, textMenuProc, allEnabled, enabled, "File",
 	{
-		"New Window", noIcon, "N", noMark, plain;
-		"Close Window", noIcon, "W", noMark, plain;
+		"New", noIcon, "N", noMark, plain;
+		"Open\311", noIcon, "L", noMark, plain;
+		"Close", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Save Page As\311", noIcon, "S", noMark, plain;
+		"Save As\311", noIcon, "S", noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
 		"Page Setup\311", noIcon, noKey, noMark, plain;
 		"Print\311", noIcon, "P", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
@@ -54,7 +56,9 @@ resource 'MENU' (130, "Edit") {
 		"Select All", noIcon, "A", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Find\311", noIcon, "F", noMark, plain;
-		"Find Again", noIcon, "G", noMark, plain
+		"Find Again", noIcon, "G", noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Show Clipboard", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -66,9 +70,7 @@ resource 'MENU' (134, "Go") {
 		"Home", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Refresh", noIcon, "R", noMark, plain;
-		"Stop", noIcon, ".", noMark, plain;
-		"-", noIcon, noKey, noMark, plain;
-		"Open Location\311", noIcon, "L", noMark, plain;
+		"Stop", noIcon, ".", noMark, plain
 	}
 };
 
@@ -83,12 +85,13 @@ resource 'MENU' (131, "Favorites") {
 resource 'MENU' (132, "Options") {
 	132, textMenuProc, allEnabled, enabled, "Options",
 	{
-		"Home Page\311", noIcon, noKey, noMark, plain;
-		"DNS Server\311", noIcon, noKey, noMark, plain;
-		"-", noIcon, noKey, noMark, plain;
 		"Font", noIcon, noKey, noMark, plain;
+		"Size", noIcon, noKey, noMark, plain;
 		"Page Style", noIcon, noKey, noMark, plain;
 		"Theme", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Home Page\311", noIcon, noKey, noMark, plain;
+		"DNS Server\311", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Show Details", noIcon, noKey, noMark, plain;
 		"Show Status Bar", noIcon, noKey, noMark, plain
@@ -106,12 +109,21 @@ resource 'MENU' (133, "Window") {
 resource 'MENU' (135, "Font") {
 	135, textMenuProc, allEnabled, enabled, "Font",
 	{
-		"Monaco 9", noIcon, noKey, noMark, plain;
-		"Monaco 12", noIcon, noKey, noMark, plain;
-		"Chicago 12", noIcon, noKey, noMark, plain;
-		"Courier 10", noIcon, noKey, noMark, plain;
-		"Geneva 9", noIcon, noKey, noMark, plain;
-		"Geneva 10", noIcon, noKey, noMark, plain
+		"Monaco", noIcon, noKey, noMark, plain;
+		"Geneva", noIcon, noKey, noMark, plain;
+		"Chicago", noIcon, noKey, noMark, plain;
+		"Courier", noIcon, noKey, noMark, plain;
+		"New York", noIcon, noKey, noMark, plain
+	}
+};
+
+resource 'MENU' (138, "Size") {
+	138, textMenuProc, allEnabled, enabled, "Size",
+	{
+		"9", noIcon, noKey, noMark, plain;
+		"10", noIcon, noKey, noMark, plain;
+		"12", noIcon, noKey, noMark, plain;
+		"14", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -294,6 +306,9 @@ resource 'DITL' (142, "CSO") {
 		UserItem { disabled };
 	}
 };
+
+/* Clipboard window is created programmatically in menus.c
+ * per HIG p.112 (document window with scrollbar). */
 
 /* Find in Page dialog — movableDBoxProc for System 7 */
 resource 'DLOG' (137, "Find") {
@@ -1548,9 +1563,9 @@ resource 'hmnu' (128, "Apple") {
 
 /*
  * File Menu (129)
- * Items: New Window(1), Close Window(2), -(3),
- *        Save Page As...(4), Page Setup...(5), Print...(6),
- *        -(7), Quit(8)
+ * Items: New(1), Open...(2), Close(3), -(4),
+ *        Save As...(5), -(6), Page Setup...(7), Print...(8),
+ *        -(9), Quit(10)
  */
 resource 'hmnu' (129, "File") {
 	HelpMgrVersion, hmDefaultOptions, 0, 0,
@@ -1562,23 +1577,30 @@ resource 'hmnu' (129, "File") {
 			"windows, save pages, print, and quit.",
 			"", "", ""
 		},
-		/* 1: New Window */
+		/* 1: New */
 		HMStringItem {
 			"Opens a new Gopher browser window.",
 			"Not available because the maximum "
 			"number of windows are already open.",
 			"", ""
 		},
-		/* 2: Close Window */
+		/* 2: Open... */
+		HMStringItem {
+			"Lets you type a Gopher URL to visit.",
+			"Not available because no windows "
+			"are open.",
+			"", ""
+		},
+		/* 3: Close */
 		HMStringItem {
 			"Closes the active browser window.",
 			"Not available because no windows "
 			"are open.",
 			"", ""
 		},
-		/* 3: separator */
+		/* 4: separator */
 		HMSkipItem { },
-		/* 4: Save Page As... */
+		/* 5: Save As... */
 		HMStringItem {
 			"Saves the current page to a file "
 			"on disk.",
@@ -1586,7 +1608,9 @@ resource 'hmnu' (129, "File") {
 			"is loaded.",
 			"", ""
 		},
-		/* 5: Page Setup... */
+		/* 6: separator */
+		HMSkipItem { },
+		/* 7: Page Setup... */
 		HMStringItem {
 			"Configures page layout options "
 			"for printing.",
@@ -1594,16 +1618,16 @@ resource 'hmnu' (129, "File") {
 			"is not enabled.",
 			"", ""
 		},
-		/* 6: Print... */
+		/* 8: Print... */
 		HMStringItem {
 			"Prints the current page.",
 			"Not available because no page is "
 			"loaded or a page is still loading.",
 			"", ""
 		},
-		/* 7: separator */
+		/* 9: separator */
 		HMSkipItem { },
-		/* 8: Quit */
+		/* 10: Quit */
 		HMStringItem {
 			"Quits Geomys.",
 			"", "", ""
@@ -1614,7 +1638,8 @@ resource 'hmnu' (129, "File") {
 /*
  * Edit Menu (130)
  * Items: Undo(1), -(2), Cut(3), Copy(4), Paste(5), Clear(6),
- *        -(7), Select All(8), -(9), Find...(10), Find Again(11)
+ *        -(7), Select All(8), -(9), Find...(10), Find Again(11),
+ *        -(12), Show Clipboard(13)
  */
 resource 'hmnu' (130, "Edit") {
 	HelpMgrVersion, hmDefaultOptions, 0, 0,
@@ -1692,6 +1717,14 @@ resource 'hmnu' (130, "Edit") {
 			"Not available because no previous "
 			"search has been made.",
 			"", ""
+		},
+		/* 12: separator */
+		HMSkipItem { },
+		/* 13: Show/Hide Clipboard (toggle) */
+		HMStringItem {
+			"Shows or hides the Clipboard "
+			"window.",
+			"", "", ""
 		}
 	}
 };
@@ -1699,7 +1732,7 @@ resource 'hmnu' (130, "Edit") {
 /*
  * Go Menu (134)
  * Items: Back(1), Forward(2), Home(3), -(4),
- *        Refresh(5), Stop(6), -(7), Open Location...(8)
+ *        Refresh(5), Stop(6)
  */
 resource 'hmnu' (134, "Go") {
 	HelpMgrVersion, hmDefaultOptions, 0, 0,
@@ -1750,13 +1783,6 @@ resource 'hmnu' (134, "Go") {
 			"Not available because no page "
 			"is currently loading.",
 			"", ""
-		},
-		/* 7: separator */
-		HMSkipItem { },
-		/* 8: Open Location... */
-		HMStringItem {
-			"Lets you type a Gopher URL to visit.",
-			"", "", ""
 		}
 	}
 };
@@ -1792,9 +1818,9 @@ resource 'hmnu' (131, "Favorites") {
 
 /*
  * Options Menu (132)
- * Items: Home Page...(1), DNS Server...(2), -(3),
- *        Font(4), Page Style(5), Theme(6), -(7),
- *        Show/Hide Details(8), Show/Hide Status Bar(9)
+ * Items: Font(1), Size(2), Page Style(3), Theme(4), -(5),
+ *        Home Page...(6), DNS Server...(7), -(8),
+ *        Show/Hide Details(9), Show/Hide Status Bar(10)
  */
 resource 'hmnu' (132, "Options") {
 	HelpMgrVersion, hmDefaultOptions, 0, 0,
@@ -1806,41 +1832,47 @@ resource 'hmnu' (132, "Options") {
 			"browser settings and appearance.",
 			"", "", ""
 		},
-		/* 1: Home Page... */
+		/* 1: Font (hierarchical submenu) */
 		HMStringItem {
-			"Sets the page that opens when you "
-			"choose Home from the Go menu.",
+			"Changes the font used to display "
+			"page content.",
 			"", "", ""
 		},
-		/* 2: DNS Server... */
+		/* 2: Size (hierarchical submenu) */
 		HMStringItem {
-			"Sets the DNS server address used "
-			"for name resolution.",
+			"Changes the text size used to display "
+			"page content.",
 			"", "", ""
 		},
-		/* 3: separator */
-		HMSkipItem { },
-		/* 4: Font (hierarchical submenu) */
-		HMStringItem {
-			"Changes the font and size used to "
-			"display page content.",
-			"", "", ""
-		},
-		/* 5: Page Style (hierarchical submenu) */
+		/* 3: Page Style (hierarchical submenu) */
 		HMStringItem {
 			"Switches between text and icon display "
 			"modes for Gopher directories.",
 			"", "", ""
 		},
-		/* 6: Theme (hierarchical submenu) */
+		/* 4: Theme (hierarchical submenu) */
 		HMStringItem {
 			"Changes the color scheme of "
 			"the browser.",
 			"", "", ""
 		},
-		/* 7: separator */
+		/* 5: separator */
 		HMSkipItem { },
-		/* 8: Show/Hide Details (toggle — SetMenuItemText) */
+		/* 6: Home Page... */
+		HMStringItem {
+			"Sets the page that opens when you "
+			"choose Home from the Go menu.",
+			"", "", ""
+		},
+		/* 7: DNS Server... */
+		HMStringItem {
+			"Sets the DNS server address used "
+			"for name resolution.",
+			"", "", ""
+		},
+		/* 8: separator */
+		HMSkipItem { },
+		/* 9: Show/Hide Details (toggle — SetMenuItemText) */
 		HMStringItem {
 			"Shows Gopher type codes and port "
 			"numbers for each item.",
@@ -1849,7 +1881,7 @@ resource 'hmnu' (132, "Options") {
 			"numbers. Details are currently shown.",
 			""
 		},
-		/* 9: Show/Hide Status Bar (toggle — SetMenuItemText) */
+		/* 10: Show/Hide Status Bar (toggle — SetMenuItemText) */
 		HMStringItem {
 			"Shows the status bar at the bottom "
 			"of the window.",
@@ -1887,8 +1919,9 @@ resource 'hmnu' (133, "Window") {
 
 /*
  * Font Submenu (135)
- * Items: Monaco 9(1), Monaco 12(2), Chicago 12(3),
- *        Courier 10(4), Geneva 9(5), Geneva 10(6)
+ * Items: Monaco(1), Geneva(2), Chicago(3), Courier(4),
+ *        New York(5)
+ * System 7+ fonts (Helvetica, Times, Palatino) appended dynamically
  */
 resource 'hmnu' (135, "Font") {
 	HelpMgrVersion, hmDefaultOptions, 0, 0,
@@ -1896,56 +1929,88 @@ resource 'hmnu' (135, "Font") {
 	{
 		/* Menu title */
 		HMStringItem {
-			"Font submenu\nChoose a font and size "
-			"for displaying page content.",
+			"Font submenu\nChoose a font for "
+			"displaying page content.",
 			"", "", ""
 		},
-		/* 1: Monaco 9 */
+		/* 1: Monaco */
 		HMStringItem {
-			"Displays page content in Monaco "
-			"9-point.",
+			"Displays page content in Monaco.",
 			"",
-			"Monaco 9-point is the current font.",
+			"Monaco is the current font.",
 			""
 		},
-		/* 2: Monaco 12 */
+		/* 2: Geneva */
 		HMStringItem {
-			"Displays page content in Monaco "
-			"12-point.",
+			"Displays page content in Geneva.",
 			"",
-			"Monaco 12-point is the current font.",
+			"Geneva is the current font.",
 			""
 		},
-		/* 3: Chicago 12 */
+		/* 3: Chicago */
 		HMStringItem {
-			"Displays page content in Chicago "
-			"12-point.",
+			"Displays page content in Chicago.",
 			"",
-			"Chicago 12-point is the current font.",
+			"Chicago is the current font.",
 			""
 		},
-		/* 4: Courier 10 */
+		/* 4: Courier */
 		HMStringItem {
-			"Displays page content in Courier "
-			"10-point.",
+			"Displays page content in Courier.",
 			"",
-			"Courier 10-point is the current font.",
+			"Courier is the current font.",
 			""
 		},
-		/* 5: Geneva 9 */
+		/* 5: New York */
 		HMStringItem {
-			"Displays page content in Geneva "
-			"9-point.",
+			"Displays page content in New York.",
 			"",
-			"Geneva 9-point is the current font.",
+			"New York is the current font.",
+			""
+		}
+	}
+};
+
+/*
+ * Size Submenu (138)
+ * Items: 9(1), 10(2), 12(3), 14(4)
+ */
+resource 'hmnu' (138, "Size") {
+	HelpMgrVersion, hmDefaultOptions, 0, 0,
+	HMSkipItem { },
+	{
+		/* Menu title */
+		HMStringItem {
+			"Size submenu\nChoose a text size for "
+			"displaying page content.",
+			"", "", ""
+		},
+		/* 1: 9 */
+		HMStringItem {
+			"Displays page content in 9-point.",
+			"",
+			"9-point is the current size.",
 			""
 		},
-		/* 6: Geneva 10 */
+		/* 2: 10 */
 		HMStringItem {
-			"Displays page content in Geneva "
-			"10-point.",
+			"Displays page content in 10-point.",
 			"",
-			"Geneva 10-point is the current font.",
+			"10-point is the current size.",
+			""
+		},
+		/* 3: 12 */
+		HMStringItem {
+			"Displays page content in 12-point.",
+			"",
+			"12-point is the current size.",
+			""
+		},
+		/* 4: 14 */
+		HMStringItem {
+			"Displays page content in 14-point.",
+			"",
+			"14-point is the current size.",
 			""
 		}
 	}

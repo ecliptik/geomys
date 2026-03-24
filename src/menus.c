@@ -44,6 +44,7 @@ static MenuHandle go_menu;
 static MenuHandle favorites_menu, options_menu;
 static MenuHandle window_menu;
 static MenuHandle font_submenu;
+static MenuHandle size_submenu;
 static MenuHandle style_submenu;
 #ifdef GEOMYS_THEMES
 static MenuHandle theme_submenu;
@@ -152,19 +153,41 @@ init_menus(void)
 
 	/* Load and insert Font hierarchical submenu */
 	font_submenu = GetMenu(FONT_MENU_ID);
-	if (font_submenu)
+	if (font_submenu) {
 		InsertMenu(font_submenu, -1);
+
+		/* Gestalt-gate System 7 fonts */
+		if (g_has_menu_icons) {
+			AppendMenu(font_submenu, "\p ");
+			SetMenuItemText(font_submenu,
+			    FONT_HELVETICA, "\pHelvetica");
+			AppendMenu(font_submenu, "\p ");
+			SetMenuItemText(font_submenu,
+			    FONT_TIMES, "\pTimes");
+			AppendMenu(font_submenu, "\p ");
+			SetMenuItemText(font_submenu,
+			    FONT_PALATINO, "\pPalatino");
+		}
+	}
+
+	/* Load and insert Size hierarchical submenu */
+	size_submenu = GetMenu(SIZE_MENU_ID);
+	if (size_submenu)
+		InsertMenu(size_submenu, -1);
 
 	/* Load and insert Page Style hierarchical submenu */
 	style_submenu = GetMenu(STYLE_MENU_ID);
 	if (style_submenu)
 		InsertMenu(style_submenu, -1);
 
-	/* Set hierarchical menu markers for Font and Style in Options */
+	/* Set hierarchical menu markers in Options */
 	if (options_menu) {
 		SetItemCmd(options_menu, OPT_MENU_FONT, 0x1B);
 		SetItemMark(options_menu, OPT_MENU_FONT,
 		    FONT_MENU_ID);
+		SetItemCmd(options_menu, OPT_MENU_SIZE, 0x1B);
+		SetItemMark(options_menu, OPT_MENU_SIZE,
+		    SIZE_MENU_ID);
 		SetItemCmd(options_menu, OPT_MENU_STYLE, 0x1B);
 		SetItemMark(options_menu, OPT_MENU_STYLE,
 		    STYLE_MENU_ID);
@@ -178,20 +201,44 @@ init_menus(void)
 		    g_prefs.page_style == STYLE_ICONS);
 	}
 
-	/* Set initial font checkmark based on prefs */
+	/* Set initial font checkmark based on prefs (font only) */
 	if (font_submenu) {
-		CheckItem(font_submenu, FONT_MONACO9,
-		    g_prefs.font_id == 4 && g_prefs.font_size == 9);
-		CheckItem(font_submenu, FONT_MONACO12,
-		    g_prefs.font_id == 4 && g_prefs.font_size == 12);
-		CheckItem(font_submenu, FONT_COURIER10,
-		    g_prefs.font_id == 22 && g_prefs.font_size == 10);
-		CheckItem(font_submenu, FONT_CHICAGO12,
-		    g_prefs.font_id == 0 && g_prefs.font_size == 12);
-		CheckItem(font_submenu, FONT_GENEVA9,
-		    g_prefs.font_id == 3 && g_prefs.font_size == 9);
-		CheckItem(font_submenu, FONT_GENEVA10,
-		    g_prefs.font_id == 3 && g_prefs.font_size == 10);
+		short fi, font_count;
+
+		font_count = CountMItems(font_submenu);
+		for (fi = 1; fi <= font_count; fi++)
+			CheckItem(font_submenu, fi, false);
+
+		if (g_prefs.font_id == 4)
+			CheckItem(font_submenu, FONT_MONACO, true);
+		else if (g_prefs.font_id == 3)
+			CheckItem(font_submenu, FONT_GENEVA, true);
+		else if (g_prefs.font_id == 0)
+			CheckItem(font_submenu, FONT_CHICAGO, true);
+		else if (g_prefs.font_id == 22)
+			CheckItem(font_submenu, FONT_COURIER, true);
+		else if (g_prefs.font_id == 2)
+			CheckItem(font_submenu, FONT_NEWYORK, true);
+		else if (g_prefs.font_id == 21 && g_has_menu_icons)
+			CheckItem(font_submenu,
+			    FONT_HELVETICA, true);
+		else if (g_prefs.font_id == 20 && g_has_menu_icons)
+			CheckItem(font_submenu, FONT_TIMES, true);
+		else if (g_prefs.font_id == 16 && g_has_menu_icons)
+			CheckItem(font_submenu,
+			    FONT_PALATINO, true);
+	}
+
+	/* Set initial size checkmark based on prefs (size only) */
+	if (size_submenu) {
+		CheckItem(size_submenu, SIZE_9,
+		    g_prefs.font_size == 9);
+		CheckItem(size_submenu, SIZE_10,
+		    g_prefs.font_size == 10);
+		CheckItem(size_submenu, SIZE_12,
+		    g_prefs.font_size == 12);
+		CheckItem(size_submenu, SIZE_14,
+		    g_prefs.font_size == 14);
 	}
 
 	/* Load and insert Theme hierarchical submenu */
@@ -277,9 +324,15 @@ update_menus(void)
 	if (file_menu) {
 		/* New Window: disable when at max sessions */
 		if (session_count() >= GEOMYS_MAX_WINDOWS)
-			DisableItem(file_menu, FILE_MENU_NEW_WIN);
+			DisableItem(file_menu, FILE_MENU_NEW);
 		else
-			EnableItem(file_menu, FILE_MENU_NEW_WIN);
+			EnableItem(file_menu, FILE_MENU_NEW);
+
+		/* Open: always enabled when a window exists */
+		if (g_window)
+			EnableItem(file_menu, FILE_MENU_OPEN);
+		else
+			DisableItem(file_menu, FILE_MENU_OPEN);
 
 #ifdef GEOMYS_DOWNLOAD
 		{
@@ -337,7 +390,6 @@ update_menus(void)
 			EnableItem(go_menu, GO_MENU_STOP);
 		else
 			DisableItem(go_menu, GO_MENU_STOP);
-		EnableItem(go_menu, GO_MENU_OPEN_LOC);
 
 		update_go_menu_history();
 	}
@@ -422,6 +474,13 @@ update_menus(void)
 			    EDIT_MENU_FIND_AGAIN);
 		}
 #endif
+
+		/* Show/Hide Clipboard toggle (HIG p.75) */
+		EnableItem(edit_menu, EDIT_MENU_SHOW_CLIP);
+		SetMenuItemText(edit_menu, EDIT_MENU_SHOW_CLIP,
+		    clipboard_window_ptr() ?
+		    "\pHide Clipboard" :
+		    "\pShow Clipboard");
 	}
 
 #if GEOMYS_MAX_WINDOWS > 1
@@ -449,8 +508,15 @@ static void
 handle_file_menu(short item)
 {
 	switch (item) {
-	case FILE_MENU_NEW_WIN:
+	case FILE_MENU_NEW:
 		do_new_window();
+		break;
+	case FILE_MENU_OPEN:
+		browser_set_focus(FOCUS_ADDR_BAR);
+		browser_activate(true);
+#ifdef GEOMYS_CLIPBOARD
+		browser_edit_select_all();
+#endif
 		break;
 	case FILE_MENU_SAVE_AS:
 		do_save_page();
@@ -473,6 +539,456 @@ handle_file_menu(short item)
 		g_running = false;
 		break;
 	}
+}
+
+/*
+ * Clipboard window — HIG p.112: "The Clipboard window looks
+ * and acts like a document window. The contents are visible,
+ * but not editable."
+ *
+ * Uses a noGrowDocProc window with a vertical scrollbar.
+ * windowKind set to CLIP_WIN_KIND so the main event loop
+ * can identify it for update, close, and drag events.
+ */
+#define CLIP_WIN_KIND   100
+#define CLIP_WIN_W      300
+#define CLIP_WIN_H      160
+#define CLIP_MIN_W      150
+#define CLIP_MIN_H      80
+#define SCROLLBAR_W     15
+
+static WindowPtr g_clip_window = nil;
+static TEHandle g_clip_te = nil;
+static ControlHandle g_clip_vscroll = nil;
+static ControlHandle g_clip_hscroll = nil;
+
+/* Recalculate TE view/dest rects from window portRect */
+static void
+clip_calc_rects(Rect *view_r, Rect *dest_r)
+{
+	*view_r = g_clip_window->portRect;
+	view_r->left += 4;
+	view_r->top += 4;
+	view_r->right -= (SCROLLBAR_W + 4);
+	view_r->bottom -= (SCROLLBAR_W + 4);
+	*dest_r = *view_r;
+	/* Wide dest rect so TE doesn't wrap — hscroll
+	 * handles horizontal overflow */
+	dest_r->right = dest_r->left + 2000;
+}
+
+/* Vertical scroll action proc */
+static pascal void
+clip_vscroll_action(ControlHandle ctl, short part)
+{
+	short delta = 0, old_val, new_val, max_val;
+	short page_lines;
+
+	if (!g_clip_te || part == 0)
+		return;
+
+	page_lines = ((*g_clip_te)->viewRect.bottom -
+	    (*g_clip_te)->viewRect.top) /
+	    (*g_clip_te)->lineHeight;
+	if (page_lines < 1) page_lines = 1;
+
+	switch (part) {
+	case inUpButton:    delta = -1; break;
+	case inDownButton:  delta = 1; break;
+	case inPageUp:      delta = -(page_lines - 1); break;
+	case inPageDown:    delta = page_lines - 1; break;
+	}
+
+	old_val = GetControlValue(ctl);
+	max_val = GetControlMaximum(ctl);
+	new_val = old_val + delta;
+	if (new_val < 0) new_val = 0;
+	if (new_val > max_val) new_val = max_val;
+	SetControlValue(ctl, new_val);
+
+	TEScroll(0, (old_val - new_val) *
+	    (*g_clip_te)->lineHeight, g_clip_te);
+}
+
+/* Horizontal scroll action proc */
+static pascal void
+clip_hscroll_action(ControlHandle ctl, short part)
+{
+	short delta = 0, old_val, new_val, max_val;
+	short page_w;
+
+	if (!g_clip_te || part == 0)
+		return;
+
+	page_w = (*g_clip_te)->viewRect.right -
+	    (*g_clip_te)->viewRect.left;
+
+	switch (part) {
+	case inUpButton:    delta = -8; break;
+	case inDownButton:  delta = 8; break;
+	case inPageUp:      delta = -(page_w - 16); break;
+	case inPageDown:    delta = page_w - 16; break;
+	}
+
+	old_val = GetControlValue(ctl);
+	max_val = GetControlMaximum(ctl);
+	new_val = old_val + delta;
+	if (new_val < 0) new_val = 0;
+	if (new_val > max_val) new_val = max_val;
+	SetControlValue(ctl, new_val);
+
+	TEScroll(old_val - new_val, 0, g_clip_te);
+}
+
+/* Update both scrollbar ranges from TE state */
+static void
+clip_update_scroll(void)
+{
+	short n_lines, vis_lines, max_v;
+	short max_w, vis_w, max_h;
+
+	if (!g_clip_te)
+		return;
+
+	/* Vertical */
+	if (g_clip_vscroll) {
+		n_lines = (*g_clip_te)->nLines;
+		if ((*g_clip_te)->teLength > 0 &&
+		    (*((char **)(*g_clip_te)->hText))
+		    [(*g_clip_te)->teLength - 1] != '\r')
+			n_lines++;
+
+		vis_lines = ((*g_clip_te)->viewRect.bottom -
+		    (*g_clip_te)->viewRect.top) /
+		    (*g_clip_te)->lineHeight;
+
+		max_v = n_lines - vis_lines;
+		if (max_v < 0) max_v = 0;
+		SetControlMaximum(g_clip_vscroll, max_v);
+	}
+
+	/* Horizontal — find widest line */
+	if (g_clip_hscroll) {
+		short i;
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(g_clip_window);
+		TextFont(3);
+		TextSize(9);
+
+		max_w = 0;
+		for (i = 0; i < (*g_clip_te)->nLines; i++) {
+			short start, end, w;
+			char *text;
+
+			start = (*g_clip_te)->lineStarts[i];
+			if (i + 1 < (*g_clip_te)->nLines)
+				end = (*g_clip_te)->lineStarts[i + 1];
+			else
+				end = (*g_clip_te)->teLength;
+
+			HLock((*g_clip_te)->hText);
+			text = *(*g_clip_te)->hText;
+			w = TextWidth(text, start, end - start);
+			HUnlock((*g_clip_te)->hText);
+
+			if (w > max_w) max_w = w;
+		}
+
+		vis_w = (*g_clip_te)->viewRect.right -
+		    (*g_clip_te)->viewRect.left;
+		max_h = max_w - vis_w;
+		if (max_h < 0) max_h = 0;
+		SetControlMaximum(g_clip_hscroll, max_h);
+
+		SetPort(save);
+	}
+}
+
+/* Reposition scrollbars and TE after window resize */
+static void
+clip_resize(void)
+{
+	Rect r, view_r, dest_r;
+	short dh, dv;
+
+	if (!g_clip_window)
+		return;
+
+	r = g_clip_window->portRect;
+
+	/* Vertical scrollbar: right edge */
+	if (g_clip_vscroll) {
+		MoveControl(g_clip_vscroll,
+		    r.right - SCROLLBAR_W, r.top - 1);
+		SizeControl(g_clip_vscroll,
+		    SCROLLBAR_W + 1,
+		    r.bottom - r.top - (SCROLLBAR_W - 2));
+	}
+
+	/* Horizontal scrollbar: bottom edge */
+	if (g_clip_hscroll) {
+		MoveControl(g_clip_hscroll,
+		    r.left - 1, r.bottom - SCROLLBAR_W);
+		SizeControl(g_clip_hscroll,
+		    r.right - r.left - (SCROLLBAR_W - 2),
+		    SCROLLBAR_W + 1);
+	}
+
+	/* Update TE rects */
+	if (g_clip_te) {
+		clip_calc_rects(&view_r, &dest_r);
+
+		/* Adjust dest_r.top to maintain scroll pos */
+		dv = (*g_clip_te)->viewRect.top -
+		    (*g_clip_te)->destRect.top;
+		dh = (*g_clip_te)->viewRect.left -
+		    (*g_clip_te)->destRect.left;
+		dest_r.top = view_r.top - dv;
+		dest_r.left = view_r.left - dh;
+
+		(*g_clip_te)->viewRect = view_r;
+		(*g_clip_te)->destRect = dest_r;
+		TECalText(g_clip_te);
+
+		clip_update_scroll();
+	}
+}
+
+static void
+do_show_clipboard(void)
+{
+	Handle scrap_h;
+	long scrap_len, scrap_offset;
+	Rect bounds, view_r, dest_r, scroll_r;
+	short mbar_h;
+	GrafPtr save;
+
+	/* If already open, just bring to front */
+	if (g_clip_window) {
+		SelectWindow(g_clip_window);
+		return;
+	}
+
+	GetPort(&save);
+
+	/* Position window offset from center */
+	mbar_h = GetMBarHeight();
+	bounds.left = (qd.screenBits.bounds.right -
+	    CLIP_WIN_W) / 2;
+	bounds.top = mbar_h + 30;
+	bounds.right = bounds.left + CLIP_WIN_W;
+	bounds.bottom = bounds.top + CLIP_WIN_H;
+
+	/* documentProc (0) = close box + grow box */
+	g_clip_window = NewWindow(nil, &bounds,
+	    "\pClipboard", true, documentProc,
+	    (WindowPtr)-1L, true, 0L);
+	if (!g_clip_window) {
+		SetPort(save);
+		return;
+	}
+
+	/* Mark with custom windowKind so event loop
+	 * can identify this window */
+	((WindowPeek)g_clip_window)->windowKind =
+	    CLIP_WIN_KIND;
+
+	SetPort(g_clip_window);
+
+	/* Vertical scrollbar (right edge, above grow box) */
+	scroll_r.left = g_clip_window->portRect.right -
+	    SCROLLBAR_W;
+	scroll_r.top = g_clip_window->portRect.top - 1;
+	scroll_r.right = g_clip_window->portRect.right + 1;
+	scroll_r.bottom = g_clip_window->portRect.bottom -
+	    (SCROLLBAR_W - 1);
+	g_clip_vscroll = NewControl(g_clip_window,
+	    &scroll_r, "\p", true, 0, 0, 0,
+	    scrollBarProc, 0L);
+
+	/* Horizontal scrollbar (bottom edge, left of
+	 * grow box) */
+	scroll_r.left = g_clip_window->portRect.left - 1;
+	scroll_r.top = g_clip_window->portRect.bottom -
+	    SCROLLBAR_W;
+	scroll_r.right = g_clip_window->portRect.right -
+	    (SCROLLBAR_W - 1);
+	scroll_r.bottom = g_clip_window->portRect.bottom + 1;
+	g_clip_hscroll = NewControl(g_clip_window,
+	    &scroll_r, "\p", true, 0, 0, 0,
+	    scrollBarProc, 0L);
+
+	/* TextEdit rects */
+	TextFont(3);    /* Geneva */
+	TextSize(9);
+	clip_calc_rects(&view_r, &dest_r);
+
+	g_clip_te = TENew(&dest_r, &view_r);
+	if (!g_clip_te) {
+		DisposeWindow(g_clip_window);
+		g_clip_window = nil;
+		g_clip_vscroll = nil;
+		g_clip_hscroll = nil;
+		SetPort(save);
+		return;
+	}
+
+	/* Get clipboard text */
+	scrap_len = GetScrap(nil, 'TEXT', &scrap_offset);
+	if (scrap_len > 0) {
+		if (scrap_len > 4096)
+			scrap_len = 4096;
+		scrap_h = NewHandle(scrap_len);
+		if (scrap_h) {
+			GetScrap(scrap_h, 'TEXT', &scrap_offset);
+			HLock(scrap_h);
+			TESetText(*scrap_h, scrap_len, g_clip_te);
+			HUnlock(scrap_h);
+			DisposeHandle(scrap_h);
+		}
+	} else {
+		TESetText("(Clipboard is empty.)", 21,
+		    g_clip_te);
+	}
+
+	clip_update_scroll();
+
+	SetPort(save);
+}
+
+/*
+ * clipboard_window_ptr - Return the clipboard window
+ * pointer so the main event loop can check for it.
+ */
+WindowPtr
+clipboard_window_ptr(void)
+{
+	return g_clip_window;
+}
+
+/*
+ * clipboard_window_update - Draw the clipboard window
+ * content. Called from handle_update in main.c.
+ */
+void
+clipboard_window_update(WindowPtr win)
+{
+	GrafPtr save;
+	Rect grow_r;
+
+	if (win != g_clip_window || !g_clip_te)
+		return;
+
+	GetPort(&save);
+	SetPort(win);
+	EraseRect(&win->portRect);
+	TEUpdate(&win->portRect, g_clip_te);
+	DrawControls(win);
+
+	/* Draw grow box */
+	grow_r.right = win->portRect.right;
+	grow_r.bottom = win->portRect.bottom;
+	grow_r.left = grow_r.right - SCROLLBAR_W;
+	grow_r.top = grow_r.bottom - SCROLLBAR_W;
+	DrawGrowIcon(win);
+
+	SetPort(save);
+}
+
+/*
+ * clipboard_window_close - Close and dispose the
+ * clipboard window. Called from inGoAway in main.c.
+ */
+void
+clipboard_window_close(void)
+{
+	if (g_clip_te) {
+		TEDispose(g_clip_te);
+		g_clip_te = nil;
+	}
+	g_clip_vscroll = nil;  /* disposed with window */
+	g_clip_hscroll = nil;
+	if (g_clip_window) {
+		DisposeWindow(g_clip_window);
+		g_clip_window = nil;
+	}
+}
+
+/*
+ * clipboard_window_click - Handle a click in the
+ * clipboard window content area.
+ */
+void
+clipboard_window_click(WindowPtr win, Point where)
+{
+	ControlHandle ctl;
+	short ctl_part;
+
+	if (win != g_clip_window)
+		return;
+
+	SetPort(win);
+	GlobalToLocal(&where);
+	ctl_part = FindControl(where, win, &ctl);
+
+	if (ctl && ctl_part != 0) {
+		if (ctl_part == inThumb) {
+			short old_val = GetControlValue(ctl);
+
+			TrackControl(ctl, where, nil);
+			{
+				short new_val =
+				    GetControlValue(ctl);
+				if (ctl == g_clip_vscroll)
+					TEScroll(0,
+					    (old_val - new_val) *
+					    (*g_clip_te)->lineHeight,
+					    g_clip_te);
+				else if (ctl == g_clip_hscroll)
+					TEScroll(
+					    old_val - new_val, 0,
+					    g_clip_te);
+			}
+		} else if (ctl == g_clip_vscroll) {
+			TrackControl(ctl, where,
+			    (ControlActionUPP)
+			    clip_vscroll_action);
+		} else if (ctl == g_clip_hscroll) {
+			TrackControl(ctl, where,
+			    (ControlActionUPP)
+			    clip_hscroll_action);
+		}
+	}
+}
+
+/*
+ * clipboard_window_grow - Handle grow box drag.
+ * Called from inGrow in main.c.
+ */
+void
+clipboard_window_grow(WindowPtr win, Point where)
+{
+	Rect limit;
+	long new_size;
+
+	if (win != g_clip_window)
+		return;
+
+	SetRect(&limit, CLIP_MIN_W, CLIP_MIN_H,
+	    qd.screenBits.bounds.right,
+	    qd.screenBits.bounds.bottom);
+	new_size = GrowWindow(win, where, &limit);
+	if (new_size == 0)
+		return;
+
+	SetPort(win);
+	EraseRect(&win->portRect);
+	SizeWindow(win, LoWord(new_size),
+	    HiWord(new_size), true);
+	clip_resize();
+	InvalRect(&win->portRect);
 }
 
 static void
@@ -525,6 +1041,14 @@ handle_edit_menu(short item)
 		break;
 	}
 #endif
+
+	/* Show/Hide Clipboard toggle */
+	if (item == EDIT_MENU_SHOW_CLIP) {
+		if (g_clip_window)
+			clipboard_window_close();
+		else
+			do_show_clipboard();
+	}
 }
 
 /* First history item number in Go menu (0 = no history shown) */
@@ -546,8 +1070,8 @@ update_go_menu_history(void)
 		return;
 
 	/* Remove any previously appended history items
-	 * (items after GO_MENU_OPEN_LOC = 8) */
-	while (CountMItems(go_menu) > GO_MENU_OPEN_LOC)
+	 * (items after GO_MENU_STOP = 6) */
+	while (CountMItems(go_menu) > GO_MENU_STOP)
 		DeleteMenuItem(go_menu,
 		    CountMItems(go_menu));
 
@@ -559,7 +1083,7 @@ update_go_menu_history(void)
 
 	/* Separator + "History" heading + entries */
 	AppendMenu(go_menu, "\p(-");
-	item_num = GO_MENU_OPEN_LOC + 2;
+	item_num = GO_MENU_STOP + 2;
 	AppendMenu(go_menu, "\pHistory");
 	DisableItem(go_menu, item_num);
 	item_num++;
@@ -732,13 +1256,6 @@ handle_menu(long menu_id)
 		case GO_MENU_STOP:
 			do_cancel_loading();
 			break;
-		case GO_MENU_OPEN_LOC:
-			browser_set_focus(FOCUS_ADDR_BAR);
-			browser_activate(true);
-#ifdef GEOMYS_CLIPBOARD
-			browser_edit_select_all();
-#endif
-			break;
 		default:
 			/* History list items */
 			if (g_go_history_start > 0 &&
@@ -857,45 +1374,78 @@ handle_menu(long menu_id)
 		break;
 	case FONT_MENU_ID:
 		switch (item) {
-		case FONT_MONACO9:
+		case FONT_MONACO:
 			g_prefs.font_id = 4;   /* Monaco */
-			g_prefs.font_size = 9;
 			break;
-		case FONT_MONACO12:
-			g_prefs.font_id = 4;   /* Monaco */
-			g_prefs.font_size = 12;
+		case FONT_GENEVA:
+			g_prefs.font_id = 3;   /* Geneva */
 			break;
-		case FONT_COURIER10:
-			g_prefs.font_id = 22;  /* Courier */
-			g_prefs.font_size = 10;
-			break;
-		case FONT_CHICAGO12:
+		case FONT_CHICAGO:
 			g_prefs.font_id = 0;   /* Chicago */
-			g_prefs.font_size = 12;
 			break;
-		case FONT_GENEVA9:
-			g_prefs.font_id = 3;   /* Geneva */
-			g_prefs.font_size = 9;
+		case FONT_COURIER:
+			g_prefs.font_id = 22;  /* Courier */
 			break;
-		case FONT_GENEVA10:
-			g_prefs.font_id = 3;   /* Geneva */
-			g_prefs.font_size = 10;
+		case FONT_NEWYORK:
+			g_prefs.font_id = 2;   /* New York */
+			break;
+		case FONT_HELVETICA:
+			g_prefs.font_id = 21;  /* Helvetica */
+			break;
+		case FONT_TIMES:
+			g_prefs.font_id = 20;  /* Times */
+			break;
+		case FONT_PALATINO:
+			g_prefs.font_id = 16;  /* Palatino */
 			break;
 		}
 		/* Update checkmarks */
 		if (font_submenu) {
-			CheckItem(font_submenu, FONT_MONACO9,
-			    item == FONT_MONACO9);
-			CheckItem(font_submenu, FONT_MONACO12,
-			    item == FONT_MONACO12);
-			CheckItem(font_submenu, FONT_COURIER10,
-			    item == FONT_COURIER10);
-			CheckItem(font_submenu, FONT_CHICAGO12,
-			    item == FONT_CHICAGO12);
-			CheckItem(font_submenu, FONT_GENEVA9,
-			    item == FONT_GENEVA9);
-			CheckItem(font_submenu, FONT_GENEVA10,
-			    item == FONT_GENEVA10);
+			short fi, font_count;
+
+			font_count = CountMItems(font_submenu);
+			for (fi = 1; fi <= font_count; fi++)
+				CheckItem(font_submenu, fi,
+				    fi == item);
+		}
+		/* Save and redraw */
+		prefs_save(&g_prefs);
+		content_update_font();
+		if (g_window) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(g_window);
+			content_recalc_width(g_window);
+			content_update_scroll(g_window);
+			content_draw(g_window);
+			SetPort(save);
+		}
+		break;
+	case SIZE_MENU_ID:
+		switch (item) {
+		case SIZE_9:
+			g_prefs.font_size = 9;
+			break;
+		case SIZE_10:
+			g_prefs.font_size = 10;
+			break;
+		case SIZE_12:
+			g_prefs.font_size = 12;
+			break;
+		case SIZE_14:
+			g_prefs.font_size = 14;
+			break;
+		}
+		/* Update checkmarks */
+		if (size_submenu) {
+			CheckItem(size_submenu, SIZE_9,
+			    item == SIZE_9);
+			CheckItem(size_submenu, SIZE_10,
+			    item == SIZE_10);
+			CheckItem(size_submenu, SIZE_12,
+			    item == SIZE_12);
+			CheckItem(size_submenu, SIZE_14,
+			    item == SIZE_14);
 		}
 		/* Save and redraw */
 		prefs_save(&g_prefs);

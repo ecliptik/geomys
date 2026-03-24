@@ -2559,13 +2559,20 @@ handle_mouse_down(EventRecord *event)
 		break;
 	case inGoAway:
 		if (TrackGoAway(win, event->where)) {
-			BrowserSession *s;
+			/* Clipboard window: close it */
+			if (win == clipboard_window_ptr()) {
+				clipboard_window_close();
+				break;
+			}
+			{
+				BrowserSession *s;
 
-			s = session_from_window(win);
-			if (s)
-				session_destroy_and_fixup(s);
-			else
-				g_running = false;
+				s = session_from_window(win);
+				if (s)
+					session_destroy_and_fixup(s);
+				else
+					g_running = false;
+			}
 		}
 		break;
 	case inZoomIn:
@@ -2607,6 +2614,13 @@ handle_mouse_down(EventRecord *event)
 		Rect limit_rect;
 		Rect gray_bounds;
 
+		/* Clipboard window has its own grow handler */
+		if (win == clipboard_window_ptr()) {
+			clipboard_window_grow(win,
+			    event->where);
+			break;
+		}
+
 		gray_bounds = (*LMGetGrayRgn())->rgnBBox;
 		SetRect(&limit_rect, 200, 150,
 		    gray_bounds.right - gray_bounds.left,
@@ -2647,6 +2661,9 @@ handle_mouse_down(EventRecord *event)
 	case inContent:
 		if (win != FrontWindow()) {
 			SelectWindow(win);
+		} else if (win == clipboard_window_ptr()) {
+			clipboard_window_click(win,
+			    event->where);
 		} else if (session_from_window(win)) {
 			Point local_pt;
 			GrafPtr save;
@@ -2713,6 +2730,14 @@ handle_update(EventRecord *event)
 	GetPort(&old_port);
 	SetPort(win);
 	BeginUpdate(win);
+
+	/* Clipboard window update */
+	if (win == clipboard_window_ptr()) {
+		clipboard_window_update(win);
+		EndUpdate(win);
+		SetPort(old_port);
+		return;
+	}
 
 	if (s) {
 #if GEOMYS_MAX_WINDOWS > 1

@@ -64,7 +64,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 - 9 built-in themes (Light, Dark, Solarized, Tokyo Night, Green Screen, Classic, Platinum)
 - 256-color on System 7; monochrome on System 6
 - ROM-based SICN/cicn icons for Gopher types and navigation buttons (color on Mac II+, mono fallback)
-- 6 fonts (Monaco 9/12, Courier 10, Chicago 12, Geneva 9/10)
+- 8 fonts (Monaco, Geneva, Chicago, Courier, New York; Helvetica, Times, Palatino on System 7) with independent size selection (9, 10, 12, 14)
 - Double-buffered rendering
 - Content-aware window zoom
 - Horizontal and vertical scrolling
@@ -72,7 +72,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 **Classic Mac Integration**
 - Telnet handoff dialog for type 8/T items (launch Flynn or NCSA Telnet on System 7)
 - Print support via Printing Manager
-- Save Page As TeachText-readable text file
+- Show Clipboard and Save As per HIG standard Edit and File menus
 - List Manager for Favorites with keyboard type-ahead and scrolling
 - MultiFinder, Apple Events, and Notification Manager support
 - Balloon Help and SICN menu icons on System 7
@@ -87,7 +87,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 | Forward | Cmd+] | Next page |
 | Refresh | Cmd+R | Reload current page |
 | Stop | Cmd+. | Cancel loading |
-| Open Location | Cmd+L | Focus address bar |
+| Open | Cmd+L | Focus address bar |
 | Find | Cmd+F | Search current page |
 | Find Again | Cmd+G | Next match |
 | New Window | Cmd+N | Open new browser window |

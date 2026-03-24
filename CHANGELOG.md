@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — Menu HIG Overhaul
+
+### Changed
+- File menu restructured per Apple HIG Chapter 4: "New Window" → "New", added "Open..." (Cmd-L, focuses address bar), "Close Window" → "Close", "Save Page As..." → "Save As...", reordered with standard separator grouping
+- Edit menu: added "Show Clipboard" item with dialog displaying current clipboard text content (up to 253 characters)
+- Go menu streamlined to navigation only: removed "Open Location..." (moved to File > Open...)
+- Options menu reordered per HIG: appearance settings first (Font, Size, Page Style, Theme), configuration middle (Home Page, DNS Server), view toggles last (Show/Hide Details, Show/Hide Status Bar)
+- Font submenu split into separate Font and Size submenus for independent selection
+- Font menu lists font names only (Monaco, Geneva, Chicago, Courier, New York); Helvetica, Times, and Palatino appended dynamically on System 7 via Gestalt gate
+- Size menu provides independent point size selection (9, 10, 12, 14)
+- Balloon Help (`hmnu`) resources updated for all restructured menus and new Size submenu
+
 ## [Unreleased] — ROM Icons & List Manager
 
 ### Added
