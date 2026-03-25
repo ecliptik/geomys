@@ -45,7 +45,8 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
   - Telnet handoff: telnet (8) and TN3270 (T) with connection dialog and app launching
   - Download to disk: BinHex (4), DOS binary (5), UUencode (6), binary (9), document (d), GIF (g), image (I), PNG (p), RTF (r), sound (s)
   - Display: informational (i), error (3)
-- [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol support
+- [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol suite: +ABSTRACT display, +SCORE search result scoring, bulk attribute fetch ($), content negotiation (+VIEWS), and +ASK interactive forms
+- Gopher+ runtime toggle in Options menu (default: off) — type indicators shown regardless
 - Binary file downloads with progress dialog
 - Image save with format/dimension detection
 - HTML tag-stripping renderer for type h pages

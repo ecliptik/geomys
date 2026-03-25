@@ -82,6 +82,8 @@
 /* separator = 8 */
 #define OPT_MENU_DETAILS    9   /* "Show/Hide Details" toggle */
 #define OPT_MENU_STATUS_BAR 10  /* "Show/Hide Status Bar" toggle */
+/* separator = 11 */
+#define OPT_MENU_GOPHER_PLUS 12 /* "Gopher+ On/Off" toggle */
 
 /* Font submenu items */
 #define FONT_MONACO         1
@@ -130,6 +132,7 @@
 #define DLOG_DNS_ID         141
 #define DLOG_CSO_ID         142
 #define DLOG_GETINFO_ID     143
+#define DLOG_VIEW_SELECT_ID 144
 /* Minimum window dimensions (Mac Plus: 512x342) */
 #define MIN_WIN_WIDTH       512
 #define MIN_WIN_HEIGHT      342

@@ -25,6 +25,9 @@
 #ifdef GEOMYS_HTML
 #include "html.h"
 #endif
+#ifdef GEOMYS_GOPHER_PLUS
+#include "gopherplus.h"
+#endif
 
 /* Forward declarations */
 static void gopher_parse_line(GopherState *gs, const char *line, short len);
@@ -57,6 +60,16 @@ gopher_cleanup(GopherState *gs)
 		DisposePtr((Ptr)gs->text_lines);
 		gs->text_lines = 0L;
 	}
+#ifdef GEOMYS_GOPHER_PLUS
+	if (gs->gplus_cache) {
+		DisposePtr((Ptr)gs->gplus_cache);
+		gs->gplus_cache = 0L;
+	}
+	if (gs->gplus_ask_form) {
+		DisposePtr((Ptr)gs->gplus_ask_form);
+		gs->gplus_ask_form = 0L;
+	}
+#endif
 }
 
 /*
@@ -97,6 +110,19 @@ gopher_clear_page(GopherState *gs)
 
 #ifdef GEOMYS_HTML
 	html_init(gs);
+#endif
+
+#ifdef GEOMYS_GOPHER_PLUS
+	if (gs->gplus_cache) {
+		DisposePtr((Ptr)gs->gplus_cache);
+		gs->gplus_cache = 0L;
+	}
+	gs->gplus_active = false;
+	gs->gplus_status_parsed = false;
+	if (gs->gplus_ask_form) {
+		DisposePtr((Ptr)gs->gplus_ask_form);
+		gs->gplus_ask_form = 0L;
+	}
 #endif
 
 	gs->page_type = PAGE_NONE;
@@ -271,11 +297,109 @@ gopher_idle(GopherState *gs)
 			return true;   /* signal error */
 		}
 		/* Connected — send selector now */
-		if (conn_send_selector(&gs->conn,
-		    gs->send_selector) != noErr) {
-			conn_close(&gs->conn);
-			gs->receiving = false;
-			return true;
+		{
+#ifdef GEOMYS_GOPHER_PLUS
+			const char *sel = gs->send_selector;
+			char gp_sel[384];
+			Boolean is_ask = false;
+
+			if (gs->gplus_ask_form) {
+				snprintf(gp_sel,
+				    sizeof(gp_sel),
+				    "%s\t+\t1",
+				    gs->send_selector);
+				sel = gp_sel;
+				gs->gplus_active = true;
+				gs->gplus_status_parsed =
+				    false;
+				is_ask = true;
+			} else if (gs->gplus_view[0]) {
+				snprintf(gp_sel,
+				    sizeof(gp_sel),
+				    "%s\t+%s",
+				    gs->send_selector,
+				    gs->gplus_view);
+				sel = gp_sel;
+				gs->gplus_view[0] = '\0';
+				gs->gplus_active = true;
+				gs->gplus_status_parsed =
+				    false;
+			}
+			if (conn_send_selector(&gs->conn,
+			    sel) != noErr) {
+#else
+			if (conn_send_selector(&gs->conn,
+			    gs->send_selector) != noErr) {
+#endif
+				conn_close(&gs->conn);
+				gs->receiving = false;
+				return true;
+			}
+#ifdef GEOMYS_GOPHER_PLUS
+			/* Send +ASK form field values */
+			if (is_ask && gs->gplus_ask_form) {
+				GopherPlusAskForm *af =
+				    (GopherPlusAskForm *)
+				    gs->gplus_ask_form;
+				short fi;
+				char line[256];
+
+				for (fi = 0;
+				    fi < af->field_count;
+				    fi++) {
+					GopherPlusAskField *f =
+					    &af->fields[fi];
+					short ll;
+
+					switch (f->type) {
+					case ASK_TYPE_ASK:
+					case ASK_TYPE_ASKP:
+					case ASK_TYPE_ASKL:
+						ll = snprintf(line,
+						    sizeof(line),
+						    "%s\r\n",
+						    f->default_val);
+						break;
+					case ASK_TYPE_CHOOSE:
+						if (f->selected >= 0
+						    && f->selected <
+						    f->choice_count)
+							ll = snprintf(
+							    line,
+							    sizeof(line),
+							    "%s\r\n",
+							    f->choices[
+							    f->selected
+							    ]);
+						else
+							ll = snprintf(
+							    line,
+							    sizeof(line),
+							    "\r\n");
+						break;
+					case ASK_TYPE_SELECT:
+						ll = snprintf(line,
+						    sizeof(line),
+						    "%d\r\n",
+						    f->selected ?
+						    1 : 0);
+						break;
+					default:
+						ll = snprintf(line,
+						    sizeof(line),
+						    "\r\n");
+						break;
+					}
+					conn_send(&gs->conn,
+					    line, ll);
+				}
+				conn_send(&gs->conn,
+				    ".\r\n", 3);
+				DisposePtr(
+				    (Ptr)gs->gplus_ask_form);
+				gs->gplus_ask_form = 0L;
+			}
+#endif
 		}
 		gs->selector_sent = true;
 		return true;  /* signal transition to receiving */
@@ -317,6 +441,44 @@ gopher_process_data(GopherState *gs)
 	short i;
 	char *buf = gs->conn.read_buf;
 	short len = gs->conn.read_len;
+
+#ifdef GEOMYS_GOPHER_PLUS
+	/* Strip Gopher+ status line from content response.
+	 * Accumulates in line_buf until newline found.
+	 * +-- = error, +-1/+-2 = success. */
+	if (gs->gplus_active && !gs->gplus_status_parsed) {
+		while (len > 0) {
+			char c = *buf++;
+
+			len--;
+			if (c == '\n') {
+				if (gs->line_len > 0 &&
+				    gs->line_buf[gs->line_len - 1]
+				    == '\r')
+					gs->line_len--;
+				gs->line_buf[gs->line_len] = '\0';
+
+				/* +-- error: show as text */
+				if (gs->line_len >= 3 &&
+				    gs->line_buf[0] == '+' &&
+				    gs->line_buf[1] == '-' &&
+				    gs->line_buf[2] == '-') {
+					gs->gplus_active = false;
+					gs->page_type = PAGE_TEXT;
+				}
+
+				gs->gplus_status_parsed = true;
+				gs->line_len = 0;
+				break;
+			}
+			if (gs->line_len <
+			    (short)sizeof(gs->line_buf) - 1)
+				gs->line_buf[gs->line_len++] = c;
+		}
+		if (!gs->gplus_status_parsed || len <= 0)
+			return;
+	}
+#endif
 
 #ifdef GEOMYS_DOWNLOAD
 	if (gs->page_type == PAGE_DOWNLOAD) {
@@ -853,11 +1015,52 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 
 #ifdef GEOMYS_GOPHER_PLUS
 	/* Detect Gopher+ support: 5th tab field starting with '+' */
+	item->score = -1;
 	item->has_plus = 0;
 	if (field >= 4) {
 		/* There's a 5th field — check for '+' */
 		if (field_lens[4] > 0 && fields[4][0] == '+')
 			item->has_plus = 1;
+	}
+
+	/* Extract inline score from display text.
+	 * Veronica-2 pattern: trailing "(Score: NNN)" */
+	if (item->type != GOPHER_INFO) {
+		short dlen = strlen(item->display);
+		short di;
+
+		for (di = dlen - 1; di >= 8; di--) {
+			if (item->display[di] == ')' &&
+			    di >= 10) {
+				/* Scan back for "(Score: " */
+				const char *s =
+				    item->display + di;
+				short val = 0, mult = 1;
+				Boolean found = false;
+
+				s--;  /* before ')' */
+				while (s > item->display &&
+				    *s >= '0' && *s <= '9') {
+					val += (*s - '0') * mult;
+					mult *= 10;
+					found = true;
+					s--;
+				}
+				if (found && s >= item->display + 7 &&
+				    strncmp(s - 7, "(Score: ", 8) == 0) {
+					if (val > 100) val = 100;
+					item->score = val;
+					/* Trim score from display */
+					s -= 7;
+					while (s > item->display &&
+					    *(s - 1) == ' ')
+						s--;
+					item->display[s -
+					    item->display] = '\0';
+				}
+				break;
+			}
+		}
 	}
 #endif
 

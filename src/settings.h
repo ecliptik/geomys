@@ -5,7 +5,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define PREFS_VERSION    6
+#define PREFS_VERSION    7
 #define MAX_FAVORITES    20
 
 /* Page display styles */
@@ -32,6 +32,8 @@ typedef struct {
 	short           theme_id;
 	/* --- v5 field: status bar visibility --- */
 	short           show_status_bar;  /* 1=show (default), 0=hide */
+	/* --- v6 field: Gopher+ protocol support --- */
+	short           gopher_plus;  /* 1=enabled, 0=disabled (default) */
 	/* NOTE: always append new fields here, never insert above */
 } GeomysPrefs;
 

@@ -595,15 +595,73 @@ URL drag-and-drop via Drag Manager on System 7.5+.
 
 ---
 
+## v0.15.0 — Gopher+ Protocol Suite
+
+### Phase 1: +ABSTRACT Attribute
+**Status: Complete**
+
+Parse and display item abstracts from Gopher+ servers.
+
+- `+ABSTRACT` block parsing in `gopherplus_parse_response()`
+- Abstract text stored in `GopherPlusInfo` struct (truncated to fit)
+- 3-line scrollable abstract field in Get Info dialog (DLOG 143)
+- Graceful truncation for long abstracts
+- Guarded by `GEOMYS_GOPHER_PLUS` feature flag
+
+### Phase 2: Search Result Scoring
+**Status: Complete**
+
+Display relevance scores for Gopher+ search results.
+
+- `+SCORE` block parsing from search result attributes
+- Inline score extraction from Gopher+ status lines
+- `[ 85]` right-aligned score display in Traditional page style
+- Score column only shown when search results contain scoring data
+- Guarded by `GEOMYS_GOPHER_PLUS` feature flag
+
+### Phase 3: Bulk Attribute Fetch ($)
+**Status: Complete**
+
+Single-request attribute retrieval for all items in a directory listing.
+
+- `selector\t$` bulk attribute request on Gopher+ directories
+- 16-entry compact attribute cache (~3.2 KB) per directory
+- Sequential cursor for item matching (no nested linear scan)
+- Lazy fetch: triggered on first Get Info request for a directory
+- Hover abstracts displayed in status bar from cached attributes
+- Guarded by `GEOMYS_GOPHER_PLUS` feature flag
+
+### Phase 4: Content Negotiation (+VIEWS)
+**Status: Complete**
+
+Request alternate content representations from Gopher+ servers via +VIEWS data.
+
+- "Choose View..." button in Get Info dialog for items with multiple views
+- View selection dialog (DLOG 144): list of available content types
+- Maximum 2 stacked modals (HIG limit for modal depth)
+- Gopher+ status line (`+`) handling on content responses
+- Integration with existing download and display pipelines
+- Guarded by `GEOMYS_GOPHER_PLUS` feature flag
+
+### Phase 5: +ASK Form Support
+**Status: Complete**
+
+Interactive Gopher+ forms with programmatic dialog generation.
+
+- `+ASK` block parsing: Ask (text), AskP (password), AskL (multiline), Select (checkbox), Choose (radio)
+- Programmatic dialog via `NewDialog()` with dynamic DITL construction
+- Password field masking for AskP items
+- Form response submission as tab-delimited POST body
+- Maximum 8 fields per form
+- Heap-allocated form struct (never stack — 68000 stack budget)
+- Guarded by `GEOMYS_GOPHER_PLUS` feature flag
+
+---
+
 ## Future Features
 
 ### Potential v1.0 — Release Candidate
 
 Polish pass and final release.
 
-- Version resource bump and release packaging for v0.13.0+ features
-- Persistent browsing history saved to preferences file across sessions
-- Gopher+ ASK form support (interactive queries beyond `!` attributes)
-- Inline image display for GIF (QuickDraw `DrawPicture` from decoded frames)
-- Bookmarks import/export (plain text `gopher://` URL list)
 - Final documentation pass and release notes

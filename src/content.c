@@ -33,6 +33,9 @@
 #ifdef GEOMYS_DRAG
 #include "drag.h"
 #endif
+#ifdef GEOMYS_GOPHER_PLUS
+#include "gopherplus.h"
+#endif
 
 /* Module state */
 static ControlHandle g_scrollbar = 0L;
@@ -493,6 +496,9 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 	short split_pos = -1;
 	short name_len, li, pos, lbl_len, avail;
 	const char *label;
+#ifdef GEOMYS_GOPHER_PLUS
+	extern GeomysPrefs g_prefs;
+#endif
 
 	/* Find split point: first run of 2+ spaces separates
 	 * name from metadata (skip info lines — plain text may
@@ -525,6 +531,31 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 			pos += 6;
 		}
 	} else {
+#ifdef GEOMYS_GOPHER_PLUS
+		/* Score prefix for search results: [NNN] */
+		if (g_prefs.gopher_plus && g_page &&
+		    g_page->cur_type == GOPHER_SEARCH &&
+		    item->score >= 0 &&
+		    pos + 6 < bufsiz) {
+			short sv = item->score;
+
+			if (sv > 100) sv = 100;
+			/* Right-align in 3-char bracket:
+			 * [  3], [ 85], [100] */
+			buf[pos++] = '[';
+			if (sv >= 100)
+				buf[pos++] = '0' + sv / 100;
+			else
+				buf[pos++] = ' ';
+			if (sv >= 10)
+				buf[pos++] = '0' +
+				    (sv / 10) % 10;
+			else
+				buf[pos++] = ' ';
+			buf[pos++] = '0' + sv % 10;
+			buf[pos++] = ']';
+		}
+#endif
 		label = gopher_type_label(item->type);
 		lbl_len = strlen(label);
 
@@ -3034,14 +3065,42 @@ content_cursor_update(WindowPtr win, Point local_pt)
 					browser_set_status(hint);
 				} else {
 					char uri[300];
+#ifdef GEOMYS_GOPHER_PLUS
+					extern GeomysPrefs g_prefs;
+#endif
 
-					gopher_build_uri(uri,
+					gopher_build_uri(
+					    uri,
 					    sizeof(uri),
 					    item->host,
 					    item->port,
 					    item->type,
 					    item->selector);
-					browser_set_status(uri);
+#ifdef GEOMYS_GOPHER_PLUS
+					/* Show abstract from
+					 * cache if available,
+					 * else show URI */
+					if (g_prefs.gopher_plus
+					    && g_page &&
+					    g_page->gplus_cache) {
+						const GopherPlusCacheEntry
+						    *ce;
+						ce =
+						    gopherplus_cache_lookup(
+						    (const GopherPlusCache *)
+						    g_page->gplus_cache,
+						    item->selector);
+						if (ce &&
+						    ce->has_abstract
+						    && ce->abstract[0])
+							snprintf(uri,
+							    sizeof(uri),
+							    "%.296s",
+							    ce->abstract);
+					}
+#endif
+					browser_set_status(
+					    uri);
 				}
 			} else {
 				browser_set_status("");

@@ -300,6 +300,16 @@ init_menus(void)
 		    "\pHide Status Bar" :
 		    "\pShow Status Bar");
 
+#ifdef GEOMYS_GOPHER_PLUS
+	/* Set initial Gopher+ On/Off text */
+	if (options_menu)
+		SetMenuItemText(options_menu,
+		    OPT_MENU_GOPHER_PLUS,
+		    g_prefs.gopher_plus ?
+		    "\pGopher+ Off" :
+		    "\pGopher+ On");
+#endif
+
 	/* Favorites menu — managed by favorites.c */
 
 	/* Add SICN icon to Go > Home (System 7+).
@@ -1390,6 +1400,27 @@ handle_menu(long menu_id)
 				}
 			}
 			break;
+#ifdef GEOMYS_GOPHER_PLUS
+		case OPT_MENU_GOPHER_PLUS:
+			g_prefs.gopher_plus =
+			    !g_prefs.gopher_plus;
+			if (options_menu)
+				SetMenuItemText(options_menu,
+				    OPT_MENU_GOPHER_PLUS,
+				    g_prefs.gopher_plus ?
+				    "\pGopher+ Off" :
+				    "\pGopher+ On");
+			prefs_save(&g_prefs);
+			/* Redraw to update +/score display */
+			if (g_window) {
+				GrafPtr save;
+				GetPort(&save);
+				SetPort(g_window);
+				content_draw(g_window);
+				SetPort(save);
+			}
+			break;
+#endif
 		}
 		break;
 	case FONT_MENU_ID:

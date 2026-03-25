@@ -60,6 +60,7 @@ typedef struct {
 	char    host[64];
 	short   port;
 #ifdef GEOMYS_GOPHER_PLUS
+	short   score;          /* search relevance 0-100, -1 = none */
 	char    has_plus;       /* 1 if server supports Gopher+ for this item */
 #endif
 } GopherItem;
@@ -98,6 +99,14 @@ typedef struct {
 	char        cur_selector[256];
 	char        cur_type;
 	char        cur_title[80];  /* display name of current page */
+
+#ifdef GEOMYS_GOPHER_PLUS
+	void        *gplus_cache;   /* GopherPlusCache*, heap-allocated */
+	char        gplus_view[64]; /* Gopher+ view MIME to request */
+	void        *gplus_ask_form; /* GopherPlusAskForm* for +ASK submit */
+	Boolean     gplus_active;   /* Gopher+ content request active */
+	Boolean     gplus_status_parsed;  /* status line consumed */
+#endif
 
 #ifdef GEOMYS_DOWNLOAD
 	/* Download state (PAGE_DOWNLOAD / PAGE_IMAGE) */

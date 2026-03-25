@@ -96,7 +96,9 @@ resource 'MENU' (132, "Options") {
 		"DNS Server\311", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Show Details", noIcon, noKey, noMark, plain;
-		"Show Status Bar", noIcon, noKey, noMark, plain
+		"Show Status Bar", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Gopher+ On", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -688,7 +690,7 @@ resource 'DITL' (141, "DNS Server") {
 
 /* Gopher+ Get Info dialog — movableDBoxProc */
 resource 'DLOG' (143, "Get Info") {
-	{70, 80, 280, 430},
+	{70, 80, 325, 430},
 	movableDBoxProc,
 	visible,
 	noGoAway,
@@ -701,7 +703,7 @@ resource 'DLOG' (143, "Get Info") {
 resource 'DITL' (143, "Get Info") {
 	{
 		/* 1: Done button (default) */
-		{177, 267, 197, 337},
+		{222, 267, 242, 337},
 		Button { enabled, "Done" };
 
 		/* 2: Item display name (set at runtime) */
@@ -732,8 +734,73 @@ resource 'DITL' (143, "Get Info") {
 		{140, 13, 172, 337},
 		StaticText { disabled, "" };
 
-		/* 9: Default button outline (UserItem) */
-		{173, 263, 201, 341},
+		/* 9: Abstract (set at runtime, from +ABSTRACT) */
+		{176, 13, 216, 337},
+		StaticText { disabled, "" };
+
+		/* 10: Choose View button (dimmed when <= 1 view) */
+		{222, 13, 242, 113},
+		Button { enabled, "Choose View\311" };
+
+		/* 11: Fill Form button (dimmed when no +ASK) */
+		{222, 123, 242, 213},
+		Button { enabled, "Fill Form\311" };
+
+		/* 12: Default button outline (UserItem) */
+		{218, 263, 246, 341},
+		UserItem { disabled };
+	}
+};
+
+/* Gopher+ View Selection dialog — movableDBoxProc */
+resource 'DLOG' (144, "Choose View") {
+	{80, 100, 290, 390},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	144,
+	"Choose View",
+	noAutoCenter
+};
+
+resource 'DITL' (144, "Choose View") {
+	{
+		/* 1: Open button (default) */
+		{178, 200, 198, 270},
+		Button { enabled, "Open" };
+
+		/* 2: Cancel button */
+		{178, 115, 198, 185},
+		Button { enabled, "Cancel" };
+
+		/* 3-10: Radio buttons for views (text set at runtime) */
+		{10, 20, 26, 270},
+		RadioButton { enabled, "" };
+
+		{30, 20, 46, 270},
+		RadioButton { enabled, "" };
+
+		{50, 20, 66, 270},
+		RadioButton { enabled, "" };
+
+		{70, 20, 86, 270},
+		RadioButton { enabled, "" };
+
+		{90, 20, 106, 270},
+		RadioButton { enabled, "" };
+
+		{110, 20, 126, 270},
+		RadioButton { enabled, "" };
+
+		{130, 20, 146, 270},
+		RadioButton { enabled, "" };
+
+		{150, 20, 166, 270},
+		RadioButton { enabled, "" };
+
+		/* 11: Default button outline (UserItem) */
+		{174, 196, 202, 274},
 		UserItem { disabled };
 	}
 };

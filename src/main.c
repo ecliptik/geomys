@@ -70,7 +70,7 @@ static short saved_key_rep_thresh;
 static NMRec g_nm_rec;
 static Boolean g_nm_posted = false;
 static Handle g_nm_icon = 0L;	/* SICN handle for menu bar icon */
-static Str255 g_nm_str = "\pGeomys: Page loaded";
+static unsigned char g_nm_str[] = "\pGeomys: Page loaded";
 
 #ifdef GEOMYS_PRINT
 /* Print-after-load: set by kAEPrintDocuments handler */

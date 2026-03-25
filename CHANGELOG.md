@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] — Gopher+ Protocol Suite
+
+### Added
+- +ABSTRACT attribute parsing: `gopherplus_parse_abstract()` joins multi-line abstract text from Gopher+ servers; displayed as 3-line field in expanded Get Info dialog (DITL 143)
+- Search result scoring: `+SCORE` block parsing (0–100 range) and inline `(Score: NNN)` extraction from Veronica-2 results; right-aligned `[NNN]` score column in Traditional page style on search result pages
+- Bulk attribute fetch: `selector\t$` request retrieves attributes for all directory items in a single TCP connection; 16-entry compact attribute cache (~3.2 KB) per directory with sequential O(N) cursor parsing
+- Lazy bulk fetch: triggered on first Get Info request for a Gopher+ directory
+- Cached abstracts shown in status bar on hover (priority over Gopher URI)
+- Content negotiation (+VIEWS): "Choose View..." button in Get Info dialog for items with multiple MIME types; view selection dialog (DLOG 144) with radio buttons; Gopher+ content request format `selector\t+view_type`
+- Gopher+ status line stripping (`+-1`/`+-2`/`+--`) in `gopher_process_data()` for content responses
+- +ASK interactive form support: parses Ask (text), AskP (password), AskL (multiline), Choose (radio), Select (checkbox) fields; AskF/ChooseF (file upload) silently skipped
+- Programmatic DITL builder (`ditl_begin`/`ditl_add`) for data-driven dialog layout via `NewDialog()`
+- Dynamic form dialog with up to 8 fields, 260px max height, HIG-compliant 13px margins
+- "Fill Form..." button in Get Info dialog, dimmed when no +ASK data present
+- Form submission as `selector\t+\t1` followed by tab-delimited field values and `.\r\n` terminator
+- Gopher+ runtime toggle: "Gopher+ On/Off" in Options menu (default: off) controls all network features (attribute fetch, bulk cache, score display, hover abstracts)
+- `GopherPlusCacheEntry` and `GopherPlusCache` structures for directory-level attribute caching
+- `gplus_view`, `gplus_active`, `gplus_status_parsed`, and `gplus_ask_form` fields in `GopherState`
+
+### Changed
+- Get Info dialog (DLOG 143) expanded with abstract text field, "Choose View..." and "Fill Form..." buttons, Done button repositioned
+- Preferences version bumped from 6 to 7 (adds `gopher_plus` toggle with v6→v7 migration)
+- Gopher+ type indicators (DIR+/TXT+) shown regardless of toggle state — parsed from directory listing at zero cost, indicates server capability to users
+- Content area redrawn on Gopher+ toggle to update type labels
+
 ## [0.14.0] — System 7 Polish
 
 ### Added
