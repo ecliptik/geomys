@@ -527,6 +527,36 @@ Non-blocking TCP connections keep the UI responsive during handshakes.
 
 ---
 
+## v0.13.0 — Gopher+ Get Info & Prefs Icon
+
+### Phase 1: Preferences Document Color Icons
+**Status: Complete**
+
+Added missing color icon resources for the preferences document type (resource 129).
+
+- `icl4` (129): 32x32 4-bit color icon (tan paper, black border/text, gray fold)
+- `icl8` (129): 32x32 8-bit color icon
+- `ics4` (129): 16x16 4-bit color icon
+- `ics8` (129): 16x16 8-bit color icon
+- Matches Flynn's complete icon suite pattern (ICN#, ics#, icl4, icl8, ics4, ics8)
+- FREF/BNDL structures verified correct (no changes needed)
+
+### Phase 2: Gopher+ Get Info Dialog
+**Status: Complete**
+
+Full Gopher+ attribute fetch and display for items on Gopher+ servers.
+
+- File menu: "Get Info..." (Cmd+I) at position 5, enabled on directory pages with keyboard-selected row
+- DLOG/DITL 143: movableDBoxProc dialog with "Done" button, 8 static text fields (display name, type, server, selector, admin, modified, views)
+- `GopherPlusInfo` aggregate struct for complete attribute response
+- `gopherplus_parse_response()`: scans for +ADMIN and +VIEWS blocks in attribute data
+- `gopherplus_fetch_info()`: synchronous TCP fetch using `selector\t!` request, 10-second timeouts, yields via WaitNextEvent
+- `gopher_type_label()`: human-readable names for all 18 Gopher types
+- Status window shown during attribute fetch
+- HIG-compliant dialog layout: 13px margins, "Done" button (not "OK"), default button outline
+
+---
+
 ## Future Features
 
 (None planned)

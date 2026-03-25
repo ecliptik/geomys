@@ -37,6 +37,9 @@
 #include "theme.h"
 #include "color.h"
 #endif
+#ifdef GEOMYS_GOPHER_PLUS
+#include "gopherplus.h"
+#endif
 
 /* Menu handles (private to this module) */
 static MenuHandle apple_menu, file_menu, edit_menu;
@@ -334,6 +337,18 @@ update_menus(void)
 		else
 			DisableItem(file_menu, FILE_MENU_OPEN);
 
+#ifdef GEOMYS_GOPHER_PLUS
+		/* Get Info: enabled when a directory item is selected */
+		if (g_gopher.page_type == PAGE_DIRECTORY &&
+		    g_app_state == APP_STATE_IDLE &&
+		    content_get_selected_row() >= 0)
+			EnableItem(file_menu, FILE_MENU_GETINFO);
+		else
+			DisableItem(file_menu, FILE_MENU_GETINFO);
+#else
+		DisableItem(file_menu, FILE_MENU_GETINFO);
+#endif
+
 #ifdef GEOMYS_DOWNLOAD
 		{
 			if (g_gopher.page_type != PAGE_NONE &&
@@ -518,6 +533,11 @@ handle_file_menu(short item)
 		browser_edit_select_all();
 #endif
 		break;
+#ifdef GEOMYS_GOPHER_PLUS
+	case FILE_MENU_GETINFO:
+		do_getinfo_dialog();
+		break;
+#endif
 	case FILE_MENU_SAVE_AS:
 		do_save_page();
 		break;

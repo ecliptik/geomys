@@ -43,12 +43,14 @@
 #define FILE_MENU_OPEN       2
 #define FILE_MENU_CLOSE      3
 /* separator = 4 */
-#define FILE_MENU_SAVE_AS    5
+#define FILE_MENU_GETINFO    5
 /* separator = 6 */
-#define FILE_MENU_PAGE_SETUP 7
-#define FILE_MENU_PRINT      8
-/* separator = 9 */
-#define FILE_MENU_QUIT       10
+#define FILE_MENU_SAVE_AS    7
+/* separator = 8 */
+#define FILE_MENU_PAGE_SETUP 9
+#define FILE_MENU_PRINT      10
+/* separator = 11 */
+#define FILE_MENU_QUIT       12
 
 /* Edit menu items */
 #define EDIT_MENU_UNDO      1
@@ -127,6 +129,7 @@
 #define DLOG_TELNET_ID      140
 #define DLOG_DNS_ID         141
 #define DLOG_CSO_ID         142
+#define DLOG_GETINFO_ID     143
 /* Minimum window dimensions (Mac Plus: 512x342) */
 #define MIN_WIN_WIDTH       512
 #define MIN_WIN_HEIGHT      342
@@ -157,6 +160,9 @@ void do_telnet_dialog(char type, const char *display,
     const char *host, short port, const char *selector);
 #endif
 void do_find_dialog(void);
+#ifdef GEOMYS_GOPHER_PLUS
+void do_getinfo_dialog(void);
+#endif
 void do_cancel_loading(void);
 void navigate_history_to(short index);
 

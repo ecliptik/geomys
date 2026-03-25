@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] — Gopher+ Get Info & Prefs Icon
+
+### Added
+- Gopher+ Get Info dialog (Cmd+I): fetches `selector\t!` attributes from Gopher+ servers, displays item name, type, server, selector, administrator, modification date, and content views in a movable modal dialog
+- `GopherPlusInfo` aggregate struct and `gopherplus_parse_response()` for parsing complete Gopher+ attribute responses (+ADMIN, +VIEWS blocks)
+- `gopherplus_fetch_info()`: synchronous TCP attribute fetch with 10-second connect/read timeouts, yields via WaitNextEvent during fetch
+- `gopher_type_label()`: human-readable type names for all canonical and non-canonical Gopher types
+- File menu "Get Info..." item (Cmd+I) with separator, enabled when a directory page is loaded and a row is keyboard-selected
+- DLOG/DITL 143: movableDBoxProc Get Info dialog with "Done" button and 8 static text fields
+- Color icon resources for preferences document (resource 129): `icl4`, `icl8`, `ics4`, `ics8` — completes the icon suite alongside existing ICN# and ics# for proper Finder display on color systems
+
+### Changed
+- File menu item numbering: Get Info inserted at position 5, Save As moved to 7, Page Setup to 9, Print to 10, Quit to 12
+- Gopher+ parsing functions (`gopherplus_parse_admin`, `gopherplus_parse_views`) now called via `gopherplus_parse_response()` during attribute fetch
+
 ## [0.12.0] — Icons, Menus & Async Networking
 
 ### Added
