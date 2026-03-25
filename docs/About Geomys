@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 0.11.2
+                   Version 0.12.0
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -127,20 +127,26 @@ Features
   - MacTCP pre-loaded at startup for fast first
     connect
   - Dynamic directory capacity up to 2,000 items
-  - 20 persistent favorites with menu quick-access
-  - Six font choices: Monaco 9, Monaco 12, Courier
-    10, Chicago 12, Geneva 9, Geneva 10
+  - 20 persistent favorites with List Manager dialog,
+    keyboard type-ahead, and menu quick-access
+  - 8 fonts (Monaco, Geneva, Chicago, Courier,
+    New York; Helvetica, Times, Palatino on System 7)
+    with independent size selection (9, 10, 12, 14)
   - Horizontal and vertical scrolling
   - Double-buffered rendering eliminates screen flash
   - Apple HIG compliant dialogs (default button
     outlines, Cmd-. cancel, tab field cycling)
   - All preferences saved across launches
   - System 7 Preferences folder support
-  - System 7 enhancements: modern save dialog,
-    Apple Events support, MultiFinder suspend/resume,
-    Notification Manager, machine type in About
-    dialog (all conditional -- System 6 behavior
-    unchanged)
+  - ROM-based SICN/cicn icons for Gopher types and
+    navigation buttons (color on Mac II+, mono fallback)
+  - Non-blocking TCP connections keep the UI
+    responsive during network handshakes
+  - System 7 enhancements: Balloon Help, modern save
+    dialog, Apple Events (odoc/pdoc), MultiFinder
+    suspend/resume, Notification Manager, temporary
+    memory for cache, machine type in About dialog
+    (all conditional -- System 6 behavior unchanged)
 
 
 Keyboard Shortcuts

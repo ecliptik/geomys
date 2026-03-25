@@ -2,31 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] — Async TCP Connect
-
-### Performance
-- Non-blocking TCP connection: `_TCPActiveOpen` called asynchronously with idle-loop polling via `conn_connect_poll()`, keeping the UI responsive during the TCP handshake instead of blocking the event loop
-- Selector send deferred until connection completes, stored in per-session `send_selector` buffer
+## [0.12.0] — Icons, Menus & Async Networking
 
 ### Added
-- `CONN_STATE_OPENING` connection state for async handshake in progress
+- CSO/ph phonebook queries (type 2): query dialog with "Look Up" button, ph/qi protocol handling, formatted response display
+- History integration preserves CSO queries for back/forward navigation
+- SICN resources (16x16): 11 Gopher type icons (IDs 256–266: folder, document, search, error, binary, terminal, image, globe, speaker, phonebook, unknown) and 6 navigation button icons (IDs 270–275: back, forward, home, stop, go, refresh)
+- `cicn` color icons for all 17 SICN resources on Color QuickDraw systems: folder blue, error red, terminal green, globe teal, image purple, speaker magenta, nav buttons in themed colors; lazy-cached via `GetCIcon` with `PlotCIcon` drawing
+- SICN icons in menus: Home icon in Go menu, type-based icons on Favorites menu entries (System 7+ only, via `SetItemIcon`/`SetItemCmd(0x1E)` per Inside Macintosh)
+- List Manager for Favorites dialog: `LNew`/`LClick`/`LGetSelect` replace custom list drawing; adds keyboard type-ahead, native scrollbar, double-click to navigate, and proper `LUpdate` via UserItem draw proc
+- Content-aware zoom: `calc_std_state()` sets `WStateData->stdState` from content width plus chrome (scrollbar, borders), clamped to screen bounds with 200px minimum
+- Balloon Help: `hmnu` resources for all 7 menus (Apple, File, Edit, Go, Favorites, Options, Window) with HIG-compliant help text
+- Temporary memory for cache: `cache_alloc()`/`cache_free()` helpers use `TempNewHandle` for cache slot allocations on System 7, keeping the app heap free for working data; falls back to `NewPtr` on System 6
+- Print Apple Event (`kAEPrintDocuments`): documents containing `gopher://` URLs can be printed directly from the Finder via File > Print
+- `CONN_STATE_OPENING` connection state for async TCP handshake in progress
 - Timeout detection during async TCP handshake (reuses existing `CONN_TIMEOUT_TICKS`)
 - Status bar shows "Connection failed" when async connect errors
 
-## [Unreleased] — Scroll & Rendering Improvements
-
-### Fixed
-- Stale content visible during page navigation: content area now blanks immediately when navigating, refreshing, searching, or traversing history — eliminates ~2 second mismatch between title bar and page content
-- Progressive theme transition flash: switching themes now erases content to the new background color in one frame before redrawing, replacing the visible top-to-bottom "wave" effect
-- Horizontal scroll position not resetting on font/size change: `g_hscroll_pos` and scrollbar now reset to 0 so content starts from the left edge after font changes
-
-### Performance
-- Horizontal scroll arrow keys use `ScrollRect` pixel-shifting with clipped strip redraw, matching the existing vertical scroll optimization (previously did a full `content_draw` per step)
-- Line-scroll exposed rows wrapped in offscreen double buffer (`offscreen_begin`/`offscreen_end` with partial blit rect) to prevent flicker on real 68000 hardware at 8MHz
-
-## [Unreleased] — Menu HIG Overhaul
-
 ### Changed
+- Non-blocking TCP connection: `_TCPActiveOpen` called asynchronously with idle-loop polling via `conn_connect_poll()`, keeping the UI responsive during the TCP handshake instead of blocking the event loop
+- Selector send deferred until connection completes, stored in per-session `send_selector` buffer
 - File menu restructured per Apple HIG Chapter 4: "New Window" → "New", added "Open..." (Cmd-L, focuses address bar), "Close Window" → "Close", "Save Page As..." → "Save As...", reordered with standard separator grouping
 - Edit menu: added "Show Clipboard" item with dialog displaying current clipboard text content (up to 253 characters)
 - Go menu streamlined to navigation only: removed "Open Location..." (moved to File > Open...)
@@ -35,43 +30,31 @@ All notable changes to this project will be documented in this file.
 - Font menu lists font names only (Monaco, Geneva, Chicago, Courier, New York); Helvetica, Times, and Palatino appended dynamically on System 7 via Gestalt gate
 - Size menu provides independent point size selection (9, 10, 12, 14)
 - Balloon Help (`hmnu`) resources updated for all restructured menus and new Size submenu
-
-## [Unreleased] — ROM Icons & List Manager
-
-### Added
-- SICN resources (16x16): 11 Gopher type icons (IDs 256–266: folder, document, search, error, binary, terminal, image, globe, speaker, phonebook, unknown) and 6 navigation button icons (IDs 270–275: back, forward, home, stop, go, refresh)
-- `cicn` color icons for all 17 SICN resources on Color QuickDraw systems: folder blue, error red, terminal green, globe teal, image purple, speaker magenta, nav buttons in themed colors; lazy-cached via `GetCIcon` with `PlotCIcon` drawing
-- SICN icons in menus: Home icon in Go menu, type-based icons on Favorites menu entries (System 7+ only, via `SetItemIcon`/`SetItemCmd(0x1E)` per Inside Macintosh)
-- List Manager for Favorites dialog: `LNew`/`LClick`/`LGetSelect` replace custom list drawing; adds keyboard type-ahead, native scrollbar, double-click to navigate, and proper `LUpdate` via UserItem draw proc
-- Content-aware zoom: `calc_std_state()` sets `WStateData->stdState` from content width plus chrome (scrollbar, borders), clamped to screen bounds with 200px minimum
-
-### Changed
 - Gopher type icons: 16x16 SICN resources loaded via `GetResource('SICN')` for fonts with row height ≥ 16; original 11x11 procedural bitmaps retained for Monaco 9
 - Navigation button icons: SICN resources replace ~185 lines of procedural QuickDraw polygon drawing (`OpenPoly`/`LineTo`/`PaintPoly`); disabled state uses standard `patBic` gray overlay
 - Color icon fallback: `gopher_cicn_draw()` attempts `cicn` first on color systems, falls back to monochrome SICN automatically
 - Show/Hide menu toggles: Options menu "Show Details"/"Hide Details" and "Show Status Bar"/"Hide Status Bar" use `SetMenuItemText` for HIG-compliant dynamic text labels (no checkmarks)
 - Favorites menu entries: duplicate SICN 289 for folder icon (SICN 256 maps to icon number 0 which means "no icon")
-
-## [Unreleased] — System 7 Polish
-
-### Added
-- Balloon Help: `hmnu` resources for all 7 menus (Apple, File, Edit, Go, Favorites, Options, Window) with HIG-compliant help text
-- Temporary memory for cache: `cache_alloc()`/`cache_free()` helpers use `TempNewHandle` for cache slot allocations on System 7, keeping the app heap free for working data; falls back to `NewPtr` on System 6
-- Print Apple Event (`kAEPrintDocuments`): documents containing `gopher://` URLs can be printed directly from the Finder via File > Print
-
-### Removed
-- TSM (Text Services Manager): `useTextEditServices` cleared from SIZE resource — no TSM code existed in the codebase, and the flag could cause issues with CJK input methods
-
-### Changed
 - Color QuickDraw detection: `Gestalt(gestaltQuickdrawVersion)` preferred over `SysEnvirons()`, with `SysEnvirons` fallback for pre-6.0.4 systems
 - Dynamic window sizing: windows sized to actual screen dimensions via `qd.screenBits.bounds` instead of hardcoded 512x342 (Mac Plus minimum enforced)
 - Status window centering: `conn_status_show()` uses `qd.screenBits.bounds` instead of hardcoded 512x342 coordinates
 - Multi-monitor drag/resize: `DragWindow` and `GrowWindow` use `GetGrayRgn` bounding box (full desktop area) instead of `qd.screenBits.bounds` (main monitor only)
-- Removed orphaned DLOG 131 (Open URL) resource — unused since File menu restructure
+- Type 2 (CSO) upgraded from informational stub to full interactive protocol support
+
+### Removed
+- TSM (Text Services Manager): `useTextEditServices` cleared from SIZE resource — no TSM code existed in the codebase, and the flag could cause issues with CJK input methods
+- Orphaned DLOG 131 (Open URL) resource — unused since File menu restructure
+
+### Fixed
+- Stale content visible during page navigation: content area now blanks immediately when navigating, refreshing, searching, or traversing history — eliminates ~2 second mismatch between title bar and page content
+- Progressive theme transition flash: switching themes now erases content to the new background color in one frame before redrawing, replacing the visible top-to-bottom "wave" effect
+- Horizontal scroll position not resetting on font/size change: `g_hscroll_pos` and scrollbar now reset to 0 so content starts from the left edge after font changes
+- Multi-window CSO response boundary corruption: `cso_last_entry` moved from file-global to per-session `GopherState` field
 
 ### Performance
+- Horizontal scroll arrow keys use `ScrollRect` pixel-shifting with clipped strip redraw, matching the existing vertical scroll optimization (previously did a full `content_draw` per step)
+- Line-scroll exposed rows wrapped in offscreen double buffer (`offscreen_begin`/`offscreen_end` with partial blit rect) to prevent flicker on real 68000 hardware at 8MHz
 - `TempNewHandle` guarded with System 7 version check via `Gestalt` — cache operates safely on System 6 without MultiFinder
-- CSO phonebook entry tracker (`cso_last_entry`) moved from file-global to per-session `GopherState` field — fixes multi-window CSO response boundary corruption
 
 ### Memory
 - Cache `text_lines` allocation right-sized to `max(actual * 2, GOPHER_INIT_TEXT_LINES)` instead of always allocating `GOPHER_MAX_TEXT_LINES` — saves up to 10KB per small cached page
@@ -80,16 +63,6 @@ All notable changes to this project will be documented in this file.
 - Extracted `dismiss_modal()` helper, deduplicating 8 dialog dismiss + window invalidate call sites
 - Extracted `restore_title_bar()` helper, deduplicating 7 title-restore-from-history call sites
 - Fixed C89 declaration ordering in `do_search_dialog` and `do_cso_dialog`
-
-## [Unreleased] — CSO Phonebook Support
-
-### Added
-- CSO/ph phonebook queries (type 2): query dialog with "Look Up" button, ph/qi protocol handling, formatted response display
-- History integration preserves CSO queries for back/forward navigation
-
-### Changed
-- Type 2 (CSO) upgraded from informational stub to full interactive protocol support
-- Documentation updated: item type support now accurately described by tier (interactive, download, telnet handoff, display) instead of blanket "fully supported"
 
 ## [0.11.2] — Internal: Code Review Improvements
 

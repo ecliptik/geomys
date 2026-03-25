@@ -25,9 +25,9 @@ Pre-built binaries are available on the [Releases](https://github.com/ecliptik/g
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | Full build — 4 windows, all features including 256-color | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.11.2/Geomys-0.11.2.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.11.2/Geomys-0.11.2.hqx) |
-| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~505KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.11.2/Geomys-Lite-0.11.2.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.11.2/Geomys-Lite-0.11.2.hqx) |
-| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~297KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.11.2/Geomys-Minimal-0.11.2.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.11.2/Geomys-Minimal-0.11.2.hqx) |
+| **Geomys** | Full build — 4 windows, all features including 256-color | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.12.0/Geomys-0.12.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.12.0/Geomys-0.12.0.hqx) |
+| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~505KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.12.0/Geomys-Lite-0.12.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.12.0/Geomys-Lite-0.12.0.hqx) |
+| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~297KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.12.0/Geomys-Minimal-0.12.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.12.0/Geomys-Minimal-0.12.0.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). No build toolchain required — just download and run. See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 

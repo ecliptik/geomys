@@ -454,37 +454,76 @@ System 7-specific improvements for better Finder integration and Apple Events su
 
 ---
 
-## System 7 Polish
+## v0.12.0 — Icons, Menus & Async Networking
 
-### Phase 1: Quick Wins
+### Phase 1: CSO Phonebook Support
 **Status: Complete**
 
-Modernize System 7 APIs and support larger screens.
+Full CSO/ph phonebook protocol support for type 2 items.
 
-- Color QuickDraw detection via `Gestalt(gestaltQuickdrawVersion)` with `SysEnvirons` fallback for pre-6.0.4 systems
-- Dynamic window sizing: `create_session_window()` reads `qd.screenBits.bounds` for actual screen dimensions (512x342 minimum enforced)
-- Status window centering: `conn_status_show()` uses `qd.screenBits.bounds` instead of hardcoded 512x342
-- Multi-monitor drag/resize: `DragWindow` and `GrowWindow` use `GetGrayRgn` bounding box for full desktop area
-- `useTextEditServices` cleared from SIZE resource — no TSM code existed, flag removed to avoid CJK input method issues
-- Print Apple Event (`kAEPrintDocuments`): deferred print triggered after page load for Finder File > Print support
-- Removed orphaned DLOG 131 (Open URL) and DITL 131 resources
+- Query dialog with "Look Up" button, ph/qi protocol handling, formatted response display
+- History integration preserves CSO queries for back/forward navigation
+- Type 2 upgraded from informational stub to full interactive protocol support
 
-### Phase 2: Balloon Help
+### Phase 2: ROM Icons & List Manager
 **Status: Complete**
 
-System 7 Balloon Help for all menus.
+Resource-based icons replace procedural drawing. List Manager for Favorites dialog.
 
-- `hmnu` resources for all 7 menus: Apple, File, Edit, Go, Favorites, Options, Window
-- HIG-compliant help text describing each menu item's purpose
+- SICN resources (16x16): 11 Gopher type icons and 6 navigation button icons
+- `cicn` color icons for all 17 SICN resources on Color QuickDraw systems
+- SICN icons in menus: Home icon in Go menu, type-based icons on Favorites menu entries (System 7+)
+- Navigation button icons: SICN resources replace ~185 lines of procedural QuickDraw polygon drawing
+- List Manager for Favorites dialog: `LNew`/`LClick`/`LGetSelect` with keyboard type-ahead, native scrollbar, double-click to navigate
+- Content-aware zoom: `calc_std_state()` sizes standard state from content width plus chrome
 
-### Phase 3: Temporary Memory
+### Phase 3: Menu HIG Overhaul
 **Status: Complete**
 
-Use MultiFinder temporary memory for cache allocations on System 7.
+Menus restructured per Apple Human Interface Guidelines Chapter 4.
 
-- `cache_alloc()`/`cache_free()` helpers in `cache.c`: prefer `TempNewHandle` for cache slot allocations, fall back to `NewPtr` on System 6 or if temp memory is unavailable
-- Handle fields added to `CacheSlot` for tracking temp memory allocations
-- Keeps app heap free for working data while cache uses system temp memory
+- File menu: "New Window" → "New", added "Open..." (Cmd-L), "Close Window" → "Close", "Save Page As..." → "Save As..."
+- Edit menu: added "Show Clipboard" dialog
+- Go menu streamlined to navigation only
+- Options menu reordered: appearance first, configuration middle, view toggles last
+- Font submenu split into separate Font and Size submenus for independent selection
+- 8 fonts: Monaco, Geneva, Chicago, Courier, New York (plus Helvetica, Times, Palatino on System 7 via Gestalt)
+- Size menu: independent point size selection (9, 10, 12, 14)
+- Show/Hide menu toggles use `SetMenuItemText` for HIG-compliant dynamic text labels
+
+### Phase 4: System 7 Polish
+**Status: Complete**
+
+Modernize System 7 APIs, Balloon Help, temporary memory, and larger screen support.
+
+- Color QuickDraw detection via `Gestalt(gestaltQuickdrawVersion)` with `SysEnvirons` fallback
+- Dynamic window sizing from `qd.screenBits.bounds` (512x342 minimum enforced)
+- Multi-monitor drag/resize via `GetGrayRgn` bounding box
+- Balloon Help: `hmnu` resources for all 7 menus with HIG-compliant help text
+- `cache_alloc()`/`cache_free()` helpers use `TempNewHandle` on System 7, `NewPtr` fallback on System 6
+- Print Apple Event (`kAEPrintDocuments`) for Finder File > Print support
+- Removed TSM flag and orphaned DLOG 131 resource
+
+### Phase 5: Scroll & Rendering Fixes
+**Status: Complete**
+
+Fix stale content, theme flash, and scroll rendering issues.
+
+- Content area blanks immediately on navigation (eliminates ~2s stale content)
+- Theme switching erases to new background in one frame (no progressive flash)
+- Horizontal scroll position resets on font/size change
+- Horizontal scroll uses `ScrollRect` pixel-shifting (was full `content_draw`)
+- Line-scroll exposed rows wrapped in offscreen double buffer
+
+### Phase 6: Async TCP Connect
+**Status: Complete**
+
+Non-blocking TCP connections keep the UI responsive during handshakes.
+
+- `_TCPActiveOpen` called asynchronously with idle-loop polling via `conn_connect_poll()`
+- Selector send deferred until connection completes, stored in per-session `send_selector` buffer
+- `CONN_STATE_OPENING` state for async handshake in progress
+- Timeout detection during async handshake
 
 ---
 
