@@ -264,6 +264,7 @@ main(void)
 		SetPort(save);
 	}
 	conn_init_tcp();
+	dns_cache_init();
 	InitCursor();
 
 	/* Navigate to home page (or show blank if empty) */
@@ -462,6 +463,21 @@ poll_active_session(void)
 
 	if (!g_gopher.receiving)
 		return;
+
+	/* Show connecting status during async TCP handshake */
+	if (g_gopher.conn.state == CONN_STATE_OPENING) {
+		char msg[80];
+		GrafPtr save;
+
+		snprintf(msg, sizeof(msg),
+		    "Connecting to %.50s\311",
+		    g_gopher.conn.host);
+		browser_set_status(msg);
+		GetPort(&save);
+		SetPort(g_window);
+		browser_draw_status(g_window);
+		SetPort(save);
+	}
 
 	draw_deadline = TickCount() + 4;
 	while (g_gopher.receiving && drain_count < 16) {
@@ -826,6 +842,12 @@ handle_page_loaded(void)
 	if (g_gopher.conn.timed_out) {
 		browser_set_status("Connection timed out");
 		g_gopher.conn.timed_out = false;
+	} else if (g_gopher.conn.state == CONN_STATE_ERROR) {
+		char errmsg[80];
+		snprintf(errmsg, sizeof(errmsg),
+		    "Could not connect to %.50s",
+		    g_gopher.conn.host);
+		browser_set_status(errmsg);
 	} else if (g_gopher.cur_type == GOPHER_ERROR) {
 		browser_set_status("Server Error");
 	} else {

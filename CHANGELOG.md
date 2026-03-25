@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — Async TCP Connect
+
+### Performance
+- Non-blocking TCP connection: `_TCPActiveOpen` called asynchronously with idle-loop polling via `conn_connect_poll()`, keeping the UI responsive during the TCP handshake instead of blocking the event loop
+- Selector send deferred until connection completes, stored in per-session `send_selector` buffer
+
+### Added
+- `CONN_STATE_OPENING` connection state for async handshake in progress
+- Timeout detection during async TCP handshake (reuses existing `CONN_TIMEOUT_TICKS`)
+- Status bar shows "Connection failed" when async connect errors
+
 ## [Unreleased] — Scroll & Rendering Improvements
 
 ### Fixed

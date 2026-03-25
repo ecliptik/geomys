@@ -128,7 +128,7 @@ dns_skip_name(const unsigned char *pkt, short pktlen, short offset)
  */
 static short
 dns_parse_response(const unsigned char *pkt, short pktlen,
-    unsigned short txn_id, ip_addr *ip)
+    unsigned short txn_id, ip_addr *ip, unsigned long *ttl)
 {
 	unsigned short flags, qdcount, ancount;
 	unsigned short rtype, rdlen;
@@ -185,20 +185,30 @@ dns_parse_response(const unsigned char *pkt, short pktlen,
 			return DNS_ERR_FORMAT;
 
 		rtype = (pkt[offset] << 8) | pkt[offset + 1];
-		/* skip CLASS (2) + TTL (4) */
+		/* CLASS at offset+2, TTL at offset+4 (4 bytes) */
 		rdlen = (pkt[offset + 8] << 8) | pkt[offset + 9];
-		offset += 10;
 
-		if (offset + rdlen > pktlen)
+		if (offset + 10 + rdlen > pktlen)
 			return DNS_ERR_FORMAT;
 
 		if (rtype == TYPE_A && rdlen == 4) {
+			/* Extract TTL (seconds) */
+			if (ttl) {
+				*ttl =
+				    ((unsigned long)pkt[offset + 4] << 24) |
+				    ((unsigned long)pkt[offset + 5] << 16) |
+				    ((unsigned long)pkt[offset + 6] << 8) |
+				    (unsigned long)pkt[offset + 7];
+			}
+			offset += 10;
 			*ip = ((unsigned long)pkt[offset] << 24) |
 			      ((unsigned long)pkt[offset + 1] << 16) |
 			      ((unsigned long)pkt[offset + 2] << 8) |
 			      (unsigned long)pkt[offset + 3];
 			return DNS_OK;
 		}
+
+		offset += 10;
 
 		offset += rdlen;
 	}
@@ -213,7 +223,8 @@ dns_parse_response(const unsigned char *pkt, short pktlen,
  */
 static short
 dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
-    unsigned char *query, short query_len, unsigned short txn_id)
+    unsigned char *query, short query_len, unsigned short txn_id,
+    unsigned long *ttl)
 {
 	TCPiopb pb;
 	StreamPtr stream;
@@ -285,7 +296,7 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 		    0L, 0L, false);
 		if (err == noErr && rcv_len > 0) {
 			result = dns_parse_response(recv_buf + 2,
-			    rcv_len, txn_id, ip);
+			    rcv_len, txn_id, ip, ttl);
 		}
 	}
 
@@ -297,7 +308,8 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 }
 
 short
-dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server)
+dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server,
+    unsigned long *ttl)
 {
 	UDPiopb pb;
 	StreamPtr stream;
@@ -373,7 +385,7 @@ dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server)
 		result = dns_parse_response(
 		    (unsigned char *)pb.csParam.receive.rcvBuff,
 		    pb.csParam.receive.rcvBuffLen,
-		    txn_id, ip);
+		    txn_id, ip, ttl);
 
 		/* Return the receive buffer to MacTCP */
 		_UDPBfrReturn(&pb, stream, pb.csParam.receive.rcvBuff,
@@ -391,7 +403,7 @@ dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server)
 	 * forward UDP but handle TCP fine. */
 	if (result == DNS_ERR_TIMEOUT) {
 		result = dns_resolve_tcp(hostname, ip, dns_server,
-		    query, query_len, txn_id);
+		    query, query_len, txn_id, ttl);
 	}
 
 	return result;

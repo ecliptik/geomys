@@ -170,7 +170,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 			return false;
 	}
 
-	/* Try to connect before committing to new page */
+	/* Start async connect — returns true when handshake begins */
 	ok = conn_connect(&gs->conn, host, port, 0L);
 	if (!ok) {
 		/* Connection failed — free new buffers, keep old page */
@@ -183,7 +183,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		return false;
 	}
 
-	/* Connection succeeded — now clear old page and switch.
+	/* Async connect started — clear old page and switch.
 	 * For downloads/images, preserve old page data so the
 	 * directory listing stays visible during the download. */
 #ifdef GEOMYS_DOWNLOAD
@@ -246,12 +246,11 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	}
 #endif
 
-	/* Send selector */
-	if (conn_send_selector(&gs->conn, selector) != noErr) {
-		conn_close(&gs->conn);
-		return false;
-	}
-	gs->selector_sent = true;
+	/* Save selector for deferred send (async connect) */
+	strncpy(gs->send_selector, selector,
+	    sizeof(gs->send_selector) - 1);
+	gs->send_selector[sizeof(gs->send_selector) - 1] = '\0';
+	gs->selector_sent = false;
 	gs->receiving = true;
 	return true;
 }
@@ -261,6 +260,26 @@ gopher_idle(GopherState *gs)
 {
 	if (!gs->receiving)
 		return false;
+
+	/* Poll async connect */
+	if (gs->conn.state == CONN_STATE_OPENING) {
+		short r = conn_connect_poll(&gs->conn);
+		if (r == 1)
+			return false;  /* still connecting */
+		if (r < 0) {
+			gs->receiving = false;
+			return true;   /* signal error */
+		}
+		/* Connected — send selector now */
+		if (conn_send_selector(&gs->conn,
+		    gs->send_selector) != noErr) {
+			conn_close(&gs->conn);
+			gs->receiving = false;
+			return true;
+		}
+		gs->selector_sent = true;
+		return true;  /* signal transition to receiving */
+	}
 
 	if (gs->conn.state == CONN_STATE_DONE ||
 	    gs->conn.state == CONN_STATE_ERROR) {

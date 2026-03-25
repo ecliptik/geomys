@@ -18,6 +18,7 @@
 #define CONN_STATE_DONE        5
 #define CONN_STATE_ERROR       6
 #define CONN_STATE_CLOSING     7
+#define CONN_STATE_OPENING     8  /* async TCPActiveOpen in progress */
 
 /* TCP buffer sizes */
 #define TCP_RCV_BUFSIZ   8192
@@ -39,6 +40,7 @@ typedef struct {
 	short       read_len;
 	unsigned long pending_data;
 	unsigned long start_tick;   /* TickCount at receive start for timeout */
+	unsigned long connect_start_tick;  /* TickCount at async open start */
 	Boolean     timed_out;     /* set when receive timeout fires */
 	char        host[256];
 	short       port;
@@ -48,9 +50,18 @@ typedef struct {
 /* Initialize MacTCP driver — call at startup for faster first connect */
 void conn_init_tcp(void);
 
+/* DNS LRU cache — 8-entry cache with TTL support */
+void dns_cache_init(void);
+unsigned long dns_cache_lookup(const char *host);
+void dns_cache_store(const char *host, unsigned long ip,
+    unsigned long ttl_seconds);
+
 /* Connect to host:port, showing progress in status_win */
 Boolean conn_connect(Connection *conn, const char *host, short port,
     WindowPtr status_win);
+
+/* Poll async connect — returns 1=in progress, 0=connected, -1=error */
+short conn_connect_poll(Connection *conn);
 
 /* Send selector string + CRLF to initiate Gopher request */
 OSErr conn_send_selector(Connection *conn, const char *selector);

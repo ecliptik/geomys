@@ -34,9 +34,98 @@
 
 static Boolean tcp_initialized = false;
 
-/* Single-entry DNS cache to avoid redundant lookups */
-static char dns_cache_host[80];
-static unsigned long dns_cache_ip;
+/* Multi-entry LRU DNS cache with TTL support */
+#define DNS_CACHE_SIZE   8
+#define DNS_TTL_MIN    300    /* 5 minutes minimum */
+#define DNS_TTL_MAX    3600   /* 1 hour maximum */
+
+typedef struct {
+	char           host[68];       /* hostname (64 + padding) */
+	unsigned long  ip;             /* resolved IP address */
+	unsigned long  expire_tick;    /* TickCount when entry expires */
+	unsigned long  access_tick;    /* last access for LRU eviction */
+} DNSCacheEntry;
+
+static DNSCacheEntry dns_cache[DNS_CACHE_SIZE];
+
+void
+dns_cache_init(void)
+{
+	short i;
+
+	for (i = 0; i < DNS_CACHE_SIZE; i++) {
+		dns_cache[i].host[0] = '\0';
+		dns_cache[i].ip = 0;
+	}
+}
+
+unsigned long
+dns_cache_lookup(const char *host)
+{
+	short i;
+	unsigned long now = TickCount();
+
+	for (i = 0; i < DNS_CACHE_SIZE; i++) {
+		if (dns_cache[i].ip == 0)
+			continue;
+		if (strcmp(host, dns_cache[i].host) != 0)
+			continue;
+		/* Check TTL expiry (signed comparison handles wrap) */
+		if (dns_cache[i].expire_tick != 0 &&
+		    (long)(now - dns_cache[i].expire_tick) > 0) {
+			/* Expired — invalidate */
+			dns_cache[i].ip = 0;
+			dns_cache[i].host[0] = '\0';
+			return 0;
+		}
+		dns_cache[i].access_tick = now;
+		return dns_cache[i].ip;
+	}
+	return 0;
+}
+
+void
+dns_cache_store(const char *host, unsigned long ip,
+    unsigned long ttl_seconds)
+{
+	short i, lru_idx = 0;
+	unsigned long lru_tick = 0xFFFFFFFFUL;
+	unsigned long now = TickCount();
+
+	/* Clamp TTL */
+	if (ttl_seconds < DNS_TTL_MIN)
+		ttl_seconds = DNS_TTL_MIN;
+	if (ttl_seconds > DNS_TTL_MAX)
+		ttl_seconds = DNS_TTL_MAX;
+
+	/* Look for empty slot, existing entry, or LRU victim */
+	for (i = 0; i < DNS_CACHE_SIZE; i++) {
+		/* Reuse existing entry for same host */
+		if (dns_cache[i].ip != 0 &&
+		    strcmp(host, dns_cache[i].host) == 0) {
+			lru_idx = i;
+			break;
+		}
+		/* Empty slot */
+		if (dns_cache[i].ip == 0) {
+			lru_idx = i;
+			break;
+		}
+		/* Track LRU for eviction */
+		if (dns_cache[i].access_tick < lru_tick) {
+			lru_tick = dns_cache[i].access_tick;
+			lru_idx = i;
+		}
+	}
+
+	strncpy(dns_cache[lru_idx].host, host,
+	    sizeof(dns_cache[lru_idx].host) - 1);
+	dns_cache[lru_idx].host[sizeof(dns_cache[lru_idx].host) - 1]
+	    = '\0';
+	dns_cache[lru_idx].ip = ip;
+	dns_cache[lru_idx].expire_tick = now + ttl_seconds * 60L;
+	dns_cache[lru_idx].access_tick = now;
+}
 
 static OSErr
 conn_ensure_tcp(void)
@@ -146,11 +235,13 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 	if (ip != 0) {
 		conn->remote_ip = ip;
 	} else {
-		/* Check single-entry DNS cache first */
-		if (dns_cache_ip != 0 &&
-		    strcmp(conn->host, dns_cache_host) == 0) {
-			conn->remote_ip = dns_cache_ip;
+		/* Check multi-entry LRU DNS cache */
+		ip = dns_cache_lookup(conn->host);
+		if (ip != 0) {
+			conn->remote_ip = ip;
 		} else {
+			unsigned long ttl = 0;
+
 			snprintf(status_msg, sizeof(status_msg),
 			    "Resolving %.50s\311", conn->host);
 			conn_status_update(status_win, status_msg);
@@ -158,17 +249,12 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 			{
 				short dns_err = dns_resolve(
 				    conn->host, &ip,
-				    conn->dns_server);
+				    conn->dns_server, &ttl);
 				switch (dns_err) {
 				case DNS_OK:
 					conn->remote_ip = ip;
-					strncpy(dns_cache_host,
-					    conn->host,
-					    sizeof(dns_cache_host) - 1);
-					dns_cache_host[
-					    sizeof(dns_cache_host) - 1]
-					    = '\0';
-					dns_cache_ip = ip;
+					dns_cache_store(conn->host,
+					    ip, ttl);
 					break;
 				case DNS_ERR_NXDOMAIN: {
 					char msg[180];
@@ -260,28 +346,59 @@ conn_connect(Connection *conn, const char *host, short port,
 	err = _TCPActiveOpen(&conn->pb, conn->stream,
 	    conn->remote_ip, conn->remote_port,
 	    &conn->local_ip, &conn->local_port,
-	    0L, 0L, false);
-	if (err != noErr) {
-		char msg[180];
-
+	    0L, 0L, true);  /* async — returns immediately */
+	if (err != noErr && err != 1) {
+		/* Async call failed to queue — clean up without modal alert */
 		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
 		DisposePtr(conn->rcv_buf);
 		conn->rcv_buf = 0L;
 		conn->stream = 0L;
-		snprintf(msg, sizeof(msg),
-		    "Could not connect to \xD4%.50s\xD5 "
-		    "on port %d. The server may be "
-		    "down or unreachable.",
-		    conn->host, conn->port);
-		return conn_fail(conn, msg);
+		conn->state = CONN_STATE_ERROR;
+		return false;
 	}
+
+	/* Async open started — poll from idle loop */
+	conn->state = CONN_STATE_OPENING;
+	conn->connect_start_tick = TickCount();
+	return true;
+}
+
+short
+conn_connect_poll(Connection *conn)
+{
+	if (conn->state != CONN_STATE_OPENING)
+		return -1;
+
+	/* Check async operation status */
+	if (conn->pb.ioResult == 1) {
+		/* Still in progress — check for timeout */
+		if (TickCount() - conn->connect_start_tick >
+		    CONN_TIMEOUT_TICKS) {
+			conn_close(conn);
+			conn->timed_out = true;
+			conn->state = CONN_STATE_ERROR;
+			return -1;
+		}
+		return 1;  /* still connecting */
+	}
+
+	if (conn->pb.ioResult != noErr) {
+		/* Connection failed — release stream + buffer */
+		conn_close(conn);
+		conn->state = CONN_STATE_ERROR;
+		return -1;
+	}
+
+	/* Connected — read back local address from completed pb */
+	conn->local_ip = conn->pb.csParam.open.localHost;
+	conn->local_port = conn->pb.csParam.open.localPort;
 
 	InitCursor();
 	conn->state = CONN_STATE_RECEIVING;
 	conn->start_tick = TickCount();
 	conn->timed_out = false;
 	conn->read_len = 0;
-	return true;
+	return 0;  /* connected */
 }
 
 OSErr

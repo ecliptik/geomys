@@ -22,6 +22,7 @@
  * Returns DNS_OK on success with *ip set to the resolved address.
  * Returns DNS_ERR_* on failure.
  */
-short dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server);
+short dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server,
+    unsigned long *ttl);
 
 #endif /* DNS_H */
