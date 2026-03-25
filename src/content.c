@@ -2618,9 +2618,27 @@ scroll_action(ControlHandle ctl, short part)
 		    update_rgn);
 		DisposeRgn(update_rgn);
 
+		/* Draw exposed rows through offscreen buffer
+		 * to prevent flicker on real 68000 hardware */
 		{
 			const void *st = theme_current();
+#ifdef GEOMYS_OFFSCREEN
+			Rect partial;
+			short use_offscreen = offscreen_is_ready();
 
+			if (use_offscreen) {
+				/* Blit rect covers only exposed rows */
+				partial = cr;
+				if (delta > 0) {
+					partial.top = cr.top +
+					    (vis - 1) * g_row_height;
+				} else {
+					partial.bottom = cr.top +
+					    g_row_height;
+				}
+				offscreen_begin(win);
+			}
+#endif
 			if (g_page->page_type == PAGE_DIRECTORY) {
 				if (delta > 0) {
 					content_draw_row(win,
@@ -2646,6 +2664,10 @@ scroll_action(ControlHandle ctl, short part)
 					    g_scroll_pos, &cr, st);
 				}
 			}
+#ifdef GEOMYS_OFFSCREEN
+			if (use_offscreen)
+				offscreen_end(win, &partial);
+#endif
 		}
 	} else {
 		/* Page/thumb scroll — full redraw with
@@ -2810,6 +2832,13 @@ content_update_font(void)
 
 	g_font_id = g_prefs.font_id;
 	g_font_size = g_prefs.font_size;
+
+	/* Reset horizontal scroll so content starts from
+	 * the left edge after a font/size change */
+	g_hscroll_pos = 0;
+	if (g_hscrollbar)
+		SetControlValue(g_hscrollbar, 0);
+
 	content_mark_all_dirty();
 
 	/* Measure row height from font metrics */
@@ -3500,7 +3529,9 @@ hscroll_action(ControlHandle ctl, short part)
 	GetPort(&save);
 	SetPort(win);
 
-	/* Full redraw for horizontal scroll */
+	/* Full redraw for horizontal scroll — offscreen
+	 * buffering prevents flicker, and ClipRect-based
+	 * strip optimization conflicts with CopyBits */
 	content_draw(win);
 
 	SetPort(save);

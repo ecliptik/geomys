@@ -1395,15 +1395,21 @@ do_navigate_url_titled(const char *url, const char *title)
 	g_app_state = APP_STATE_LOADING;
 	content_scroll_to_top();
 
-	/* Show loading state in title bar and status bar */
+	/* Show loading state in title bar and status bar.
+	 * Blank content area immediately so stale content
+	 * does not persist while the new page loads. */
 	set_wtitlef(g_window, "Loading %.50s\311", host);
 	snprintf(uri, sizeof(uri), "Loading %.50s\311", host);
 	browser_set_status(uri);
 	{
 		GrafPtr save;
+		Rect cr;
 
 		GetPort(&save);
 		SetPort(g_window);
+		content_get_rect(g_window, &cr);
+		EraseRect(&cr);
+		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
 	}
@@ -1427,6 +1433,8 @@ do_navigate_url_titled(const char *url, const char *title)
 		browser_draw_status(g_window);
 		SetPort(save);
 	} else {
+		GrafPtr save;
+
 		/* Success — push to history.
 		 * Scroll was saved before content_scroll_to_top.
 		 * Invalidate forward cache entries since
@@ -1439,6 +1447,10 @@ do_navigate_url_titled(const char *url, const char *title)
 		    (title && title[0]) ? title : host,
 		    0L);
 		update_nav_buttons();
+		/* Content area was already blanked by EraseRect
+		 * before gopher_navigate(). The idle loop will
+		 * progressively draw content and update the
+		 * status bar with item counts as data arrives. */
 	}
 }
 
@@ -1460,11 +1472,17 @@ do_refresh(void)
 
 	g_app_state = APP_STATE_LOADING;
 	browser_set_status("Loading\311");
+
+	/* Blank content area and show loading status immediately */
 	{
 		GrafPtr save;
+		Rect cr;
 
 		GetPort(&save);
 		SetPort(g_window);
+		content_get_rect(g_window, &cr);
+		EraseRect(&cr);
+		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
 	}
@@ -1490,6 +1508,8 @@ do_refresh(void)
 		SetPort(save);
 	} else {
 		update_nav_buttons();
+		/* Content area was already blanked by EraseRect.
+		 * The idle loop handles progressive drawing. */
 	}
 }
 
@@ -1609,17 +1629,30 @@ do_search_dialog(const char *title, const char *host,
 			g_app_state = APP_STATE_LOADING;
 			content_scroll_to_top();
 
-			/* Show loading state in title bar
-			 * and status bar */
+			/* Show loading state and blank content */
 			set_wtitlef(g_window, "Loading %.50s\311",
 			    host);
 			snprintf(uri, sizeof(uri),
 			    "Loading %.50s\311", host);
 			browser_set_status(uri);
+			{
+				GrafPtr save;
+				Rect cr;
+
+				GetPort(&save);
+				SetPort(g_window);
+				content_get_rect(g_window, &cr);
+				EraseRect(&cr);
+				content_update_scroll(g_window);
+				browser_draw_status(g_window);
+				SetPort(save);
+			}
 
 			SetCursor(*GetCursor(watchCursor));
 			if (gopher_navigate(&g_gopher, host, port,
 			    GOPHER_DIRECTORY, full_sel)) {
+				GrafPtr save;
+
 #ifdef GEOMYS_CACHE
 				cache_invalidate_from(
 				    active_session->id,
@@ -1633,6 +1666,7 @@ do_search_dialog(const char *title, const char *host,
 				    GOPHER_SEARCH, selector,
 				    search_title, query);
 				update_nav_buttons();
+				/* Idle loop handles progressive draw */
 			} else {
 				InitCursor();
 
@@ -1734,16 +1768,30 @@ do_cso_dialog(const char *title, const char *host,
 			g_app_state = APP_STATE_LOADING;
 			content_scroll_to_top();
 
-			/* Show loading state */
+			/* Show loading state and blank content */
 			set_wtitlef(g_window, "Loading %.50s\311",
 			    host);
 			snprintf(uri, sizeof(uri),
 			    "Loading %.50s\311", host);
 			browser_set_status(uri);
+			{
+				GrafPtr save;
+				Rect cr;
+
+				GetPort(&save);
+				SetPort(g_window);
+				content_get_rect(g_window, &cr);
+				EraseRect(&cr);
+				content_update_scroll(g_window);
+				browser_draw_status(g_window);
+				SetPort(save);
+			}
 
 			SetCursor(*GetCursor(watchCursor));
 			if (gopher_navigate(&g_gopher, host, port,
 			    GOPHER_CSO, full_sel)) {
+				GrafPtr save;
+
 #ifdef GEOMYS_CACHE
 				cache_invalidate_from(
 				    active_session->id,
@@ -1757,6 +1805,7 @@ do_cso_dialog(const char *title, const char *host,
 				    GOPHER_CSO, selector,
 				    cso_title, query);
 				update_nav_buttons();
+				/* Idle loop handles progressive draw */
 			} else {
 				InitCursor();
 
@@ -2222,11 +2271,16 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	    e->type, e->selector);
 	browser_set_url(uri);
 
+	/* Blank content area and draw loading state */
 	{
 		GrafPtr save;
+		Rect cr;
 
 		GetPort(&save);
 		SetPort(g_window);
+		content_get_rect(g_window, &cr);
+		EraseRect(&cr);
+		content_update_scroll(g_window);
 		browser_draw(g_window);
 		SetPort(save);
 	}
@@ -2277,6 +2331,8 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
+		} else {
+		/* Idle loop handles progressive draw */
 		}
 	}
 

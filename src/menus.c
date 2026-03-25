@@ -1510,7 +1510,10 @@ handle_menu(long menu_id)
 					CheckItem(theme_submenu, t, t == item);
 			}
 
-			/* Save and redraw ALL windows */
+			/* Save and redraw ALL windows.
+			 * Erase content to new bg color first so
+			 * the background flips in one frame, then
+			 * content renders on top. */
 			prefs_save(&g_prefs);
 			{
 				short wi;
@@ -1518,8 +1521,16 @@ handle_menu(long menu_id)
 					BrowserSession *s = session_get(wi);
 					if (s && s->window) {
 						GrafPtr save;
+						Rect cr;
+
 						GetPort(&save);
 						SetPort(s->window);
+
+						/* Instant bg flip */
+						content_get_rect(s->window, &cr);
+						theme_set_bg(&theme_current()->bg);
+						EraseRect(&cr);
+
 						content_mark_all_dirty();
 						content_recalc_width(s->window);
 						content_update_scroll(s->window);

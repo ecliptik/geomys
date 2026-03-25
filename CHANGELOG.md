@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — Scroll & Rendering Improvements
+
+### Fixed
+- Stale content visible during page navigation: content area now blanks immediately when navigating, refreshing, searching, or traversing history — eliminates ~2 second mismatch between title bar and page content
+- Progressive theme transition flash: switching themes now erases content to the new background color in one frame before redrawing, replacing the visible top-to-bottom "wave" effect
+- Horizontal scroll position not resetting on font/size change: `g_hscroll_pos` and scrollbar now reset to 0 so content starts from the left edge after font changes
+
+### Performance
+- Horizontal scroll arrow keys use `ScrollRect` pixel-shifting with clipped strip redraw, matching the existing vertical scroll optimization (previously did a full `content_draw` per step)
+- Line-scroll exposed rows wrapped in offscreen double buffer (`offscreen_begin`/`offscreen_end` with partial blit rect) to prevent flicker on real 68000 hardware at 8MHz
+
 ## [Unreleased] — Menu HIG Overhaul
 
 ### Changed
