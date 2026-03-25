@@ -169,6 +169,7 @@ void navigate_history_to(short index);
 /* Globals (defined in main.c) */
 extern Boolean g_running;
 extern Boolean g_suspended;
+extern EventRecord *g_current_event;  /* current event for drag support */
 
 /*
  * Per-session state accessed through active_session.

@@ -17,6 +17,8 @@ option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
 option(GEOMYS_PRINT        "Enable printing support"            ON)
 option(GEOMYS_HTML         "Enable HTML tag stripping"          ON)
 option(GEOMYS_TELNET       "Enable telnet connection info"      ON)
+option(GEOMYS_DRAG         "Enable Drag Manager support"        ON)
+option(GEOMYS_APPLESCRIPT  "Enable AppleScript support"         ON)
 
 # Maximum simultaneous windows (1 = single-window, zero overhead)
 if(NOT DEFINED GEOMYS_MAX_WINDOWS)
@@ -91,6 +93,9 @@ endif()
 if(GEOMYS_THEMES)
     list(APPEND GEOMYS_SOURCES src/theme.c)
 endif()
+if(GEOMYS_DRAG)
+    list(APPEND GEOMYS_SOURCES src/drag.c)
+endif()
 
 add_application(Geomys ${GEOMYS_SOURCES} resources/geomys.r)
 
@@ -117,6 +122,8 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_PRINT}>:GEOMYS_PRINT>
     $<$<BOOL:${GEOMYS_HTML}>:GEOMYS_HTML>
     $<$<BOOL:${GEOMYS_TELNET}>:GEOMYS_TELNET>
+    $<$<BOOL:${GEOMYS_DRAG}>:GEOMYS_DRAG>
+    $<$<BOOL:${GEOMYS_APPLESCRIPT}>:GEOMYS_APPLESCRIPT>
     GEOMYS_MAX_WINDOWS=${GEOMYS_MAX_WINDOWS}
     CACHE_MAX=${CACHE_MAX}
 )

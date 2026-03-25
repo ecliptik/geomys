@@ -96,6 +96,9 @@ Boolean browser_cursor_update(WindowPtr win, Point local_pt);
 /* Dynamic status bar height: STATUSBAR_HEIGHT when visible, 0 when hidden */
 short status_bar_height(void);
 
+/* Get address bar rect (for drag highlight targeting) */
+void browser_get_addr_rect(Rect *r);
+
 /* Get content area rect (below nav bar, above status bar) */
 void browser_get_content_rect(WindowPtr win, Rect *r);
 

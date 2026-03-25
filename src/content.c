@@ -30,6 +30,9 @@
 #include "cp437.h"
 #include "glyphs.h"
 #endif
+#ifdef GEOMYS_DRAG
+#include "drag.h"
+#endif
 
 /* Module state */
 static ControlHandle g_scrollbar = 0L;
@@ -2019,6 +2022,49 @@ do_directory_navigate(WindowPtr win, GopherState *gs,
 	/* Info lines are not clickable */
 	if (item->type == GOPHER_INFO)
 		return false;
+
+#ifdef GEOMYS_DRAG
+	/* Drag detection: if Drag Manager available and item is
+	 * navigable, track mouse for drag threshold before navigating */
+	if (drag_available() && g_current_event &&
+	    gopher_type_navigable(item->type)) {
+		Point start_pt, pt;
+		short dx, dy;
+
+		start_pt.h = g_current_event->where.h;
+		start_pt.v = g_current_event->where.v;
+		GlobalToLocal(&start_pt);
+
+		while (StillDown()) {
+			GetMouse(&pt);
+			dx = pt.h - start_pt.h;
+			dy = pt.v - start_pt.v;
+			if (dx < 0) dx = -dx;
+			if (dy < 0) dy = -dy;
+
+			if (dx > 3 || dy > 3) {
+				/* Threshold exceeded — start drag */
+				char uri[300];
+
+				gopher_build_uri(uri, sizeof(uri),
+				    item->host, item->port,
+				    item->type, item->selector);
+
+				y_off = (clicked_row - g_scroll_pos)
+				    * g_row_height;
+				SetRect(&hilite_r,
+				    r.left, r.top + y_off,
+				    r.right,
+				    r.top + y_off + g_row_height);
+
+				drag_start_url(win, g_current_event,
+				    uri, &hilite_r);
+				return false;
+			}
+		}
+		/* Mouse released without drag — fall through to navigate */
+	}
+#endif
 
 	/* Inverse highlight feedback */
 	y_off = (clicked_row - g_scroll_pos) * g_row_height;

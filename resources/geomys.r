@@ -1285,6 +1285,59 @@ data 'GEOM' (0, "Owner resource") {
 	"Geomys - Gopher Browser"
 };
 
+/* AppleScript terminology — defines scriptable vocabulary.
+ * Suite 'GEOM' with events: navigate (GURL), get URL (gURL). */
+data 'aete' (0, "Geomys Scripting") {
+	/* Header: version 1.0, English, Roman, 1 suite */
+	$"0100 0000 0000 0001"
+
+	/* Suite name: "Geomys Suite" (padded) */
+	$"0C" "Geomys Suite" $"00"
+	/* Suite description */
+	$"13" "Commands for Geomys"
+	/* Suite ID, level, version */
+	$"4745 4F4D"                   /* GEOM */
+	$"0001 0001"                   /* level 1, version 1 */
+
+	/* 2 events */
+	$"0002"
+
+	/* Event 1: navigate — navigate to a gopher:// URL */
+	$"08" "navigate" $"00"         /* name (padded) */
+	$"11" "Navigate to a URL"      /* description */
+	$"4745 4F4D"                   /* class: GEOM */
+	$"4755 524C"                   /* ID: GURL */
+	/* Reply: none */
+	$"6E75 6C6C"                   /* type: null */
+	$"00" $"00"                    /* description: empty (padded) */
+	$"0000"                        /* flags */
+	/* Direct parameter: URL text */
+	$"5445 5854"                   /* type: TEXT */
+	$"07" "The URL"                /* description */
+	$"8000"                        /* flags: required */
+	/* No other parameters */
+	$"0000"
+
+	/* Event 2: get URL — return current page URL */
+	$"07" "get URL"                /* name */
+	$"14" "Get current page URL" $"00"  /* description (padded) */
+	$"4745 4F4D"                   /* class: GEOM */
+	$"6755 524C"                   /* ID: gURL */
+	/* Reply: URL text */
+	$"5445 5854"                   /* type: TEXT */
+	$"0F" "The current URL"        /* description */
+	$"8000"                        /* flags: required */
+	/* Direct parameter: none */
+	$"6E75 6C6C"                   /* type: null */
+	$"00" $"00"                    /* description: empty (padded) */
+	$"0000"                        /* flags */
+	/* No other parameters */
+	$"0000"
+
+	/* 0 classes, 0 comparison ops, 0 enumerations */
+	$"0000 0000 0000"
+};
+
 resource 'SIZE' (-1) {
 	reserved,
 	acceptSuspendResumeEvents,
@@ -1297,7 +1350,7 @@ resource 'SIZE' (-1) {
 	is32BitCompatible,
 	isHighLevelEventAware,
 	onlyLocalHLEvents,
-	notStationeryAware,
+	isStationeryAware,
 	dontUseTextEditServices,
 	reserved,
 	reserved,

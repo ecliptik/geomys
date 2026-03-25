@@ -52,10 +52,14 @@
 #ifdef GEOMYS_PRINT
 #include "print.h"
 #endif
+#ifdef GEOMYS_DRAG
+#include "drag.h"
+#endif
 
 /* Globals */
 Boolean g_running = true;
 Boolean g_suspended = false;
+EventRecord *g_current_event = 0L;
 GeomysPrefs g_prefs;
 
 /* Saved system key repeat settings (restored on quit) */
@@ -65,6 +69,8 @@ static short saved_key_rep_thresh;
 /* Notification Manager — alert user when page loads in background */
 static NMRec g_nm_rec;
 static Boolean g_nm_posted = false;
+static Handle g_nm_icon = 0L;	/* SICN handle for menu bar icon */
+static Str255 g_nm_str = "\pGeomys: Page loaded";
 
 #ifdef GEOMYS_PRINT
 /* Print-after-load: set by kAEPrintDocuments handler */
@@ -261,6 +267,55 @@ ae_print_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 #endif
 }
 
+#ifdef GEOMYS_APPLESCRIPT
+/*
+ * Custom AppleScript event handlers (System 7+).
+ * Event class 'GEOM', events: 'GURL' (navigate), 'gURL' (get URL).
+ */
+static pascal OSErr
+ae_script_navigate(const AppleEvent *evt, AppleEvent *reply,
+    long refcon)
+{
+	DescType rt;
+	Size actual;
+	char url[300];
+	OSErr err;
+
+	(void)reply; (void)refcon;
+
+	err = AEGetParamPtr(evt, keyDirectObject, typeChar,
+	    &rt, url, sizeof(url) - 1, &actual);
+	if (err != noErr)
+		return err;
+	url[actual] = '\0';
+
+	if (actual > 9 && strncmp(url, "gopher://", 9) == 0) {
+		do_navigate_url(url);
+		return noErr;
+	}
+
+	return errAEEventNotHandled;
+}
+
+static pascal OSErr
+ae_script_get_url(const AppleEvent *evt, AppleEvent *reply,
+    long refcon)
+{
+	char uri[300];
+
+	(void)evt; (void)refcon;
+
+	gopher_build_uri(uri, sizeof(uri),
+	    g_gopher.cur_host, g_gopher.cur_port,
+	    g_gopher.cur_type, g_gopher.cur_selector);
+
+	AEPutParamPtr(reply, keyDirectObject, typeChar,
+	    uri, strlen(uri));
+
+	return noErr;
+}
+#endif /* GEOMYS_APPLESCRIPT */
+
 static void
 init_apple_events(void)
 {
@@ -280,6 +335,16 @@ init_apple_events(void)
 		AEInstallEventHandler(kCoreEventClass,
 		    kAEPrintDocuments,
 		    NewAEEventHandlerUPP(ae_print_doc), 0L, false);
+
+#ifdef GEOMYS_APPLESCRIPT
+		/* Custom AppleScript events (System 7+) */
+		AEInstallEventHandler('GEOM', 'GURL',
+		    NewAEEventHandlerUPP(ae_script_navigate),
+		    0L, false);
+		AEInstallEventHandler('GEOM', 'gURL',
+		    NewAEEventHandlerUPP(ae_script_get_url),
+		    0L, false);
+#endif
 	}
 }
 
@@ -288,6 +353,9 @@ main(void)
 {
 	init_toolbox();
 	init_apple_events();
+#ifdef GEOMYS_DRAG
+	drag_init();
+#endif
 
 	/* Load preferences before menus so checkmarks are correct */
 	prefs_load(&g_prefs);
@@ -430,6 +498,10 @@ create_session_window(BrowserSession *s)
 		s->window = NewWindow(0L, &bounds, "\pGeomys", true,
 		    8, (WindowPtr)-1L, true, 0L);
 	}
+
+#ifdef GEOMYS_DRAG
+	drag_install_handlers(s->window);
+#endif
 }
 
 /*
@@ -946,12 +1018,16 @@ handle_page_loaded(void)
 
 	/* Post notification if loading completed in background */
 	if (g_suspended && !g_nm_posted) {
+		/* Load SICN for menu bar icon (once) */
+		if (!g_nm_icon)
+			g_nm_icon = GetResource('SICN', 263);  /* Globe */
+
 		memset(&g_nm_rec, 0, sizeof(g_nm_rec));
 		g_nm_rec.qType = 8;	/* nmType */
 		g_nm_rec.nmMark = 1;
 		g_nm_rec.nmSound = (Handle)-1;
-		g_nm_rec.nmIcon = 0L;
-		g_nm_rec.nmStr = 0L;
+		g_nm_rec.nmIcon = g_nm_icon;
+		g_nm_rec.nmStr = g_nm_str;
 		g_nm_rec.nmResp = 0L;	/* nil — we handle removal on resume */
 		NMInstall(&g_nm_rec);
 		g_nm_posted = true;
@@ -2878,9 +2954,11 @@ handle_mouse_down(EventRecord *event)
 					    ctl_part);
 				} else {
 					/* Content area click */
+					g_current_event = event;
 					content_click(win,
 					    local_pt,
 					    &g_gopher);
+					g_current_event = 0L;
 				}
 			}
 			/* -2 = address bar, -3 = disabled btn — handled */

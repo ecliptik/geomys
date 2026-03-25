@@ -760,6 +760,12 @@ browser_cursor_update(WindowPtr win, Point local_pt)
 }
 
 void
+browser_get_addr_rect(Rect *r)
+{
+	*r = g_addr_rect;
+}
+
+void
 browser_get_content_rect(WindowPtr win, Rect *r)
 {
 	SetRect(r, 0, NAV_BAR_HEIGHT,

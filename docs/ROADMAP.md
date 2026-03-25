@@ -557,6 +557,41 @@ Full Gopher+ attribute fetch and display for items on Gopher+ servers.
 
 ---
 
+## v0.14.0 — System 7 Polish
+
+### Phase 1: Stationery & Notifications
+**Status: Complete**
+
+Stationery pad support and improved background page-load notifications.
+
+- SIZE resource: `isStationeryAware` flag for stationery pad template files
+- Notification Manager: SICN icon handle (`nmIcon`) and descriptive Pascal string (`nmStr`) for background page-load alerts on System 7
+
+### Phase 2: AppleScript Support
+**Status: Complete**
+
+Scriptable vocabulary for automation on System 7+.
+
+- `aete` resource (ID 0): "Geomys Suite" (`GEOM`) with level 1, version 1
+- Event `navigate` (`GEOM`/`GURL`): navigate to a `gopher://` URL (direct parameter, typeChar)
+- Event `get URL` (`GEOM`/`gURL`): return current page URL as text (reply parameter, typeChar)
+- `AEInstallEventHandler` calls Gestalt-gated for System 7+
+
+### Phase 3: Drag Manager
+**Status: Complete**
+
+URL drag-and-drop via Drag Manager on System 7.5+.
+
+- Drag OUT: drag a link from content area to Desktop or other apps — creates text clipping with `TEXT` flavor
+- Drag IN: drop a text clipping or URL into any Geomys window — navigates if `gopher://` prefix detected
+- Gestalt-gated via `gestaltDragMgrAttr`; no-op on System 6/7.0–7.1
+- New files: `src/drag.c`, `src/drag.h`
+- Feature flag: `GEOMYS_DRAG` with conditional compilation
+- Drag Manager trap bindings via `M68K_INLINE` dispatch (`0xABED`)
+- Tracking handler highlights drop target; receive handler extracts URL and navigates
+
+---
+
 ## Future Features
 
 (None planned)

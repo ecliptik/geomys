@@ -74,7 +74,9 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 - Print support via Printing Manager
 - Show Clipboard and Save As per HIG standard Edit and File menus
 - List Manager for Favorites with keyboard type-ahead and scrolling
-- MultiFinder, Apple Events, and Notification Manager support
+- AppleScript support: `navigate` and `get URL` commands for scripted automation (System 7+)
+- Drag and drop: drag links to Desktop as text clippings, drop URLs to navigate (System 7.5+)
+- MultiFinder, Apple Events, Notification Manager, and stationery pad support
 - Balloon Help and SICN menu icons on System 7
 - Dynamic window sizing for large screens and multi-monitor support
 - Aligned with Apple Human Interface Guidelines (1992)

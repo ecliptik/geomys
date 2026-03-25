@@ -21,6 +21,8 @@ GEOMYS_CACHE=ON
 GEOMYS_CLIPBOARD=ON
 GEOMYS_HTML=ON
 GEOMYS_TELNET=ON
+GEOMYS_DRAG=ON
+GEOMYS_APPLESCRIPT=ON
 GEOMYS_MAX_WINDOWS=4
 
 PRESET=""
@@ -43,6 +45,8 @@ apply_preset() {
             GEOMYS_CLIPBOARD=OFF
             GEOMYS_HTML=OFF
             GEOMYS_TELNET=OFF
+            GEOMYS_DRAG=OFF
+            GEOMYS_APPLESCRIPT=OFF
             GEOMYS_MAX_WINDOWS=1
             ;;
         lite|macplus)
@@ -60,6 +64,8 @@ apply_preset() {
             GEOMYS_CLIPBOARD=ON
             GEOMYS_HTML=ON
             GEOMYS_TELNET=ON
+            GEOMYS_DRAG=OFF
+            GEOMYS_APPLESCRIPT=OFF
             GEOMYS_MAX_WINDOWS=2
             ;;
         full|default)
@@ -77,6 +83,8 @@ apply_preset() {
             GEOMYS_CLIPBOARD=ON
             GEOMYS_HTML=ON
             GEOMYS_TELNET=ON
+            GEOMYS_DRAG=ON
+            GEOMYS_APPLESCRIPT=ON
             GEOMYS_MAX_WINDOWS=4
             ;;
         *)
@@ -139,6 +147,10 @@ while [[ $# -gt 0 ]]; do
         --no-html)       GEOMYS_HTML=OFF;             shift ;;
         --telnet)        GEOMYS_TELNET=ON;            shift ;;
         --no-telnet)     GEOMYS_TELNET=OFF;           shift ;;
+        --drag)          GEOMYS_DRAG=ON;              shift ;;
+        --no-drag)       GEOMYS_DRAG=OFF;             shift ;;
+        --applescript)   GEOMYS_APPLESCRIPT=ON;       shift ;;
+        --no-applescript) GEOMYS_APPLESCRIPT=OFF;     shift ;;
         --max-windows)   GEOMYS_MAX_WINDOWS="$2";    shift 2 ;;
         *)
             MAKE_ARGS+=("$1")
@@ -261,6 +273,8 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_THEMES="$GEOMYS_THEMES" \
     -DGEOMYS_HTML="$GEOMYS_HTML" \
     -DGEOMYS_TELNET="$GEOMYS_TELNET" \
+    -DGEOMYS_DRAG="$GEOMYS_DRAG" \
+    -DGEOMYS_APPLESCRIPT="$GEOMYS_APPLESCRIPT" \
     -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS"
 make "${MAKE_ARGS[@]}"
 
@@ -324,7 +338,7 @@ cp "$BUILD_DIR/Geomys.dsk" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.dsk"
 # --- Build summary ---
 ENABLED=""
 DISABLED=""
-for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache clipboard color themes download html telnet; do
+for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache clipboard color themes download html telnet drag applescript; do
     case $feat in
         offscreen)    val=$GEOMYS_OFFSCREEN ;;
         statusbar)    val=$GEOMYS_STATUS_BAR ;;
@@ -340,6 +354,8 @@ for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache 
         download)     val=$GEOMYS_DOWNLOAD ;;
         html)         val=$GEOMYS_HTML ;;
         telnet)       val=$GEOMYS_TELNET ;;
+        drag)         val=$GEOMYS_DRAG ;;
+        applescript)  val=$GEOMYS_APPLESCRIPT ;;
     esac
     if [ "$val" = "ON" ]; then
         ENABLED="$ENABLED $feat"

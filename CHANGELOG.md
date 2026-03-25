@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] — System 7 Polish
+
+### Added
+- Stationery Aware: SIZE resource `isStationeryAware` flag enables stationery pad support — users can create Gopher URL template files that open as new documents
+- Notification Manager improved: background page-load notifications now include SICN icon in the menu bar diamond and descriptive "\pGeomys: Page loaded" message string (System 7)
+- AppleScript support: `aete` resource defines "Geomys Suite" (`GEOM`) with two scriptable events — `navigate` (navigate to a `gopher://` URL) and `get URL` (return current page URL); Gestalt-gated for System 7+
+- Drag Manager support (System 7.5+): drag links from content area to Desktop or other apps as text clippings (`TEXT` flavor); drop `gopher://` URLs into any Geomys window to navigate; Gestalt-gated via `gestaltDragMgrAttr`
+- `GEOMYS_DRAG` feature flag with `drag.c`/`drag.h` module and conditional compilation
+- Drag Manager trap bindings: `NewDrag`, `TrackDrag`, `AddDragItemFlavor`, `InstallTrackingHandler`, `InstallReceiveHandler` via `M68K_INLINE` dispatch (`0xABED`)
+
+### Changed
+- SIZE resource: `notStationeryAware` → `isStationeryAware`
+- Notification Manager: `nmIcon` and `nmStr` fields populated (were previously `0L`)
+
 ## [0.13.0] — Gopher+ Get Info & Prefs Icon
 
 ### Added

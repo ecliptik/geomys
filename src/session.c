@@ -13,6 +13,7 @@
 #include "content.h"
 #include "gopher.h"
 #include "connection.h"
+#include "drag.h"
 
 #if GEOMYS_MAX_WINDOWS == 1
 
@@ -53,6 +54,11 @@ session_destroy(BrowserSession *s)
 		TEDispose(s->addr_te);
 		s->addr_te = 0L;
 	}
+
+	/* Remove drag handlers before window disposal */
+#ifdef GEOMYS_DRAG
+	drag_remove_handlers(s->window);
+#endif
 
 	/* DisposeWindow auto-disposes controls (scrollbar) */
 	if (s->window) {
@@ -153,6 +159,11 @@ session_destroy(BrowserSession *s)
 		TEDispose(s->addr_te);
 		s->addr_te = 0L;
 	}
+
+	/* Remove drag handlers before window disposal */
+#ifdef GEOMYS_DRAG
+	drag_remove_handlers(s->window);
+#endif
 
 	/* DisposeWindow auto-disposes controls (scrollbar) */
 	if (s->window) {
