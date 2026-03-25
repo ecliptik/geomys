@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(Geomys VERSION 0.12.0)
+project(Geomys VERSION 0.14.0)
 
 # --- Feature flags with defaults (all ON for full preset) ---
 option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     ON)

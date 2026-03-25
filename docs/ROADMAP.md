@@ -515,15 +515,18 @@ Fix stale content, theme flash, and scroll rendering issues.
 - Horizontal scroll uses `ScrollRect` pixel-shifting (was full `content_draw`)
 - Line-scroll exposed rows wrapped in offscreen double buffer
 
-### Phase 6: Async TCP Connect
+### Phase 6: Async TCP Connect & DNS Cache
 **Status: Complete**
 
-Non-blocking TCP connections keep the UI responsive during handshakes.
+Non-blocking TCP connections keep the UI responsive during handshakes. Multi-entry DNS cache accelerates repeat visits.
 
 - `_TCPActiveOpen` called asynchronously with idle-loop polling via `conn_connect_poll()`
 - Selector send deferred until connection completes, stored in per-session `send_selector` buffer
 - `CONN_STATE_OPENING` state for async handshake in progress
 - Timeout detection during async handshake
+- 8-entry LRU DNS cache: stores hostname, IP, TTL-based expiry, and last access time
+- TTL extracted from DNS A record response, clamped to 5min–1hr
+- Back/forward and multi-server browsing skip DNS resolution for cached hosts
 
 ---
 
@@ -594,4 +597,13 @@ URL drag-and-drop via Drag Manager on System 7.5+.
 
 ## Future Features
 
-(None planned)
+### Potential v1.0 — Release Candidate
+
+Polish pass and final release.
+
+- Version resource bump and release packaging for v0.13.0+ features
+- Persistent browsing history saved to preferences file across sessions
+- Gopher+ ASK form support (interactive queries beyond `!` attributes)
+- Inline image display for GIF (QuickDraw `DrawPicture` from decoded frames)
+- Bookmarks import/export (plain text `gopher://` URL list)
+- Final documentation pass and release notes
