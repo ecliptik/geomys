@@ -239,6 +239,35 @@ browser_draw(WindowPtr win)
 	browser_draw_status(win);
 }
 
+/*
+ * browser_draw_buttons - Redraw only nav buttons and action button.
+ * Avoids erasing/redrawing the address bar, preventing the flash
+ * that occurs when the entire nav bar is redrawn on navigation.
+ */
+void
+browser_draw_buttons(WindowPtr win)
+{
+	short i;
+
+#ifdef GEOMYS_COLOR
+	set_system_chrome_colors(win);
+#endif
+
+	for (i = 0; i < NAV_BTN_COUNT; i++)
+		draw_nav_button(i, false);
+
+	draw_action_button(win, false);
+
+#ifdef GEOMYS_COLOR
+	if (g_has_color_qd) {
+		RGBColor black = { 0, 0, 0 };
+		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
+		RGBForeColor(&black);
+		RGBBackColor(&white);
+	}
+#endif
+}
+
 static void
 draw_nav_bar(WindowPtr win)
 {

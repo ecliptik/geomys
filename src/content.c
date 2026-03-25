@@ -743,7 +743,7 @@ content_draw_row(WindowPtr win, short row_index,
 
 	/* Skip if not visible */
 	if (row_index < g_scroll_pos ||
-	    row_index > g_scroll_pos + visible_rows(win))
+	    row_index >= g_scroll_pos + visible_rows(win))
 		return;
 
 	if (!g_in_full_draw && g_clip_rgn) {
@@ -1109,7 +1109,7 @@ content_draw_text_row(WindowPtr win, short line_index,
 
 	/* Skip if not visible */
 	if (line_index < g_scroll_pos ||
-	    line_index > g_scroll_pos + visible_rows(win))
+	    line_index >= g_scroll_pos + visible_rows(win))
 		return;
 
 	if (!g_in_full_draw && g_clip_rgn) {
@@ -1311,7 +1311,7 @@ content_draw(WindowPtr win)
 	}
 
 	start_row = g_scroll_pos;
-	end_row = start_row + visible_rows(win) + 1;
+	end_row = start_row + visible_rows(win);
 	last_y = r.top;
 
 #ifdef GEOMYS_CLIPBOARD
@@ -3503,7 +3503,7 @@ content_calc_max_width(WindowPtr win)
 
 			len = strlen(line);
 			if (len > 255) len = 255;
-			w = TextWidth(line, 0, len) + 8;
+			w = TextWidth(line, 0, len) + 5;
 			if (w > g_content_max_width)
 				g_content_max_width = w;
 		}
@@ -3540,11 +3540,11 @@ content_calc_max_width(WindowPtr win)
 				xlen = cp437_translate(xlated,
 				    ls, xlen);
 				w = TextWidth(xlated, 0, xlen)
-				    + 8;
+				    + 5;
 			} else
 #endif
 				w = TextWidth((Ptr)ls, 0, ll)
-				    + 8;
+				    + 5;
 			if (w > g_content_max_width)
 				g_content_max_width = w;
 		}

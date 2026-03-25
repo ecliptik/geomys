@@ -56,6 +56,9 @@ void browser_cleanup(void);
 /* Draw the full browser chrome (nav bar + status bar) */
 void browser_draw(WindowPtr win);
 
+/* Draw only nav buttons and action button (no address bar redraw) */
+void browser_draw_buttons(WindowPtr win);
+
 /* Draw just the status bar with current message */
 void browser_draw_status(WindowPtr win);
 

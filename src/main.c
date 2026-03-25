@@ -2386,7 +2386,7 @@ update_nav_buttons(void)
 
 	GetPort(&save);
 	SetPort(g_window);
-	browser_draw(g_window);
+	browser_draw_buttons(g_window);
 	SetPort(save);
 }
 
