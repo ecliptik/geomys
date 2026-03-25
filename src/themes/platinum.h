@@ -25,10 +25,4 @@ static const ThemeColors theme_platinum = {
 	/* Selection */
 	{ 0x99, 0x99, 0xFF },  /* sel_bg: lavender #9999FF */
 	{ 0x00, 0x00, 0x00 },  /* sel_fg: black */
-
-	/* Chrome */
-	{ 0xCC, 0xCC, 0xCC },  /* chrome_bg: Platinum gray (matches content bg) */
-	{ 0x00, 0x00, 0x00 },  /* chrome_fg: black */
-	{ 0xFF, 0xFF, 0xFF },  /* addr_bg: white */
-	{ 0x00, 0x00, 0x00 },  /* addr_fg: black */
 };

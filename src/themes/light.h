@@ -23,10 +23,4 @@ static const ThemeColors theme_light = {
 	/* Selection */
 	{ 0x00, 0x00, 0x00 },  /* sel_bg: black */
 	{ 0xFF, 0xFF, 0xFF },  /* sel_fg: white */
-
-	/* Chrome */
-	{ 0xFF, 0xFF, 0xFF },  /* chrome_bg: white */
-	{ 0x00, 0x00, 0x00 },  /* chrome_fg: black */
-	{ 0xFF, 0xFF, 0xFF },  /* addr_bg: white */
-	{ 0x00, 0x00, 0x00 },  /* addr_fg: black */
 };

@@ -265,7 +265,6 @@ Theme submenu and preferences persistence.
 - Color themes dimmed on monochrome systems (Apple HIG compliant)
 - Theme preference saved and restored across sessions
 - Theme changes redraw all open windows
-- Chrome theming stubs for future enhancement
 
 ### Phase 5: Build System
 **Status: Complete**
@@ -466,7 +465,9 @@ Modernize System 7 APIs and support larger screens.
 - Dynamic window sizing: `create_session_window()` reads `qd.screenBits.bounds` for actual screen dimensions (512x342 minimum enforced)
 - Status window centering: `conn_status_show()` uses `qd.screenBits.bounds` instead of hardcoded 512x342
 - Multi-monitor drag/resize: `DragWindow` and `GrowWindow` use `GetGrayRgn` bounding box for full desktop area
-- `useTextEditServices` enabled in SIZE resource for TSM input method support
+- `useTextEditServices` cleared from SIZE resource — no TSM code existed, flag removed to avoid CJK input method issues
+- Print Apple Event (`kAEPrintDocuments`): deferred print triggered after page load for Finder File > Print support
+- Removed orphaned DLOG 131 (Open URL) and DITL 131 resources
 
 ### Phase 2: Balloon Help
 **Status: Complete**

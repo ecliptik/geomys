@@ -25,10 +25,4 @@ static const ThemeColors theme_tokyo_dark = {
 	/* Selection */
 	{ 0x33, 0x66, 0x99 },  /* sel_bg: blue0 #3D59A1 → #336699 */
 	{ 0xCC, 0xCC, 0xFF },  /* sel_fg: fg → #CCCCFF */
-
-	/* Chrome */
-	{ 0x00, 0x00, 0x00 },  /* chrome_bg: bg_dark #16161E → #000000 */
-	{ 0x99, 0x99, 0xCC },  /* chrome_fg: fg_dark #A9B1D6 → #9999CC */
-	{ 0x00, 0x00, 0x33 },  /* addr_bg: bg → #000033 */
-	{ 0xCC, 0xCC, 0xFF },  /* addr_fg: fg → #CCCCFF */
 };

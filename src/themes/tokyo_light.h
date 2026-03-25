@@ -25,10 +25,4 @@ static const ThemeColors theme_tokyo_light = {
 	/* Selection */
 	{ 0x33, 0x66, 0xCC },  /* sel_bg: visual #3366CC */
 	{ 0xFF, 0xFF, 0xFF },  /* sel_fg: white */
-
-	/* Chrome */
-	{ 0xCC, 0xCC, 0xCC },  /* chrome_bg: bg_dark #D0D5E3 → #CCCCCC */
-	{ 0x33, 0x66, 0xCC },  /* chrome_fg: fg → #3366CC */
-	{ 0xFF, 0xFF, 0xFF },  /* addr_bg: white */
-	{ 0x33, 0x66, 0xCC },  /* addr_fg: fg → #3366CC */
 };

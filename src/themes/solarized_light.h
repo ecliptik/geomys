@@ -25,10 +25,4 @@ static const ThemeColors theme_solarized_light = {
 	/* Selection */
 	{ 0x33, 0x99, 0xCC },  /* sel_bg: blue #268BD2 → #3399CC */
 	{ 0xFF, 0xFF, 0xCC },  /* sel_fg: base3 → #FFFFCC */
-
-	/* Chrome */
-	{ 0xCC, 0xCC, 0x99 },  /* chrome_bg: base2 → #CCCC99 */
-	{ 0x66, 0x66, 0x66 },  /* chrome_fg: base01 #586E75 → #666666 */
-	{ 0xFF, 0xFF, 0xCC },  /* addr_bg: base3 → #FFFFCC */
-	{ 0x66, 0x66, 0x99 },  /* addr_fg: base00 → #666699 */
 };

@@ -24,10 +24,4 @@ static const ThemeColors theme_classic = {
 	/* Selection */
 	{ 0x33, 0x66, 0xCC },  /* sel_bg: selection blue */
 	{ 0xFF, 0xFF, 0xFF },  /* sel_fg: white */
-
-	/* Chrome */
-	{ 0xCC, 0xCC, 0xCC },  /* chrome_bg: silver */
-	{ 0x00, 0x00, 0x00 },  /* chrome_fg: black */
-	{ 0xFF, 0xFF, 0xFF },  /* addr_bg: white */
-	{ 0x00, 0x00, 0x00 },  /* addr_fg: black */
 };

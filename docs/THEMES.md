@@ -64,12 +64,6 @@ typedef struct {
     /* Selection */
     ThemeRGB sel_bg;               /* selection highlight background */
     ThemeRGB sel_fg;               /* selected text foreground */
-
-    /* Chrome (reserved for future use) */
-    ThemeRGB chrome_bg;            /* nav bar / status bar background */
-    ThemeRGB chrome_fg;            /* chrome text, icons */
-    ThemeRGB addr_bg;              /* address bar background */
-    ThemeRGB addr_fg;              /* address bar text */
 } ThemeColors;
 ```
 
@@ -101,14 +95,6 @@ typedef struct {
 |-------|----------|
 | `sel_bg` | Background color for text selection highlight |
 | `sel_fg` | Foreground color for selected text |
-
-**Chrome** (reserved — not yet rendered, but should be defined for forward compatibility):
-| Field | Used for |
-|-------|----------|
-| `chrome_bg` | Navigation bar and status bar background |
-| `chrome_fg` | Chrome text and button icons |
-| `addr_bg` | Address bar background |
-| `addr_fg` | Address bar text |
 
 ## Creating a Custom Theme
 
@@ -149,12 +135,6 @@ static const ThemeColors theme_my_theme = {
     /* Selection */
     { 0x00, 0x66, 0xCC },  /* sel_bg */
     { 0xFF, 0xFF, 0xFF },  /* sel_fg */
-
-    /* Chrome */
-    { 0xDD, 0xDD, 0xDD },  /* chrome_bg */
-    { 0x33, 0x33, 0x33 },  /* chrome_fg */
-    { 0xFF, 0xFF, 0xFF },  /* addr_bg */
-    { 0x00, 0x00, 0x00 },  /* addr_fg */
 };
 ```
 

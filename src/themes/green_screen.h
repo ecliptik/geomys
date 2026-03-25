@@ -24,10 +24,4 @@ static const ThemeColors theme_green_screen = {
 	/* Selection */
 	{ 0x00, 0x66, 0x00 },  /* sel_bg: dark green #006600 */
 	{ 0x66, 0xFF, 0x66 },  /* sel_fg: bright green #66FF66 */
-
-	/* Chrome */
-	{ 0x00, 0x11, 0x00 },  /* chrome_bg: near-black green */
-	{ 0x33, 0xFF, 0x33 },  /* chrome_fg: phosphor green */
-	{ 0x00, 0x11, 0x00 },  /* addr_bg: near-black green */
-	{ 0x33, 0xFF, 0x33 },  /* addr_fg: phosphor green */
 };

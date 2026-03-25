@@ -37,12 +37,6 @@ typedef struct {
 	/* Selection */
 	ThemeRGB sel_bg;               /* selection highlight background */
 	ThemeRGB sel_fg;               /* selected text foreground */
-
-	/* Chrome stubs (for future chrome theming) */
-	ThemeRGB chrome_bg;            /* nav bar / status bar background */
-	ThemeRGB chrome_fg;            /* chrome text, icons */
-	ThemeRGB addr_bg;              /* address bar background */
-	ThemeRGB addr_fg;              /* address bar text */
 } ThemeColors;
 
 /* Theme indices — THEME_LIGHT must be 0 for backward compat */

@@ -57,13 +57,17 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Balloon Help: `hmnu` resources for all 7 menus (Apple, File, Edit, Go, Favorites, Options, Window) with HIG-compliant help text
 - Temporary memory for cache: `cache_alloc()`/`cache_free()` helpers use `TempNewHandle` for cache slot allocations on System 7, keeping the app heap free for working data; falls back to `NewPtr` on System 6
-- TSM input method support: `useTextEditServices` enabled in SIZE resource
+- Print Apple Event (`kAEPrintDocuments`): documents containing `gopher://` URLs can be printed directly from the Finder via File > Print
+
+### Removed
+- TSM (Text Services Manager): `useTextEditServices` cleared from SIZE resource — no TSM code existed in the codebase, and the flag could cause issues with CJK input methods
 
 ### Changed
 - Color QuickDraw detection: `Gestalt(gestaltQuickdrawVersion)` preferred over `SysEnvirons()`, with `SysEnvirons` fallback for pre-6.0.4 systems
 - Dynamic window sizing: windows sized to actual screen dimensions via `qd.screenBits.bounds` instead of hardcoded 512x342 (Mac Plus minimum enforced)
 - Status window centering: `conn_status_show()` uses `qd.screenBits.bounds` instead of hardcoded 512x342 coordinates
 - Multi-monitor drag/resize: `DragWindow` and `GrowWindow` use `GetGrayRgn` bounding box (full desktop area) instead of `qd.screenBits.bounds` (main monitor only)
+- Removed orphaned DLOG 131 (Open URL) resource — unused since File menu restructure
 
 ### Performance
 - `TempNewHandle` guarded with System 7 version check via `Gestalt` — cache operates safely on System 6 without MultiFinder
@@ -321,7 +325,6 @@ All notable changes to this project will be documented in this file.
 - Themed content colors by Gopher item type (text, links, search, errors, external)
 - Color caching for efficient RGBForeColor/RGBBackColor trap calls on 68000
 - `GEOMYS_COLOR` and `GEOMYS_THEMES` feature flags with build presets
-- Chrome theming stubs for future nav bar and status bar color support
 
 ### Changed
 - Full build preset: GEOMYS_COLOR=ON by default, 768KB preferred partition

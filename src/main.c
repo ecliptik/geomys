@@ -49,6 +49,9 @@
 #include <Files.h>
 #include "sysutil.h"
 #endif
+#ifdef GEOMYS_PRINT
+#include "print.h"
+#endif
 
 /* Globals */
 Boolean g_running = true;
@@ -62,6 +65,11 @@ static short saved_key_rep_thresh;
 /* Notification Manager — alert user when page loads in background */
 static NMRec g_nm_rec;
 static Boolean g_nm_posted = false;
+
+#ifdef GEOMYS_PRINT
+/* Print-after-load: set by kAEPrintDocuments handler */
+static Boolean g_print_after_load = false;
+#endif
 
 /* Download progress dialog */
 #ifdef GEOMYS_DOWNLOAD
@@ -184,8 +192,73 @@ ae_open_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 static pascal OSErr
 ae_print_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 {
+#ifdef GEOMYS_PRINT
+	AEDescList doc_list;
+	long count;
+	AEKeyword kw;
+	DescType rt;
+	Size actual;
+	FSSpec fspec;
+	OSErr err;
+
+	(void)reply; (void)refcon;
+
+	err = AEGetParamDesc(evt, keyDirectObject,
+	    typeAEList, &doc_list);
+	if (err != noErr)
+		return err;
+
+	err = AECountItems(&doc_list, &count);
+	if (err != noErr) {
+		AEDisposeDesc(&doc_list);
+		return err;
+	}
+
+	/* Process first document only */
+	if (count >= 1) {
+		err = AEGetNthPtr(&doc_list, 1, typeFSS,
+		    &kw, &rt, (Ptr)&fspec, sizeof(fspec),
+		    &actual);
+		if (err == noErr) {
+			short refnum;
+
+			err = FSpOpenDF(&fspec, fsRdPerm,
+			    &refnum);
+			if (err == noErr) {
+				char buf[300];
+				long rd = sizeof(buf) - 1;
+				OSErr read_err;
+
+				read_err = FSRead(refnum, &rd,
+				    buf);
+				FSClose(refnum);
+				if (read_err != noErr &&
+				    read_err != eofErr)
+					rd = 0;
+				buf[rd] = '\0';
+
+				/* Strip trailing whitespace */
+				while (rd > 0 &&
+				    (buf[rd - 1] == '\r' ||
+				    buf[rd - 1] == '\n' ||
+				    buf[rd - 1] == ' '))
+					buf[--rd] = '\0';
+
+				if (rd > 9 && strncmp(buf,
+				    "gopher://", 9) == 0) {
+					g_print_after_load = true;
+					do_navigate_url(buf);
+				}
+			}
+		}
+	}
+
+	AEDisposeDesc(&doc_list);
+	return noErr;
+#else
 	(void)evt; (void)reply; (void)refcon;
 	return errAEEventNotHandled;
+#endif
 }
 
 static void
@@ -842,14 +915,23 @@ handle_page_loaded(void)
 	if (g_gopher.conn.timed_out) {
 		browser_set_status("Connection timed out");
 		g_gopher.conn.timed_out = false;
+#ifdef GEOMYS_PRINT
+		g_print_after_load = false;
+#endif
 	} else if (g_gopher.conn.state == CONN_STATE_ERROR) {
 		char errmsg[80];
 		snprintf(errmsg, sizeof(errmsg),
 		    "Could not connect to %.50s",
 		    g_gopher.conn.host);
 		browser_set_status(errmsg);
+#ifdef GEOMYS_PRINT
+		g_print_after_load = false;
+#endif
 	} else if (g_gopher.cur_type == GOPHER_ERROR) {
 		browser_set_status("Server Error");
+#ifdef GEOMYS_PRINT
+		g_print_after_load = false;
+#endif
 	} else {
 		if (g_gopher.page_type == PAGE_DIRECTORY)
 			snprintf(uri, sizeof(uri),
@@ -914,6 +996,14 @@ handle_page_loaded(void)
 	/* Persist final state so session switch restores
 	 * correct status bar, address bar, and scrollbar */
 	session_save_state(active_session);
+
+#ifdef GEOMYS_PRINT
+	/* Print Apple Event: print page once loaded */
+	if (g_print_after_load) {
+		g_print_after_load = false;
+		do_print();
+	}
+#endif
 }
 
 static void
@@ -1234,6 +1324,9 @@ do_cancel_loading(void)
 	}
 
 	g_app_state = APP_STATE_IDLE;
+#ifdef GEOMYS_PRINT
+	g_print_after_load = false;
+#endif
 	InitCursor();
 	browser_set_status(status);
 	update_nav_buttons();
@@ -1444,6 +1537,9 @@ do_navigate_url_titled(const char *url, const char *title)
 
 		/* Navigate failed — old page preserved, force redraw */
 		g_app_state = APP_STATE_IDLE;
+#ifdef GEOMYS_PRINT
+		g_print_after_load = false;
+#endif
 
 		restore_title_bar();
 
