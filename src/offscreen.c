@@ -199,6 +199,17 @@ offscreen_end(WindowPtr win, const Rect *blit_rect)
 		SetGWorld(g_saved_port, g_saved_gd);
 		g_active = 0;
 
+		/* CopyBits requires destination port fg=black,
+		 * bg=white to prevent color distortion (TN QD13).
+		 * Without this, themed colors left on the window
+		 * cause CopyBits to colorize the transfer. */
+		{
+			RGBColor black = {0, 0, 0};
+			RGBColor white = {0xFFFF, 0xFFFF, 0xFFFF};
+			RGBForeColor(&black);
+			RGBBackColor(&white);
+		}
+
 		/* Blit GWorld to window */
 		CopyBits((BitMap *)*pm,
 		    &((GrafPtr)win)->portBits,

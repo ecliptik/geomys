@@ -1282,6 +1282,10 @@ content_draw(WindowPtr win)
 		}
 #endif
 		EraseRect(&r);
+#ifdef GEOMYS_OFFSCREEN
+		if (use_offscreen)
+			offscreen_end(win, &r);
+#endif
 		theme_restore_colors();
 		SetClip(g_clip_rgn);
 		return;
@@ -1464,10 +1468,6 @@ done:
 	/* Mark shadow as valid after a complete draw pass */
 	g_shadow_valid = 1;
 
-	/* Restore port colors to black/white so themed colors
-	 * don't leak into chrome (nav bar, address bar, buttons) */
-	theme_restore_colors();
-
 	SetClip(g_clip_rgn);
 
 #ifdef GEOMYS_OFFSCREEN
@@ -1494,6 +1494,12 @@ done:
 		}
 	}
 #endif
+
+	/* Restore port colors to black/white so themed colors
+	 * don't leak into chrome (nav bar, address bar, buttons).
+	 * Must be AFTER offscreen_end so we restore the window
+	 * port, not the GWorld. */
+	theme_restore_colors();
 
 }
 
@@ -2951,6 +2957,7 @@ content_erase(WindowPtr win)
 		if (t) {
 			theme_set_bg(&t->bg);
 			EraseRect(&cr);
+			theme_restore_colors();
 		} else
 			EraseRect(&cr);
 	} else

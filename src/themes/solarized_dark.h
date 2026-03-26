@@ -10,16 +10,17 @@ static const ThemeColors theme_solarized_dark = {
 	1,                  /* is_color */
 	1,                  /* is_dark */
 
-	/* Content area */
+	/* Content area — colors brightened from canonical Solarized
+	 * for readable contrast on 256-color CRT displays */
 	{ 0x00, 0x33, 0x33 },  /* bg: base03 #002B36 → #003333 */
-	{ 0x99, 0x99, 0x99 },  /* text: base0 #839496 → #999999 */
-	{ 0x33, 0x99, 0xCC },  /* link: blue #268BD2 → #3399CC */
-	{ 0x33, 0x99, 0x99 },  /* link_search: cyan #2AA198 → #339999 */
-	{ 0xCC, 0x33, 0x00 },  /* link_external: orange #CB4B16 → #CC3300 */
-	{ 0x66, 0x99, 0x00 },  /* link_download: green #859900 → #669900 */
-	{ 0xCC, 0x33, 0x33 },  /* link_error: red #DC322F → #CC3333 */
-	{ 0x66, 0x66, 0xCC },  /* label: violet #6C71C4 → #6666CC */
-	{ 0x99, 0x99, 0x00 },  /* metadata: green #859900 → #999900 */
+	{ 0xCC, 0xCC, 0xCC },  /* text: base0 #839496 → #CCCCCC (8.6:1) */
+	{ 0x66, 0xCC, 0xFF },  /* link: blue #268BD2 → #66CCFF (7.7:1) */
+	{ 0x66, 0xCC, 0xCC },  /* link_search: cyan #2AA198 → #66CCCC (7.3:1) */
+	{ 0xFF, 0x99, 0x33 },  /* link_external: orange #CB4B16 → #FF9933 (6.5:1) */
+	{ 0x99, 0xCC, 0x33 },  /* link_download: green #859900 → #99CC33 (7.3:1) */
+	{ 0xFF, 0x66, 0x66 },  /* link_error: red #DC322F → #FF6666 (4.8:1) */
+	{ 0x99, 0x99, 0xFF },  /* label: violet #6C71C4 → #9999FF (5.5:1) */
+	{ 0xCC, 0xCC, 0x33 },  /* metadata: green #859900 → #CCCC33 (8.1:1) */
 	{ 0x00, 0x66, 0x66 },  /* hover_bg: base02 #073642 → #006666 (bumped for distinction) */
 
 	/* Selection */

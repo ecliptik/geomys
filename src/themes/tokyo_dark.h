@@ -18,8 +18,8 @@ static const ThemeColors theme_tokyo_dark = {
 	{ 0xFF, 0x99, 0x66 },  /* link_external: orange #FF9E64 → #FF9966 */
 	{ 0x33, 0xCC, 0xCC },  /* link_download: cyan #449DAB → #33CCCC */
 	{ 0xFF, 0x66, 0x99 },  /* link_error: red #F7768E → #FF6699 */
-	{ 0x66, 0x66, 0x99 },  /* label: comment #565F89 → #666699 */
-	{ 0x66, 0x66, 0x99 },  /* metadata: comment → #666699 */
+	{ 0x99, 0x99, 0xCC },  /* label: comment #565F89 → #9999CC (7.4:1) */
+	{ 0x99, 0x99, 0xCC },  /* metadata: comment → #9999CC (7.4:1) */
 	{ 0x33, 0x33, 0x66 },  /* hover_bg: bg_highlight #292E42 → #333366 */
 
 	/* Selection */

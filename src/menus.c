@@ -1586,7 +1586,7 @@ handle_menu(long menu_id)
 						content_recalc_width(s->window);
 						content_update_scroll(s->window);
 						content_draw(s->window);
-						browser_draw_status(s->window);
+						browser_draw(s->window);
 						SetPort(save);
 					}
 				}
