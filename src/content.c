@@ -2999,6 +2999,20 @@ content_cursor_update(WindowPtr win, Point local_pt)
 		return;
 	}
 
+	/* Suppress hover when keyboard nav is active — prevents
+	 * hover redraws from visually interfering with the
+	 * selection ring. Hover resumes when selection is cleared. */
+	if (g_selected_row >= 0) {
+		if (g_hover_row >= 0) {
+			short old_hover = g_hover_row;
+
+			g_hover_row = -1;
+			content_draw_row(win, old_hover, &r,
+			    theme_current());
+		}
+		return;
+	}
+
 	/* Check if hovering over a clickable item */
 	if (g_page && g_page->page_type == PAGE_DIRECTORY &&
 	    g_page->item_count > 0) {

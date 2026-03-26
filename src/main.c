@@ -1419,7 +1419,8 @@ handle_key_down(EventRecord *event)
 	}
 
 	/* Return/Enter in address bar — navigate */
-	if (key == '\r' || key == '\n' || key == 0x03) {
+	if ((key == '\r' || key == '\n' || key == 0x03) &&
+	    browser_get_focus() == FOCUS_ADDR_BAR) {
 		char url[300];
 
 		browser_get_url(url, sizeof(url));
