@@ -131,74 +131,14 @@ ae_quit_app(const AppleEvent *evt, AppleEvent *reply, long refcon)
 	return noErr;
 }
 
-static pascal OSErr
-ae_open_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
+/*
+ * ae_read_url_from_doc - Read the first document from an Apple Event
+ * and extract a gopher:// URL from its contents.
+ * Returns true if a valid gopher:// URL was found.
+ */
+static Boolean
+ae_read_url_from_doc(const AppleEvent *evt, char *url, short url_size)
 {
-	AEDescList doc_list;
-	long count, i;
-	AEKeyword kw;
-	DescType rt;
-	Size actual;
-	FSSpec fspec;
-	OSErr err;
-
-	(void)reply; (void)refcon;
-
-	err = AEGetParamDesc(evt, keyDirectObject,
-	    typeAEList, &doc_list);
-	if (err != noErr)
-		return err;
-
-	err = AECountItems(&doc_list, &count);
-	if (err != noErr) {
-		AEDisposeDesc(&doc_list);
-		return err;
-	}
-
-	/* Process first document only — navigate to its
-	 * contents if it contains a gopher:// URL */
-	for (i = 1; i <= count && i <= 1; i++) {
-		err = AEGetNthPtr(&doc_list, i, typeFSS,
-		    &kw, &rt, (Ptr)&fspec, sizeof(fspec),
-		    &actual);
-		if (err == noErr) {
-			short refnum;
-
-			err = FSpOpenDF(&fspec, fsRdPerm,
-			    &refnum);
-			if (err == noErr) {
-				char buf[300];
-				long rd = sizeof(buf) - 1;
-				OSErr read_err;
-
-				read_err = FSRead(refnum, &rd, buf);
-				FSClose(refnum);
-				if (read_err != noErr &&
-				    read_err != eofErr)
-					rd = 0;
-				buf[rd] = '\0';
-
-				/* Strip trailing whitespace */
-				while (rd > 0 && (buf[rd - 1] ==
-				    '\r' || buf[rd - 1] == '\n' ||
-				    buf[rd - 1] == ' '))
-					buf[--rd] = '\0';
-
-				if (rd > 9 && strncmp(buf,
-				    "gopher://", 9) == 0)
-					do_navigate_url(buf);
-			}
-		}
-	}
-
-	AEDisposeDesc(&doc_list);
-	return noErr;
-}
-
-static pascal OSErr
-ae_print_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
-{
-#ifdef GEOMYS_PRINT
 	AEDescList doc_list;
 	long count;
 	AEKeyword kw;
@@ -206,22 +146,15 @@ ae_print_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 	Size actual;
 	FSSpec fspec;
 	OSErr err;
-
-	(void)reply; (void)refcon;
+	Boolean result = false;
 
 	err = AEGetParamDesc(evt, keyDirectObject,
 	    typeAEList, &doc_list);
 	if (err != noErr)
-		return err;
+		return false;
 
 	err = AECountItems(&doc_list, &count);
-	if (err != noErr) {
-		AEDisposeDesc(&doc_list);
-		return err;
-	}
-
-	/* Process first document only */
-	if (count >= 1) {
+	if (err == noErr && count >= 1) {
 		err = AEGetNthPtr(&doc_list, 1, typeFSS,
 		    &kw, &rt, (Ptr)&fspec, sizeof(fspec),
 		    &actual);
@@ -231,35 +164,61 @@ ae_print_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
 			err = FSpOpenDF(&fspec, fsRdPerm,
 			    &refnum);
 			if (err == noErr) {
-				char buf[300];
-				long rd = sizeof(buf) - 1;
+				long rd = (long)url_size - 1;
 				OSErr read_err;
 
 				read_err = FSRead(refnum, &rd,
-				    buf);
+				    url);
 				FSClose(refnum);
 				if (read_err != noErr &&
 				    read_err != eofErr)
 					rd = 0;
-				buf[rd] = '\0';
+				url[rd] = '\0';
 
 				/* Strip trailing whitespace */
 				while (rd > 0 &&
-				    (buf[rd - 1] == '\r' ||
-				    buf[rd - 1] == '\n' ||
-				    buf[rd - 1] == ' '))
-					buf[--rd] = '\0';
+				    (url[rd - 1] == '\r' ||
+				    url[rd - 1] == '\n' ||
+				    url[rd - 1] == ' '))
+					url[--rd] = '\0';
 
-				if (rd > 9 && strncmp(buf,
-				    "gopher://", 9) == 0) {
-					g_print_after_load = true;
-					do_navigate_url(buf);
-				}
+				if (rd > 9 && strncmp(url,
+				    "gopher://", 9) == 0)
+					result = true;
 			}
 		}
 	}
 
 	AEDisposeDesc(&doc_list);
+	return result;
+}
+
+static pascal OSErr
+ae_open_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
+{
+	char url[300];
+
+	(void)reply; (void)refcon;
+
+	if (ae_read_url_from_doc(evt, url, sizeof(url)))
+		do_navigate_url(url);
+
+	return noErr;
+}
+
+static pascal OSErr
+ae_print_doc(const AppleEvent *evt, AppleEvent *reply, long refcon)
+{
+#ifdef GEOMYS_PRINT
+	char url[300];
+
+	(void)reply; (void)refcon;
+
+	if (ae_read_url_from_doc(evt, url, sizeof(url))) {
+		g_print_after_load = true;
+		do_navigate_url(url);
+	}
+
 	return noErr;
 #else
 	(void)evt; (void)reply; (void)refcon;

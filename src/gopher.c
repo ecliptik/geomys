@@ -251,10 +251,17 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	}
 #endif
 
-	/* Save current request info.
-	 * For downloads/images, keep the previous page's request
-	 * info so the address bar, cache, and history stay correct
-	 * after the download completes. */
+	/* Save selector for deferred send (async connect).
+	 * Always saved into cur_selector so we don't need a
+	 * separate send_selector buffer. */
+	strncpy(gs->cur_selector, selector,
+	    sizeof(gs->cur_selector) - 1);
+	gs->cur_selector[sizeof(gs->cur_selector) - 1] = '\0';
+
+	/* Save remaining request info.
+	 * For downloads/images, keep the previous page's host,
+	 * port, and type so the address bar, cache, and history
+	 * stay correct after the download completes. */
 #ifdef GEOMYS_DOWNLOAD
 	if (new_page_type != PAGE_DOWNLOAD &&
 	    new_page_type != PAGE_IMAGE) {
@@ -264,18 +271,10 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		gs->cur_host[sizeof(gs->cur_host) - 1] = '\0';
 		gs->cur_port = port;
 		gs->cur_type = type;
-		strncpy(gs->cur_selector, selector,
-		    sizeof(gs->cur_selector) - 1);
-		gs->cur_selector[sizeof(gs->cur_selector) - 1] =
-		    '\0';
 #ifdef GEOMYS_DOWNLOAD
 	}
 #endif
 
-	/* Save selector for deferred send (async connect) */
-	strncpy(gs->send_selector, selector,
-	    sizeof(gs->send_selector) - 1);
-	gs->send_selector[sizeof(gs->send_selector) - 1] = '\0';
 	gs->selector_sent = false;
 	gs->receiving = true;
 	return true;
@@ -299,7 +298,7 @@ gopher_idle(GopherState *gs)
 		/* Connected — send selector now */
 		{
 #ifdef GEOMYS_GOPHER_PLUS
-			const char *sel = gs->send_selector;
+			const char *sel = gs->cur_selector;
 			char gp_sel[384];
 			Boolean is_ask = false;
 
@@ -307,7 +306,7 @@ gopher_idle(GopherState *gs)
 				snprintf(gp_sel,
 				    sizeof(gp_sel),
 				    "%s\t+\t1",
-				    gs->send_selector);
+				    gs->cur_selector);
 				sel = gp_sel;
 				gs->gplus_active = true;
 				gs->gplus_status_parsed =
@@ -317,7 +316,7 @@ gopher_idle(GopherState *gs)
 				snprintf(gp_sel,
 				    sizeof(gp_sel),
 				    "%s\t+%s",
-				    gs->send_selector,
+				    gs->cur_selector,
 				    gs->gplus_view);
 				sel = gp_sel;
 				gs->gplus_view[0] = '\0';
@@ -329,7 +328,7 @@ gopher_idle(GopherState *gs)
 			    sel) != noErr) {
 #else
 			if (conn_send_selector(&gs->conn,
-			    gs->send_selector) != noErr) {
+			    gs->cur_selector) != noErr) {
 #endif
 				conn_close(&gs->conn);
 				gs->receiving = false;
@@ -429,6 +428,53 @@ gopher_idle(GopherState *gs)
 		return true;
 	}
 
+	return false;
+}
+
+/*
+ * Double the text_buf capacity up to GOPHER_TEXT_BUFSIZ.
+ * Returns true on success, false if allocation fails.
+ */
+static Boolean
+gopher_grow_text_buf(GopherState *gs)
+{
+	long new_cap = gs->text_buf_capacity * 2;
+	char *new_buf;
+
+	if (new_cap > GOPHER_TEXT_BUFSIZ)
+		new_cap = GOPHER_TEXT_BUFSIZ;
+	new_buf = NewPtr(new_cap);
+	if (new_buf) {
+		memcpy(new_buf, gs->text_buf, gs->text_len);
+		DisposePtr(gs->text_buf);
+		gs->text_buf = new_buf;
+		gs->text_buf_capacity = new_cap;
+		return true;
+	}
+	return false;
+}
+
+/*
+ * Double the text_lines capacity up to GOPHER_MAX_TEXT_LINES.
+ * Returns true on success, false if allocation fails.
+ */
+static Boolean
+gopher_grow_text_lines(GopherState *gs)
+{
+	short new_lc = gs->text_lines_capacity * 2;
+	long *new_tl;
+
+	if (new_lc > GOPHER_MAX_TEXT_LINES)
+		new_lc = GOPHER_MAX_TEXT_LINES;
+	new_tl = (long *)NewPtr((long)new_lc * sizeof(long));
+	if (new_tl) {
+		memcpy(new_tl, gs->text_lines,
+		    (long)gs->text_line_count * sizeof(long));
+		DisposePtr((Ptr)gs->text_lines);
+		gs->text_lines = new_tl;
+		gs->text_lines_capacity = new_lc;
+		return true;
+	}
 	return false;
 }
 
@@ -574,22 +620,8 @@ gopher_process_data(GopherState *gs)
 			/* Grow text_buf if needed */
 			if (gs->text_len + copy_len + 2 > cap &&
 			    cap < GOPHER_TEXT_BUFSIZ) {
-				long new_cap = cap * 2;
-				char *new_buf;
-
-				if (new_cap > GOPHER_TEXT_BUFSIZ)
-					new_cap = GOPHER_TEXT_BUFSIZ;
-				new_buf = NewPtr(new_cap);
-				if (new_buf) {
-					memcpy(new_buf,
-					    gs->text_buf,
-					    gs->text_len);
-					DisposePtr(gs->text_buf);
-					gs->text_buf = new_buf;
-					gs->text_buf_capacity =
-					    new_cap;
-					cap = new_cap;
-				}
+				if (gopher_grow_text_buf(gs))
+					cap = gs->text_buf_capacity;
 			}
 
 			/* Copy chunk to text_buf */
@@ -633,33 +665,8 @@ gopher_process_data(GopherState *gs)
 					    gs->text_line_count >=
 					    gs->text_lines_capacity &&
 					    gs->text_lines_capacity <
-					    GOPHER_MAX_TEXT_LINES) {
-						short new_lc =
-						    gs->text_lines_capacity
-						    * 2;
-						long *new_tl;
-
-						if (new_lc >
-						    GOPHER_MAX_TEXT_LINES)
-							new_lc =
-							    GOPHER_MAX_TEXT_LINES;
-						new_tl = (long *)NewPtr(
-						    (long)new_lc *
-						    sizeof(long));
-						if (new_tl) {
-							memcpy(new_tl,
-							    gs->text_lines,
-							    (long)gs->
-							    text_line_count
-							    * sizeof(long));
-							DisposePtr((Ptr)
-							    gs->text_lines);
-							gs->text_lines =
-							    new_tl;
-							gs->text_lines_capacity
-							    = new_lc;
-						}
-					}
+					    GOPHER_MAX_TEXT_LINES)
+						gopher_grow_text_lines(gs);
 
 					if (gs->text_lines &&
 					    gs->text_line_count <
@@ -723,20 +730,8 @@ cso_append_text(GopherState *gs, const char *str, short slen)
 	/* Grow text_buf if needed */
 	if (gs->text_len + slen + 2 > cap &&
 	    cap < GOPHER_TEXT_BUFSIZ) {
-		long new_cap = cap * 2;
-		char *new_buf;
-
-		if (new_cap > GOPHER_TEXT_BUFSIZ)
-			new_cap = GOPHER_TEXT_BUFSIZ;
-		new_buf = NewPtr(new_cap);
-		if (new_buf) {
-			memcpy(new_buf, gs->text_buf,
-			    gs->text_len);
-			DisposePtr(gs->text_buf);
-			gs->text_buf = new_buf;
-			gs->text_buf_capacity = new_cap;
-			cap = new_cap;
-		}
+		if (gopher_grow_text_buf(gs))
+			cap = gs->text_buf_capacity;
 	}
 
 	if (gs->text_len + slen >= cap)
@@ -768,23 +763,8 @@ cso_end_line(GopherState *gs)
 		return;
 
 	if (gs->text_line_count >= gs->text_lines_capacity &&
-	    gs->text_lines_capacity < GOPHER_MAX_TEXT_LINES) {
-		short new_lc = gs->text_lines_capacity * 2;
-		long *new_tl;
-
-		if (new_lc > GOPHER_MAX_TEXT_LINES)
-			new_lc = GOPHER_MAX_TEXT_LINES;
-		new_tl = (long *)NewPtr(
-		    (long)new_lc * sizeof(long));
-		if (new_tl) {
-			memcpy(new_tl, gs->text_lines,
-			    (long)gs->text_line_count
-			    * sizeof(long));
-			DisposePtr((Ptr)gs->text_lines);
-			gs->text_lines = new_tl;
-			gs->text_lines_capacity = new_lc;
-		}
-	}
+	    gs->text_lines_capacity < GOPHER_MAX_TEXT_LINES)
+		gopher_grow_text_lines(gs);
 
 	if (gs->text_line_count < gs->text_lines_capacity) {
 		gs->text_lines[gs->text_line_count] =
@@ -1006,9 +986,12 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 		item->host[copy_len] = '\0';
 	}
 
-	/* Parse port */
+	/* Parse port — validate range to prevent overflow on short */
 	if (field >= 3) {
-		item->port = (short)atoi(fields[3]);
+		int p = atoi(fields[3]);
+		if (p <= 0 || p > 65535)
+			p = GOPHER_DEFAULT_PORT;
+		item->port = (short)p;
 	}
 	if (item->port == 0)
 		item->port = GOPHER_DEFAULT_PORT;

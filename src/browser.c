@@ -65,6 +65,17 @@ set_system_chrome_colors(WindowPtr win)
 		}
 	}
 }
+
+static void
+browser_restore_port_colors(void)
+{
+	if (g_has_color_qd) {
+		RGBColor black = { 0, 0, 0 };
+		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
+		RGBForeColor(&black);
+		RGBBackColor(&white);
+	}
+}
 #endif
 
 /* Module state */
@@ -259,12 +270,7 @@ browser_draw_buttons(WindowPtr win)
 	draw_action_button(win, false);
 
 #ifdef GEOMYS_COLOR
-	if (g_has_color_qd) {
-		RGBColor black = { 0, 0, 0 };
-		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
-		RGBForeColor(&black);
-		RGBBackColor(&white);
-	}
+	browser_restore_port_colors();
 #endif
 }
 
@@ -325,12 +331,7 @@ draw_nav_bar(WindowPtr win)
 
 	/* Restore default port colors */
 #ifdef GEOMYS_COLOR
-	if (g_has_color_qd) {
-		RGBColor black = { 0, 0, 0 };
-		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
-		RGBForeColor(&black);
-		RGBBackColor(&white);
-	}
+	browser_restore_port_colors();
 #endif
 }
 
@@ -524,12 +525,7 @@ browser_draw_status(WindowPtr win)
 
 	/* Restore default port colors */
 #ifdef GEOMYS_COLOR
-	if (g_has_color_qd) {
-		RGBColor black = { 0, 0, 0 };
-		RGBColor white = { 0xFFFF, 0xFFFF, 0xFFFF };
-		RGBForeColor(&black);
-		RGBBackColor(&white);
-	}
+	browser_restore_port_colors();
 #endif
 }
 

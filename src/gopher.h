@@ -90,7 +90,6 @@ typedef struct {
 	short       line_len;
 	Boolean     selector_sent;
 	Boolean     receiving;
-	char        send_selector[256]; /* selector to send when connect completes */
 	short       cso_last_entry;  /* CSO entry boundary tracker */
 
 	/* Current request */

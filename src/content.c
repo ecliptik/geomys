@@ -63,6 +63,10 @@ static unsigned char g_dirty[512];     /* per-row dirty flag */
 static short g_dirty_all = 1;          /* 1 = redraw all rows */
 static short g_dirty_count = 0;        /* number of individually dirty rows */
 
+/* Cached visible_rows result — avoids recomputing Rect per call */
+static short g_vis_rows_cache = 0;
+static short g_vis_rows_valid = 0;
+
 /* Shadow buffer: per-row state for change detection */
 #define SHADOW_MAX_ROWS  64   /* max visible rows tracked */
 typedef struct {
@@ -197,16 +201,21 @@ content_mark_all_dirty(void)
 	g_dirty_all = 1;
 	g_dirty_count = 0;
 	g_shadow_valid = 0;
+	g_vis_rows_valid = 0;
 }
 
-/* How many rows fit in the visible content area */
+/* How many rows fit in the visible content area (cached) */
 static short
 visible_rows(WindowPtr win)
 {
-	Rect r;
+	if (!g_vis_rows_valid) {
+		Rect r;
 
-	content_get_rect(win, &r);
-	return (r.bottom - r.top) / g_row_height;
+		content_get_rect(win, &r);
+		g_vis_rows_cache = (r.bottom - r.top) / g_row_height;
+		g_vis_rows_valid = 1;
+	}
+	return g_vis_rows_cache;
 }
 
 void
@@ -710,6 +719,56 @@ theme_erase_row(const Rect *erase_r, short is_hover,
 	if (!did_erase)
 		EraseRect(erase_r);
 }
+
+/*
+ * content_draw_selection - Draw selection highlighting for a row.
+ * Shared helper for both directory and text row drawing.
+ * row_index: the absolute row index (item index or line index).
+ * y: baseline y position for the row.
+ * r: the content rect for clipping bounds.
+ * text/text_len: pre-formatted row text (0L/0 for text rows).
+ */
+static void
+content_draw_selection(WindowPtr win, short row_index,
+    short y, const Rect *r, const char *text, short text_len)
+{
+	short sr, sc, er, ec;
+
+	if (!g_sel.active || !g_win_active)
+		return;
+
+	sr = g_sel.anchor_row;
+	sc = g_sel.anchor_col;
+	er = g_sel.extent_row;
+	ec = g_sel.extent_col;
+	sel_normalize(&sr, &sc, &er, &ec);
+
+	if (row_index >= sr && row_index <= er) {
+		Rect inv_r;
+		short x1, x2;
+
+		if (sr == er) {
+			x1 = col_to_pixel(row_index, sc, win);
+			x2 = col_to_pixel(row_index, ec, win);
+		} else if (row_index == sr) {
+			x1 = col_to_pixel(row_index, sc, win);
+			x2 = r->right;
+		} else if (row_index == er) {
+			x1 = r->left;
+			x2 = col_to_pixel(row_index, ec, win);
+		} else {
+			x1 = r->left;
+			x2 = r->right;
+		}
+
+		if (x2 > x1) {
+			SetRect(&inv_r, x1,
+			    y - g_row_height, x2, y);
+			draw_selection_rect(&inv_r, row_index,
+			    y, win, text, text_len);
+		}
+	}
+}
 #endif
 
 /* Draw a single directory row.
@@ -993,7 +1052,7 @@ content_draw_row(WindowPtr win, short row_index,
 			MoveTo(r.left + 4 - g_hscroll_pos,
 			    y - 1);
 			LineTo(r.left + 4 - g_hscroll_pos +
-			    TextWidth(line, 0, len), y - 1);
+			    text_width, y - 1);
 #ifdef GEOMYS_THEMES
 			if (t && t->is_dark && !theme_is_color())
 				PenNormal();
@@ -1002,51 +1061,7 @@ content_draw_row(WindowPtr win, short row_index,
 	}
 
 #ifdef GEOMYS_CLIPBOARD
-	/* Invert selected characters (skip when window inactive) */
-	if (g_sel.active && g_win_active) {
-		short sr, sc, er, ec;
-
-		sr = g_sel.anchor_row;
-		sc = g_sel.anchor_col;
-		er = g_sel.extent_row;
-		ec = g_sel.extent_col;
-		sel_normalize(&sr, &sc, &er, &ec);
-
-		if (row_index >= sr && row_index <= er) {
-			Rect inv_r;
-			short x1, x2;
-
-			if (sr == er) {
-				/* Single row: invert col range */
-				x1 = col_to_pixel(row_index,
-				    sc, win);
-				x2 = col_to_pixel(row_index,
-				    ec, win);
-			} else if (row_index == sr) {
-				/* First row: from start_col to EOL */
-				x1 = col_to_pixel(row_index,
-				    sc, win);
-				x2 = r.right;
-			} else if (row_index == er) {
-				/* Last row: from BOL to end_col */
-				x1 = r.left;
-				x2 = col_to_pixel(row_index,
-				    ec, win);
-			} else {
-				/* Middle row: full width */
-				x1 = r.left;
-				x2 = r.right;
-			}
-
-			if (x2 > x1) {
-				SetRect(&inv_r, x1,
-				    y - g_row_height, x2, y);
-				draw_selection_rect(
-				    &inv_r, row_index,
-				    y, win, line, len);
-			}
-		}
-	}
+	content_draw_selection(win, row_index, y, &r, line, len);
 #endif
 
 	/* Keyboard selection focus ring */
@@ -1179,47 +1194,7 @@ content_draw_text_row(WindowPtr win, short line_index,
 	}
 
 #ifdef GEOMYS_CLIPBOARD
-	/* Invert selected characters (skip when window inactive) */
-	if (g_sel.active && g_win_active) {
-		short sr, sc, er, ec;
-
-		sr = g_sel.anchor_row;
-		sc = g_sel.anchor_col;
-		er = g_sel.extent_row;
-		ec = g_sel.extent_col;
-		sel_normalize(&sr, &sc, &er, &ec);
-
-		if (line_index >= sr && line_index <= er) {
-			Rect inv_r;
-			short x1, x2;
-
-			if (sr == er) {
-				x1 = col_to_pixel(line_index,
-				    sc, win);
-				x2 = col_to_pixel(line_index,
-				    ec, win);
-			} else if (line_index == sr) {
-				x1 = col_to_pixel(line_index,
-				    sc, win);
-				x2 = r.right;
-			} else if (line_index == er) {
-				x1 = r.left;
-				x2 = col_to_pixel(line_index,
-				    ec, win);
-			} else {
-				x1 = r.left;
-				x2 = r.right;
-			}
-
-			if (x2 > x1) {
-				SetRect(&inv_r, x1,
-				    y - g_row_height, x2, y);
-				draw_selection_rect(
-				    &inv_r, line_index,
-				    y, win, 0L, 0);
-			}
-		}
-	}
+	content_draw_selection(win, line_index, y, &r, 0L, 0);
 #endif
 
 #ifdef GEOMYS_THEMES

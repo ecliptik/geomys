@@ -73,6 +73,29 @@ html_emit(GopherState *gs, char c)
 }
 
 /*
+ * Emit a contiguous run of characters via memcpy.
+ * Avoids per-character bounds checking in the hot path.
+ */
+static void
+html_emit_run(GopherState *gs, const char *s, short len)
+{
+	long avail;
+
+	if (len <= 0)
+		return;
+
+	avail = GOPHER_TEXT_BUFSIZ - 1 - gs->text_len;
+	if (avail <= 0)
+		return;
+	if (len > avail)
+		len = (short)avail;
+
+	memcpy(gs->text_buf + gs->text_len, s, len);
+	gs->text_len += len;
+	gs->text_buf[gs->text_len] = '\0';
+}
+
+/*
  * Emit a carriage return and record a new line in text_lines[].
  */
 static void
@@ -210,7 +233,24 @@ html_process_data(GopherState *gs, const char *buf, long len)
 						gs->html_had_space = true;
 					}
 				} else {
-					html_emit(gs, c);
+					/* Scan ahead for a run of
+					 * non-special characters */
+					long run_start = i;
+					while (i + 1 < len) {
+						char nc = buf[i + 1];
+						if (nc == '<' ||
+						    nc == '&' ||
+						    nc == ' ' ||
+						    nc == '\t' ||
+						    nc == '\n' ||
+						    nc == '\r')
+							break;
+						i++;
+					}
+					html_emit_run(gs,
+					    buf + run_start,
+					    (short)(i - run_start
+					    + 1));
 					gs->html_had_space = false;
 				}
 			}

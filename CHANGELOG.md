@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.1] — Internal: Code Review Remediation
+
+### Security
+- Port number validation in `gopher_parse_line()`: clamp parsed port to 0–65535 range, preventing undefined behavior from `atoi` overflow on malformed directory entries
+
+### Performance
+- Batched `html_emit_run()` for HTML text runs: collects contiguous characters and emits in a single `DrawText` call instead of per-character output
+- Cache `visible_rows()` result in `content.c`: computed once per draw pass instead of recalculating on every call
+- Reuse `TextWidth` result for hover underline width in `content_draw_row()`, eliminating a redundant Toolbox trap call per hovered row
+
+### Memory
+- Eliminated `send_selector` duplication: reuse `cur_selector` in `GopherState` for deferred send after async TCP connect, saving ~256 bytes per session
+
+### Code Quality
+- Extracted `gopher_grow_text_buf()` and `gopher_grow_text_lines()` helpers from inline growth logic in `gopher_process_data()`
+- Extracted `content_draw_selection()` helper from `content.c`, consolidating selection highlight drawing
+- Deduplicated Apple Event document handler logic in `main.c` into shared helper
+- Consolidated `browser.c` color restore into helper, replacing repeated foreground/background save-restore patterns
+
 ## [0.15.0] — Gopher+ Protocol Suite
 
 ### Added
