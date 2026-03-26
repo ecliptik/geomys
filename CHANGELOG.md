@@ -2,7 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.15.1] — Internal: Code Review Remediation
+## [1.0.0] — TBD: Release Candidate
+
+Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser for classic Macintosh — from the 68000-based Mac Plus running System 6.0.8 to color Mac II systems on System 7.
+
+### Highlights
+- Full RFC 1436 Gopher protocol with all 19 canonical and non-canonical item types
+- Gopher+ protocol suite: Get Info (+ABSTRACT, +VIEWS, +SCORE), interactive forms (+ASK), bulk attribute fetch ($), content negotiation
+- Multi-window browsing with up to 4 simultaneous windows and background loading
+- 9 built-in themes with 256-color support on System 7 (monochrome on System 6)
+- 8 fonts with independent size selection
+- Find in Page, Print, Save Page As, text selection and clipboard
+- 20 persistent favorites with List Manager dialog
+- Local page cache with memory-aware sizing for instant back/forward
+- System 7 enhancements: AppleScript, Drag Manager, Stationery pads, Notification Manager, Balloon Help
+- Apple HIG-compliant dialogs, menus, and keyboard navigation throughout
+- Three editions: Full (~1024KB), Lite (~505KB), Minimal (~297KB)
+
+### v1.0 Prep
+- Replaced unsafe `strcpy` with bounded `strncpy` in browser status initialization
+- Removed resolved `XXX` marker from TCP push flag (confirmed correct for Gopher)
+- Updated About Geomys document to v0.15.1 with complete feature coverage
+- Expanded v1.0 roadmap with acceptance criteria, QA checkpoints, and known limitations
+- Documented System 6 preferences icon as known Finder limitation
+
+## [0.15.1] — 2026-03-26: Code Review Remediation
 
 ### Security
 - Port number validation in `gopher_parse_line()`: clamp parsed port to 0–65535 range, preventing undefined behavior from `atoi` overflow on malformed directory entries

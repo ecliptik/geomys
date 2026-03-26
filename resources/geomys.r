@@ -179,7 +179,7 @@ resource 'DITL' (130, "About Geomys") {
 
 		/* 3: App name + version */
 		{10, 55, 30, 280},
-		StaticText { disabled, "Geomys 0.14.0" };
+		StaticText { disabled, "Geomys 0.15.1" };
 
 		/* 4: Machine type (set at runtime) */
 		{33, 55, 49, 280},
@@ -226,9 +226,9 @@ resource 'DITL' (132, "Search") {
 		{60, 165, 80, 235},
 		Button { enabled, "Cancel" };
 
-		/* 3: Label (set at runtime to show search item name) */
+		/* 3: Label */
 		{15, 15, 31, 320},
-		StaticText { disabled, "Search for:" };
+		StaticText { disabled, "Search:" };
 
 		/* 4: Query field */
 		{35, 15, 51, 320},
@@ -2431,13 +2431,13 @@ resource 'hmnu' (137, "Theme") {
 
 /* Version resource — shown in Finder Get Info (System 7) */
 resource 'vers' (1) {
-	0x00, 0x0E, release, 0x00, verUS,
-	"0.14.0",
-	"Geomys 0.14.0 \0xA9 2025\0x962026"
+	0x00, 0x0F, release, 0x01, verUS,
+	"0.15.1",
+	"Geomys 0.15.1 \0xA9 2025\0x962026"
 };
 
 resource 'vers' (2) {
-	0x00, 0x0E, release, 0x00, verUS,
-	"0.14.0",
+	0x00, 0x0F, release, 0x01, verUS,
+	"0.15.1",
 	"Gopher browser for classic Macintosh"
 };

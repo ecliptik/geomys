@@ -62,8 +62,12 @@ void browser_draw_buttons(WindowPtr win);
 /* Draw just the status bar with current message */
 void browser_draw_status(WindowPtr win);
 
-/* Set status bar text */
+/* Set status bar text (also saves as base status) */
 void browser_set_status(const char *msg);
+/* Set temporary hover status (does not update base) */
+void browser_set_hover_status(const char *msg);
+/* Restore base status after hover */
+void browser_restore_status(void);
 
 /* Set address bar text */
 void browser_set_url(const char *url);

@@ -46,6 +46,7 @@ typedef struct BrowserSession {
 	Rect            btn_rects[NAV_BTN_COUNT];
 	Rect            addr_rect;
 	char            status[80];
+	char            base_status[80];
 	short           btn_state[NAV_BTN_COUNT];
 
 #ifdef GEOMYS_CLIPBOARD

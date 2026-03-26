@@ -37,6 +37,8 @@
 #include "gopherplus.h"
 #endif
 
+#define CONTENT_LEFT_MARGIN  2  /* px from content rect left edge */
+
 /* Module state */
 static ControlHandle g_scrollbar = 0L;
 static ControlHandle g_hscrollbar = 0L;
@@ -461,7 +463,7 @@ draw_selection_rect(Rect *inv_r, short row_index,
 					GetClip(g_clip_rgn);
 				ClipRect(inv_r);
 
-				text_x = cr.left + 4 -
+				text_x = cr.left + CONTENT_LEFT_MARGIN -
 				    g_hscroll_pos;
 				MoveTo(text_x, y - 2);
 				DrawText((Ptr)text, 0, text_len);
@@ -783,7 +785,7 @@ content_draw_row(WindowPtr win, short row_index,
 	Rect r, erase_r;
 	short y, content_width;
 	GopherItem *item;
-	char line[100];
+	char line[256];
 	short len, text_width, split_pos;
 	Str255 ps;
 	extern GeomysPrefs g_prefs;
@@ -834,7 +836,7 @@ content_draw_row(WindowPtr win, short row_index,
 
 	TextFont(g_font_id);
 	TextSize(g_font_size);
-	content_width = r.right - r.left - 8;
+	content_width = r.right - r.left - CONTENT_LEFT_MARGIN * 2;
 
 	item = &g_page->items[row_index];
 
@@ -873,7 +875,7 @@ content_draw_row(WindowPtr win, short row_index,
 			lps[0] = lbl_len;
 			memcpy(lps + 1, line,
 			    lbl_len);
-			MoveTo(r.left + 4 -
+			MoveTo(r.left + CONTENT_LEFT_MARGIN -
 			    g_hscroll_pos, y - 2);
 			DrawString(lps);
 
@@ -892,13 +894,13 @@ content_draw_row(WindowPtr win, short row_index,
 			set_item_fg_color(t, item->type);
 			ps[0] = len;
 			memcpy(ps + 1, line, len);
-			MoveTo(r.left + 4 -
+			MoveTo(r.left + CONTENT_LEFT_MARGIN -
 			    g_hscroll_pos, y - 2);
 			DrawString(ps);
 		} else {
 			ps[0] = len;
 			memcpy(ps + 1, line, len);
-			MoveTo(r.left + 4 -
+			MoveTo(r.left + CONTENT_LEFT_MARGIN -
 			    g_hscroll_pos, y - 2);
 			DrawString(ps);
 		}
@@ -907,7 +909,7 @@ content_draw_row(WindowPtr win, short row_index,
 	{
 		ps[0] = len;
 		memcpy(ps + 1, line, len);
-		MoveTo(r.left + 4 - g_hscroll_pos,
+		MoveTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos,
 		    y - 2);
 		DrawString(ps);
 	}
@@ -917,7 +919,7 @@ content_draw_row(WindowPtr win, short row_index,
 	    item->type != GOPHER_INFO) {
 		short ix, iy, inv;
 
-		ix = r.left + 4 - g_hscroll_pos;
+		ix = r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos;
 		inv = 0;
 #ifdef GEOMYS_THEMES
 		/* Mono dark: use srcBic to
@@ -1049,9 +1051,9 @@ content_draw_row(WindowPtr win, short row_index,
 				PenMode(patBic);
 			}
 #endif
-			MoveTo(r.left + 4 - g_hscroll_pos,
+			MoveTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos,
 			    y - 1);
-			LineTo(r.left + 4 - g_hscroll_pos +
+			LineTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos +
 			    text_width, y - 1);
 #ifdef GEOMYS_THEMES
 			if (t && t->is_dark && !theme_is_color())
@@ -1182,14 +1184,14 @@ content_draw_text_row(WindowPtr win, short line_index,
 
 		/* Draw with horizontal offset — ClipRect
 		 * handles clipping automatically */
-		MoveTo(r.left + 4 - g_hscroll_pos, y - 2);
+		MoveTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos, y - 2);
 		DrawText(xlated, 0, xlen);
 	} else
 #endif
 	{
 		/* Draw with horizontal offset — ClipRect
 		 * handles clipping automatically */
-		MoveTo(r.left + 4 - g_hscroll_pos, y - 2);
+		MoveTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos, y - 2);
 		DrawText((Ptr)line_start, 0, line_len);
 	}
 
@@ -2666,9 +2668,22 @@ scroll_action(ControlHandle ctl, short part)
 		short vis = visible_rows(win);
 
 		content_get_rect(win, &cr);
+
+#ifdef GEOMYS_THEMES
+		/* Set background to black before ScrollRect so
+		 * exposed area fills dark, not white */
+		if (theme_is_dark() && !theme_is_color())
+			BackPat(&qd.black);
+#endif
+
 		ScrollRect(&cr, 0, -delta * g_row_height,
 		    update_rgn);
 		DisposeRgn(update_rgn);
+
+#ifdef GEOMYS_THEMES
+		if (theme_is_dark() && !theme_is_color())
+			BackPat(&qd.white);
+#endif
 
 		/* Draw exposed rows through offscreen buffer
 		 * to prevent flicker on real 68000 hardware */
@@ -2916,6 +2931,34 @@ content_recalc_width(WindowPtr win)
 	content_update_hscroll(win);
 }
 
+/*
+ * content_erase - Clear content area with theme-correct background.
+ * Uses PaintRect (black) for mono dark themes, EraseRect otherwise.
+ */
+void
+content_erase(WindowPtr win)
+{
+	Rect cr;
+
+	content_get_rect(win, &cr);
+#ifdef GEOMYS_THEMES
+	if (theme_is_dark() && !theme_is_color()) {
+		PaintRect(&cr);
+	} else
+#ifdef GEOMYS_COLOR
+	if (theme_is_color()) {
+		const ThemeColors *t = theme_current();
+		if (t) {
+			theme_set_bg(&t->bg);
+			EraseRect(&cr);
+		} else
+			EraseRect(&cr);
+	} else
+#endif
+#endif
+		EraseRect(&cr);
+}
+
 short
 content_row_height(void)
 {
@@ -3006,7 +3049,7 @@ content_cursor_update(WindowPtr win, Point local_pt)
 				char hint[80];
 
 				if (item->type == GOPHER_INFO) {
-					browser_set_status("");
+					browser_restore_status();
 				} else if (
 				    gopher_type_is_download(
 				    item->type)) {
@@ -3018,7 +3061,7 @@ content_cursor_update(WindowPtr win, Point local_pt)
 					    "%s file \xD0 "
 					    "click to save "
 					    "to disk", lbl);
-					browser_set_status(hint);
+					browser_set_hover_status(hint);
 				} else if (item->type ==
 				    GOPHER_HTML &&
 				    strncmp(item->selector,
@@ -3027,7 +3070,7 @@ content_cursor_update(WindowPtr win, Point local_pt)
 					    sizeof(hint),
 					    "%.76s",
 					    item->selector + 4);
-					browser_set_status(hint);
+					browser_set_hover_status(hint);
 				} else if (item->type ==
 				    GOPHER_TELNET ||
 				    item->type ==
@@ -3037,7 +3080,7 @@ content_cursor_update(WindowPtr win, Point local_pt)
 					    "Telnet: %s:%d",
 					    item->host,
 					    item->port);
-					browser_set_status(hint);
+					browser_set_hover_status(hint);
 				} else {
 					char uri[300];
 #ifdef GEOMYS_GOPHER_PLUS
@@ -3074,11 +3117,11 @@ content_cursor_update(WindowPtr win, Point local_pt)
 							    ce->abstract);
 					}
 #endif
-					browser_set_status(
+					browser_set_hover_status(
 					    uri);
 				}
 			} else {
-				browser_set_status("");
+				browser_restore_status();
 			}
 			browser_draw_status(win);
 		}
@@ -3397,88 +3440,18 @@ content_calc_max_width(WindowPtr win)
 	total = count_rows();
 
 	if (g_page->page_type == PAGE_DIRECTORY) {
-		char line[100];
+		char line[256];
 		extern GeomysPrefs g_prefs;
 
 		for (i = 0; i < total; i++) {
 			GopherItem *item = &g_page->items[i];
-			const char *disp = item->display;
-			const char *label;
-			short dlen = strlen(disp);
-			short split_pos = -1;
-			short name_len, len, li;
+			short len;
 
-			label = gopher_type_label(item->type);
-
-			if (item->type != GOPHER_INFO) {
-				for (li = 1; li < dlen - 1;
-				    li++) {
-					if (disp[li] == ' ' &&
-					    disp[li + 1] == ' ') {
-						split_pos = li;
-						break;
-					}
-				}
-			}
-
-			name_len = (split_pos > 0) ?
-			    split_pos : dlen;
-
-			switch (g_prefs.page_style) {
-			case STYLE_ICONS:
-				snprintf(line, sizeof(line),
-				    "      %.*s",
-				    name_len, disp);
-				break;
-			default: /* STYLE_TEXT */
-				if (item->type == GOPHER_INFO)
-					snprintf(line,
-					    sizeof(line),
-					    "      %.*s",
-					    name_len, disp);
-				else if (
-				    gopher_type_is_download(
-				    item->type)) {
-#ifdef GEOMYS_GOPHER_PLUS
-					if (item->has_plus)
-						snprintf(line,
-						    sizeof(line),
-						    " <%s+> %.*s",
-						    label,
-						    name_len,
-						    disp);
-					else
-#endif
-						snprintf(line,
-						    sizeof(line),
-						    " <%s> %.*s",
-						    label,
-						    name_len,
-						    disp);
-				} else {
-#ifdef GEOMYS_GOPHER_PLUS
-					if (item->has_plus)
-						snprintf(line,
-						    sizeof(line),
-						    " %s+ %.*s",
-						    label,
-						    name_len,
-						    disp);
-					else
-#endif
-						snprintf(line,
-						    sizeof(line),
-						    " %s  %.*s",
-						    label,
-						    name_len,
-						    disp);
-				}
-				break;
-			}
-
-			len = strlen(line);
+			len = format_row_text(item,
+			    g_prefs.page_style, line,
+			    sizeof(line), 0L);
 			if (len > 255) len = 255;
-			w = TextWidth(line, 0, len) + 5;
+			w = TextWidth(line, 0, len);
 			if (w > g_content_max_width)
 				g_content_max_width = w;
 		}
@@ -3514,12 +3487,10 @@ content_calc_max_width(WindowPtr win)
 				if (xlen > 255) xlen = 255;
 				xlen = cp437_translate(xlated,
 				    ls, xlen);
-				w = TextWidth(xlated, 0, xlen)
-				    + 5;
+				w = TextWidth(xlated, 0, xlen);
 			} else
 #endif
-				w = TextWidth((Ptr)ls, 0, ll)
-				    + 5;
+				w = TextWidth((Ptr)ls, 0, ll);
 			if (w > g_content_max_width)
 				g_content_max_width = w;
 		}

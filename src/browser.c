@@ -81,6 +81,7 @@ browser_restore_port_colors(void)
 /* Module state */
 static TEHandle g_addr_te = 0L;
 static char g_status[80];
+static char g_base_status[80];  /* persistent status restored after hover */
 static short g_btn_state[NAV_BTN_COUNT];
 static Rect g_btn_rects[NAV_BTN_COUNT];
 static Rect g_addr_rect;
@@ -227,7 +228,8 @@ browser_init(WindowPtr win)
 		(*g_addr_te)->txSize = 12;
 	}
 
-	strcpy(g_status, "Ready");
+	strncpy(g_status, "Ready", sizeof(g_status) - 1);
+	g_status[sizeof(g_status) - 1] = '\0';
 }
 
 void
@@ -533,6 +535,23 @@ void
 browser_set_status(const char *msg)
 {
 	strncpy(g_status, msg, sizeof(g_status) - 1);
+	g_status[sizeof(g_status) - 1] = '\0';
+	/* Save as base status so hover-off can restore it */
+	strncpy(g_base_status, msg, sizeof(g_base_status) - 1);
+	g_base_status[sizeof(g_base_status) - 1] = '\0';
+}
+
+void
+browser_set_hover_status(const char *msg)
+{
+	strncpy(g_status, msg, sizeof(g_status) - 1);
+	g_status[sizeof(g_status) - 1] = '\0';
+}
+
+void
+browser_restore_status(void)
+{
+	strncpy(g_status, g_base_status, sizeof(g_status) - 1);
 	g_status[sizeof(g_status) - 1] = '\0';
 }
 
@@ -949,6 +968,7 @@ browser_save_state(struct BrowserSession *s)
 {
 	s->addr_te = g_addr_te;
 	memcpy(s->status, g_status, sizeof(g_status));
+	memcpy(s->base_status, g_base_status, sizeof(g_base_status));
 	memcpy(s->btn_state, g_btn_state, sizeof(g_btn_state));
 	memcpy(s->btn_rects, g_btn_rects, sizeof(g_btn_rects));
 	s->addr_rect = g_addr_rect;
@@ -960,6 +980,7 @@ browser_load_state(struct BrowserSession *s)
 {
 	g_addr_te = s->addr_te;
 	memcpy(g_status, s->status, sizeof(g_status));
+	memcpy(g_base_status, s->base_status, sizeof(g_base_status));
 	memcpy(g_btn_state, s->btn_state, sizeof(g_btn_state));
 	memcpy(g_btn_rects, s->btn_rects, sizeof(g_btn_rects));
 	g_addr_rect = s->addr_rect;

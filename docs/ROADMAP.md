@@ -658,10 +658,80 @@ Interactive Gopher+ forms with programmatic dialog generation.
 
 ---
 
+## v0.15.1 — Code Review Remediation
+**Status: Complete**
+
+Security, performance, memory, and code quality improvements from code review.
+
+- Port number validation in `gopher_parse_line()`: clamp to 0–65535 range
+- Batched `html_emit_run()` for HTML text: single `DrawText` call instead of per-character
+- Cached `visible_rows()` result: computed once per draw pass
+- Reuse `TextWidth` result for hover underline width
+- Eliminated `send_selector` duplication: reuse `cur_selector` in `GopherState` (~256 bytes saved)
+- Extracted helpers: `gopher_grow_text_buf()`, `gopher_grow_text_lines()`, `content_draw_selection()`
+- Deduplicated Apple Event document handler and `browser.c` color restore logic
+
+---
+
 ## Future Features
 
 ### Potential v1.0 — Release Candidate
 
-Polish pass and final release.
+Polish pass, QA, and final release.
 
 - Final documentation pass and release notes
+- Version bump to 1.0.0 in all artifacts
+- Build all 3 editions (Full, Lite, Minimal)
+- Tag release and publish to Forgejo + GitHub mirror
+
+#### Acceptance Criteria
+
+- All 19 canonical and non-canonical Gopher item types tested against
+  live servers (sdf.org and others)
+- All 3 build editions (Full, Lite, Minimal) compile and produce
+  working .dsk floppy images and .hqx archives
+- System 6.0.8 testing in Snow emulator (Mac Plus, monochrome)
+- System 7.x testing in Snow emulator (Mac Plus and Mac II profiles)
+- Gopher+ Get Info, content negotiation, and forms verified against
+  a Gopher+ server
+- Multi-window browsing: open 4 windows, background loading,
+  close/reopen cycle without memory leaks
+- All keyboard shortcuts functional on M0110 and M0110A keyboards
+- Preferences persist across launch/quit cycles on System 6 and 7
+- Color themes render correctly on 256-color systems; monochrome
+  themes render correctly on Mac Plus
+
+#### QA Checkpoints
+
+- [ ] Fresh install: copy to blank hard drive image, launch, navigate
+- [ ] Home page: set, verify on relaunch, clear, verify blank
+- [ ] Navigation: back/forward/refresh/home/stop through 5+ pages
+- [ ] Search (type 7): query dialog, results, back to results
+- [ ] CSO (type 2): phonebook lookup
+- [ ] Downloads: binary, image, sound — save to disk, verify files
+- [ ] HTML (type h): URL extraction dialog, tag-stripping renderer
+- [ ] Telnet (type 8/T): connection info dialog, Copy Host
+- [ ] Favorites: add, edit, delete, reorder, menu quick-access
+- [ ] Find in Page: search, Find Again, wrap around
+- [ ] Print: Page Setup, Print to ImageWriter/LaserWriter driver
+- [ ] Gopher+: Get Info, Choose View, Fill Form, bulk attributes
+- [ ] Multi-window: open 4, navigate independently, close all
+- [ ] Themes: cycle all 9, verify color and monochrome rendering
+- [ ] Fonts/sizes: all 8 fonts at all 4 sizes
+- [ ] Page styles: Traditional, Plain, Markdown
+- [ ] Stationery: create stationery document, open it (System 7)
+- [ ] AppleScript: navigate and get URL commands (System 7)
+- [ ] Drag Manager: drag link out, drop URL in (System 7.5)
+- [ ] Stress: 2,000-item directory, large text page, rapid navigation
+
+#### Known Limitations (Deferred to v2.0)
+
+- Preferences document icon does not appear on System 6: this is a
+  Finder limitation, not a code bug — the icon resources are correctly
+  defined and display properly on System 7 and later
+- No contextual menus: requires System 7+ Contextual Menu Manager,
+  out of scope for System 6 primary target
+- Single-level undo in address bar: only one undo/redo step is
+  supported; multi-level undo deferred
+- Edit menu does not show action names (e.g., "Undo Typing"):
+  requires TextEdit action tracking, deferred to v2.0

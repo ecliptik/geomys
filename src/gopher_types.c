@@ -32,7 +32,7 @@ static const GopherTypeInfo type_table[] = {
 	{ GOPHER_BINHEX,    "HQX",  DL_NAV },
 	{ GOPHER_DOS,       "DOS",  DL_NAV },
 	{ GOPHER_UUENCODE,  "UUE",  DL_NAV },
-	{ GOPHER_SEARCH,    "?",    true   },
+	{ GOPHER_SEARCH,    "?  ",  true   },
 	{ GOPHER_TELNET,    "TEL",  false  },
 	{ GOPHER_BINARY,    "BIN",  DL_NAV },
 	{ GOPHER_GIF,       "GIF",  DL_NAV },

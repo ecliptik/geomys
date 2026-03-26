@@ -55,7 +55,7 @@
 
 typedef struct {
 	char    type;
-	char    display[80];
+	char    display[128];
 	char    selector[256];
 	char    host[64];
 	short   port;
@@ -97,7 +97,7 @@ typedef struct {
 	short       cur_port;
 	char        cur_selector[256];
 	char        cur_type;
-	char        cur_title[80];  /* display name of current page */
+	char        cur_title[128]; /* display name of current page */
 
 #ifdef GEOMYS_GOPHER_PLUS
 	void        *gplus_cache;   /* GopherPlusCache*, heap-allocated */

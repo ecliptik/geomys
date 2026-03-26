@@ -1553,12 +1553,10 @@ do_navigate_url_titled(const char *url, const char *title)
 	browser_set_status(uri);
 	{
 		GrafPtr save;
-		Rect cr;
 
 		GetPort(&save);
 		SetPort(g_window);
-		content_get_rect(g_window, &cr);
-		EraseRect(&cr);
+		content_erase(g_window);
 		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
@@ -1629,12 +1627,10 @@ do_refresh(void)
 	/* Blank content area and show loading status immediately */
 	{
 		GrafPtr save;
-		Rect cr;
 
 		GetPort(&save);
 		SetPort(g_window);
-		content_get_rect(g_window, &cr);
-		EraseRect(&cr);
+		content_erase(g_window);
 		content_update_scroll(g_window);
 		browser_draw_status(g_window);
 		SetPort(save);
@@ -1718,7 +1714,6 @@ do_search_dialog(const char *title, const char *host,
 	Handle item_h;
 	Rect item_rect;
 	Str255 pstr;
-	char label[100];
 
 	InitCursor();
 
@@ -1735,12 +1730,6 @@ do_search_dialog(const char *title, const char *host,
 	}
 	center_dialog_on_screen(dlg);
 	SelectWindow((WindowPtr)dlg);
-
-	/* Set label with search item name */
-	snprintf(label, sizeof(label), "Search %.60s:", title);
-	c2pstr(pstr, label);
-	GetDialogItem(dlg, 3, &item_type, &item_h, &item_rect);
-	SetDialogItemText(item_h, pstr);
 
 	setup_default_button_outline(dlg, 5);
 	SelectDialogItemText(dlg, 4, 0, 0);
@@ -1790,12 +1779,10 @@ do_search_dialog(const char *title, const char *host,
 			browser_set_status(uri);
 			{
 				GrafPtr save;
-				Rect cr;
 
 				GetPort(&save);
 				SetPort(g_window);
-				content_get_rect(g_window, &cr);
-				EraseRect(&cr);
+				content_erase(g_window);
 				content_update_scroll(g_window);
 				browser_draw_status(g_window);
 				SetPort(save);
@@ -1929,12 +1916,10 @@ do_cso_dialog(const char *title, const char *host,
 			browser_set_status(uri);
 			{
 				GrafPtr save;
-				Rect cr;
 
 				GetPort(&save);
 				SetPort(g_window);
-				content_get_rect(g_window, &cr);
-				EraseRect(&cr);
+				content_erase(g_window);
 				content_update_scroll(g_window);
 				browser_draw_status(g_window);
 				SetPort(save);
@@ -2408,6 +2393,10 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		browser_draw_status(g_window);
 		browser_draw(g_window);
 		SetPort(save);
+
+		/* Persist state so session switch restores
+		 * correct status bar and scroll position */
+		session_save_state(active_session);
 		return;
 	}
 #endif
@@ -2427,12 +2416,10 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 	/* Blank content area and draw loading state */
 	{
 		GrafPtr save;
-		Rect cr;
 
 		GetPort(&save);
 		SetPort(g_window);
-		content_get_rect(g_window, &cr);
-		EraseRect(&cr);
+		content_erase(g_window);
 		content_update_scroll(g_window);
 		browser_draw(g_window);
 		SetPort(save);

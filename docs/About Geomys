@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 0.12.0
+                   Version 0.15.1
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -18,8 +18,10 @@ MacTCP compatibility layer), providing a graphical
 browser interface for navigating Gopherspace.
 
 Geomys implements RFC 1436 (The Internet Gopher
-Protocol) and RFC 4266 (The gopher URI Scheme).
-All 19 canonical and non-canonical Gopher item types
+Protocol) and RFC 4266 (The gopher URI Scheme),
+with Gopher+ protocol extension support for item
+attributes, content negotiation, and interactive
+forms. All 19 canonical and non-canonical Gopher item types
 are handled: directories, text files, CSO phonebook
 queries, search, and HTML pages are fully interactive;
 binary files, images, documents, and sound files save
@@ -97,7 +99,12 @@ Features
   - Sub-1-second startup
   - All 19 Gopher item types handled: interactive
     browsing, downloads, telnet handoff, and display
-  - Gopher+ protocol support
+  - Gopher+ protocol support: Get Info dialog (Cmd-I)
+    showing item attributes, +ABSTRACT display, +SCORE
+    search result scoring, +VIEWS content negotiation,
+    +ASK interactive forms, bulk attribute fetch
+  - Page styles: Traditional, Plain, and Markdown
+    display modes (Options > Page Style)
   - Multi-window browsing with up to 4 simultaneous
     Gopher windows and background loading
   - Binary file downloads to disk via standard save
@@ -142,10 +149,18 @@ Features
     navigation buttons (color on Mac II+, mono fallback)
   - Non-blocking TCP connections keep the UI
     responsive during network handshakes
+  - Notification Manager: alerts with icon for
+    background page loads (System 7)
+  - Stationery pad support: save URLs as stationery
+    documents that open as new pages (System 7+)
+  - AppleScript support: navigate and get URL
+    commands for scripting (System 7+)
+  - Drag Manager support: drag links to Desktop or
+    other apps, drop URLs to navigate (System 7.5+)
   - System 7 enhancements: Balloon Help, modern save
     dialog, Apple Events (odoc/pdoc), MultiFinder
-    suspend/resume, Notification Manager, temporary
-    memory for cache, machine type in About dialog
+    suspend/resume, temporary memory for cache,
+    machine type in About dialog
     (all conditional -- System 6 behavior unchanged)
 
 
@@ -165,6 +180,7 @@ and USB keyboards.
   Command-P       Print current page
   Command-D       Add Favorite
   Command-B       Manage Favorites
+  Command-I       Get Info (selected link)
   Command-F       Find in Page
   Command-G       Find Again
   Command-C       Copy selected text
@@ -234,6 +250,46 @@ history, scroll position, and text selection.
 Font and theme changes from the Options menu apply
 to all windows. The Window menu count
 header shows how many windows are open.
+
+
+Gopher+
+-------
+
+Geomys supports the Gopher+ protocol extension for
+servers that advertise enhanced capabilities. Gopher+
+features are controlled by the "Gopher+" toggle in the
+Options menu (default: off).
+
+  Get Info (Cmd-I):
+  Select a link on a directory page using the keyboard,
+  then press Cmd-I or choose Get Info from the File
+  menu. Geomys fetches attributes from the Gopher+
+  server and displays item name, type, server, admin,
+  modification date, abstract, and available views.
+
+  Content Negotiation:
+  When a Gopher+ item offers multiple content types
+  (e.g., text/plain and application/pdf), click
+  "Choose View..." in the Get Info dialog to select
+  an alternate representation. Geomys sends a Gopher+
+  content request for the chosen MIME type.
+
+  Interactive Forms (+ASK):
+  Some Gopher+ items support interactive forms with
+  text fields, password fields, checkboxes, and radio
+  buttons. Click "Fill Form..." in the Get Info dialog
+  to fill out and submit the form.
+
+  Bulk Attributes:
+  On the first Get Info request for a Gopher+
+  directory, Geomys fetches attributes for all items
+  in a single request. Cached abstracts are shown in
+  the status bar when hovering over links.
+
+  Search Scoring:
+  Gopher+ search results may include relevance scores.
+  Scores are displayed as a right-aligned column in
+  Traditional page style.
 
 
 Favorites
@@ -377,6 +433,15 @@ Troubleshooting
   (Left/Right arrows) for wide content. Toggle
   Show Details off in the Options menu to reduce
   line width on directory pages.
+
+  Preferences file has no custom icon (System 6)
+  On System 6, the Geomys Preferences file may show
+  a generic document icon instead of the Geomys icon.
+  This is a System 6 Finder limitation -- the icon
+  resources are correctly defined and display properly
+  on System 7 and later. Try rebuilding the desktop
+  (hold Option-Command at startup) if the icon does
+  not appear on System 7.
 
 
 Credits
