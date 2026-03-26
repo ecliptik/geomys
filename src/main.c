@@ -1428,21 +1428,29 @@ handle_key_down(EventRecord *event)
 		return;
 	}
 
-	/* Tab / Shift-Tab — cycle focus between address bar and content */
+	/* Tab / Shift-Tab — cycle focus between address bar and content.
+	 * When entering content on a directory page, start keyboard
+	 * link selection so arrow keys navigate links. */
 	if (key == 0x09) {
 		if (event->modifiers & shiftKey) {
 			if (browser_get_focus() == FOCUS_CONTENT) {
+				content_clear_kbd_selection(g_window);
 				browser_set_focus(FOCUS_ADDR_BAR);
 				browser_activate(true);
 			} else {
 				browser_set_focus(FOCUS_CONTENT);
 				browser_activate(false);
+				if (g_gopher.page_type == PAGE_DIRECTORY)
+					content_select_next(g_window);
 			}
 		} else {
 			if (browser_get_focus() == FOCUS_ADDR_BAR) {
 				browser_set_focus(FOCUS_CONTENT);
 				browser_activate(false);
+				if (g_gopher.page_type == PAGE_DIRECTORY)
+					content_select_next(g_window);
 			} else {
+				content_clear_kbd_selection(g_window);
 				browser_set_focus(FOCUS_ADDR_BAR);
 				browser_activate(true);
 			}
@@ -1452,9 +1460,13 @@ handle_key_down(EventRecord *event)
 
 	/* Arrow / Page / Home / End — scroll content when not in addr bar */
 	if (browser_get_focus() != FOCUS_ADDR_BAR) {
-		/* Up/Down: link selection on directory pages, scroll on text */
+		/* Up/Down: link selection on directory pages if keyboard
+		 * nav is active, otherwise scroll. This allows scroll
+		 * wheel (mapped to arrow keys by emulators) to scroll
+		 * normally when no link is selected. */
 		if (key == 0x1E || key == 0x1F) {
-			if (g_gopher.page_type == PAGE_DIRECTORY) {
+			if (g_gopher.page_type == PAGE_DIRECTORY &&
+			    content_get_selected_row() >= 0) {
 				if (key == 0x1E)
 					content_select_prev(g_window);
 				else
@@ -1501,6 +1513,9 @@ handle_key_down(EventRecord *event)
 			return;
 		case 0x04:  /* End — bottom of document */
 			content_set_scroll_pos(32767);
+			return;
+		case 0x1B:  /* Escape — clear keyboard selection */
+			content_clear_kbd_selection(g_window);
 			return;
 		}
 	}

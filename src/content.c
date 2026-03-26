@@ -2957,7 +2957,6 @@ content_erase(WindowPtr win)
 		if (t) {
 			theme_set_bg(&t->bg);
 			EraseRect(&cr);
-			theme_restore_colors();
 		} else
 			EraseRect(&cr);
 	} else
@@ -3775,11 +3774,27 @@ content_select_next(WindowPtr win)
 		content_mark_dirty(old);
 
 	/* Auto-scroll to keep selection visible */
-	if (next < g_scroll_pos)
+	if (next < g_scroll_pos) {
 		content_set_scroll_pos(next);
-	else if (next >= g_scroll_pos + visible_rows(win))
+		content_mark_all_dirty();
+		if (win) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(win);
+			content_draw(win);
+			SetPort(save);
+		}
+	} else if (next >= g_scroll_pos + visible_rows(win)) {
 		content_set_scroll_pos(next - visible_rows(win) + 1);
-	else if (win) {
+		content_mark_all_dirty();
+		if (win) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(win);
+			content_draw(win);
+			SetPort(save);
+		}
+	} else if (win) {
 		GrafPtr save;
 		Rect cr;
 		const void *kt = theme_current();
@@ -3819,11 +3834,27 @@ content_select_prev(WindowPtr win)
 		content_mark_dirty(old);
 
 	/* Auto-scroll to keep selection visible */
-	if (prev < g_scroll_pos)
+	if (prev < g_scroll_pos) {
 		content_set_scroll_pos(prev);
-	else if (prev >= g_scroll_pos + visible_rows(win))
+		content_mark_all_dirty();
+		if (win) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(win);
+			content_draw(win);
+			SetPort(save);
+		}
+	} else if (prev >= g_scroll_pos + visible_rows(win)) {
 		content_set_scroll_pos(prev - visible_rows(win) + 1);
-	else if (win) {
+		content_mark_all_dirty();
+		if (win) {
+			GrafPtr save;
+			GetPort(&save);
+			SetPort(win);
+			content_draw(win);
+			SetPort(save);
+		}
+	} else if (win) {
 		GrafPtr save;
 		Rect cr;
 		const void *kt = theme_current();

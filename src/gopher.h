@@ -8,7 +8,7 @@
 #include "connection.h"
 
 /* Directory item array: starts small, grows dynamically */
-#define GOPHER_INIT_ITEMS    64   /* initial allocation */
+#define GOPHER_INIT_ITEMS   128   /* initial allocation */
 #define GOPHER_MAX_ITEMS   2000   /* hard cap */
 
 /* Text buffer: starts small, grows to max */

@@ -144,14 +144,22 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		conn_close(&gs->conn);
 
 	/* Allocate new page buffers BEFORE clearing old page.
-	 * If connection fails, old page content is preserved. */
+	 * If connection fails, old page content is preserved.
+	 * If allocation fails, free old page and retry — better
+	 * to lose the back-page than fail the navigation. */
 	if (type == GOPHER_DIRECTORY || type == GOPHER_SEARCH ||
 	    type == '\0') {
 		new_page_type = PAGE_DIRECTORY;
 		new_items = (GopherItem *)NewPtr(
 		    (long)sizeof(GopherItem) * GOPHER_INIT_ITEMS);
-		if (!new_items)
-			return false;
+		if (!new_items) {
+			gopher_clear_page(gs);
+			new_items = (GopherItem *)NewPtr(
+			    (long)sizeof(GopherItem) *
+			    GOPHER_INIT_ITEMS);
+			if (!new_items)
+				return false;
+		}
 	} else if (type == GOPHER_TEXT || type == GOPHER_ERROR
 	    || type == GOPHER_CSO
 #ifdef GEOMYS_HTML
@@ -165,13 +173,23 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		new_page_type = PAGE_TEXT;
 #endif
 		new_text = NewPtr(GOPHER_TEXT_INIT_SIZE);
-		if (!new_text)
-			return false;
+		if (!new_text) {
+			gopher_clear_page(gs);
+			new_text = NewPtr(GOPHER_TEXT_INIT_SIZE);
+			if (!new_text)
+				return false;
+		}
 		new_lines = (long *)NewPtr(
 		    (long)GOPHER_INIT_TEXT_LINES * sizeof(long));
 		if (!new_lines) {
-			DisposePtr(new_text);
-			return false;
+			gopher_clear_page(gs);
+			new_lines = (long *)NewPtr(
+			    (long)GOPHER_INIT_TEXT_LINES *
+			    sizeof(long));
+			if (!new_lines) {
+				DisposePtr(new_text);
+				return false;
+			}
 		}
 		new_lines[0] = 0;  /* first line starts at offset 0 */
 #ifdef GEOMYS_DOWNLOAD
@@ -192,8 +210,14 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		new_page_type = PAGE_DIRECTORY;
 		new_items = (GopherItem *)NewPtr(
 		    (long)sizeof(GopherItem) * GOPHER_INIT_ITEMS);
-		if (!new_items)
-			return false;
+		if (!new_items) {
+			gopher_clear_page(gs);
+			new_items = (GopherItem *)NewPtr(
+			    (long)sizeof(GopherItem) *
+			    GOPHER_INIT_ITEMS);
+			if (!new_items)
+				return false;
+		}
 	}
 
 	/* Start async connect — returns true when handshake begins */
@@ -912,25 +936,35 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 	if (gs->item_count >= GOPHER_MAX_ITEMS)
 		return;
 
-	/* Grow items array if full */
+	/* Grow items array if full — try in-place resize first
+	 * to avoid peak memory of old+new arrays simultaneously */
 	if (gs->item_count >= gs->item_capacity) {
 		short new_cap;
 		long new_size;
-		GopherItem *new_items;
 
 		new_cap = gs->item_capacity * 2;
 		if (new_cap > GOPHER_MAX_ITEMS)
 			new_cap = GOPHER_MAX_ITEMS;
 		new_size = (long)sizeof(GopherItem) * new_cap;
 
-		new_items = (GopherItem *)NewPtr(new_size);
-		if (!new_items)
-			return;  /* out of memory — stop adding */
-		memcpy(new_items, gs->items,
-		    (long)sizeof(GopherItem) * gs->item_count);
-		DisposePtr((Ptr)gs->items);
-		gs->items = new_items;
-		gs->item_capacity = new_cap;
+		SetPtrSize((Ptr)gs->items, new_size);
+		if (MemError() == noErr) {
+			gs->item_capacity = new_cap;
+		} else {
+			GopherItem *new_items;
+
+			/* Compact heap to maximize contiguous space */
+			CompactMem(new_size);
+			new_items = (GopherItem *)NewPtr(new_size);
+			if (!new_items)
+				return;  /* out of memory — stop adding */
+			memcpy(new_items, gs->items,
+			    (long)sizeof(GopherItem) *
+			    gs->item_count);
+			DisposePtr((Ptr)gs->items);
+			gs->items = new_items;
+			gs->item_capacity = new_cap;
+		}
 	}
 
 	item = &gs->items[gs->item_count];

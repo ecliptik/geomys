@@ -18,7 +18,7 @@ option(GEOMYS_PRINT        "Enable printing support"            ON)
 option(GEOMYS_HTML         "Enable HTML tag stripping"          ON)
 option(GEOMYS_TELNET       "Enable telnet connection info"      ON)
 option(GEOMYS_DRAG         "Enable Drag Manager support (System 7.5+)" OFF)
-option(GEOMYS_APPLESCRIPT  "Enable AppleScript support"         ON)
+option(GEOMYS_APPLESCRIPT  "Enable AppleScript support"         OFF)
 
 # Maximum simultaneous windows (1 = single-window, zero overhead)
 if(NOT DEFINED GEOMYS_MAX_WINDOWS)
