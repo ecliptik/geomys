@@ -55,8 +55,8 @@
 
 typedef struct {
 	char    type;
-	char    display[128];
-	char    selector[256];
+	char    display[80];
+	char    selector[128];
 	char    host[64];
 	short   port;
 #ifdef GEOMYS_GOPHER_PLUS

@@ -1089,8 +1089,11 @@ content_draw_row(WindowPtr win, short row_index,
 	/* Restore port colors after themed row draw — prevents
 	 * theme colors leaking into subsequent draws (e.g. during
 	 * track_content_drag which calls this per-row) */
-	if (!g_in_full_draw)
+	if (!g_in_full_draw) {
 		theme_restore_colors();
+		TextFont(systemFont);
+		TextSize(12);
+	}
 
 	if (!g_in_full_draw && g_clip_rgn)
 		SetClip(g_clip_rgn);
@@ -1208,8 +1211,11 @@ content_draw_text_row(WindowPtr win, short line_index,
 	/* Restore port colors after themed row draw — prevents
 	 * theme colors leaking into subsequent draws (e.g. during
 	 * track_content_drag which calls this per-row) */
-	if (!g_in_full_draw)
+	if (!g_in_full_draw) {
 		theme_restore_colors();
+		TextFont(systemFont);
+		TextSize(12);
+	}
 
 	if (!g_in_full_draw && g_clip_rgn)
 		SetClip(g_clip_rgn);
@@ -1287,6 +1293,8 @@ content_draw(WindowPtr win)
 			offscreen_end(win, &r);
 #endif
 		theme_restore_colors();
+		TextFont(systemFont);
+		TextSize(12);
 		SetClip(g_clip_rgn);
 		return;
 	}
@@ -1495,11 +1503,13 @@ done:
 	}
 #endif
 
-	/* Restore port colors to black/white so themed colors
-	 * don't leak into chrome (nav bar, address bar, buttons).
+	/* Restore port state so themed colors and content font
+	 * don't leak into chrome (nav bar, title bar, buttons).
 	 * Must be AFTER offscreen_end so we restore the window
 	 * port, not the GWorld. */
 	theme_restore_colors();
+	TextFont(systemFont);
+	TextSize(12);
 
 }
 

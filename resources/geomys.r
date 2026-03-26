@@ -1423,8 +1423,8 @@ resource 'SIZE' (-1) {
 	reserved,
 	reserved,
 	reserved,
-	1536 * 1024,
-	1024 * 1024
+	2560 * 1024,
+	1536 * 1024
 };
 
 /* ===== SICN resources for Gopher type icons (16x16) ===== */

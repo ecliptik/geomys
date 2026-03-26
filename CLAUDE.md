@@ -15,6 +15,17 @@ Geomys is a Gopher browser for classic Macintosh (68000/Macintosh Plus) written 
 - Monochrome only for MVP
 - Latency and responsiveness are critical priorities
 
+### Multi-Window Memory Constraints (System 7 Color)
+
+On System 7 with Color QuickDraw, each window requires a GWorld offscreen buffer (~400KB+ at 8-bit depth on a large display). Combined with per-page item arrays (278 bytes × item count), memory is the primary constraint for multi-window support:
+
+- **System 6 (monochrome)**: 1-bit offscreen (~22KB per window). Memory is rarely an issue.
+- **System 7 (256 color)**: 8-bit GWorld (~400KB+ per window). The SIZE resource allocates 2560KB preferred / 1536KB minimum.
+- **Practical window limits**: 2-3 windows on System 7 color with large displays. The full preset uses `GEOMYS_MAX_WINDOWS=3`.
+- **GopherItem size**: 278 bytes each (display[80] + selector[128] + host[64]). A large directory (800+ items) uses ~220KB.
+- Allocation failures show as "Connection failed" — the `gopher_begin_response` retry-after-free logic helps but cannot recover from total heap exhaustion.
+- Long-term fix: share a single GWorld across all windows instead of per-window allocation.
+
 ## Build System
 
 - Cross-compile on Linux using [Retro68](https://github.com/autc04/Retro68) toolchain

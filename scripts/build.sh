@@ -23,7 +23,7 @@ GEOMYS_HTML=ON
 GEOMYS_TELNET=ON
 GEOMYS_DRAG=OFF
 GEOMYS_APPLESCRIPT=OFF
-GEOMYS_MAX_WINDOWS=4
+GEOMYS_MAX_WINDOWS=3
 
 PRESET=""
 
@@ -85,7 +85,7 @@ apply_preset() {
             GEOMYS_TELNET=ON
             GEOMYS_DRAG=OFF
             GEOMYS_APPLESCRIPT=OFF
-            GEOMYS_MAX_WINDOWS=4
+            GEOMYS_MAX_WINDOWS=3
             ;;
         *)
             echo "Error: unknown preset '$1' (valid: minimal, lite, full; macplus is alias for lite)"
@@ -190,7 +190,9 @@ compute_size() {
     [ "$GEOMYS_THEMES" = "ON" ] && shared=$(( shared + 2 ))
 
     # Per-session memory: items(80KB) + text(32KB) + tcp(12KB) + history(4KB) = 128KB
+    # Color builds add ~400KB per window for 8-bit GWorld offscreen buffer
     local per_session=128
+    [ "$GEOMYS_COLOR" = "ON" ] && per_session=$(( per_session + 400 ))
     [ "$GEOMYS_CACHE" = "ON" ] && per_session=$(( per_session + 100 ))
     local session_total=$(( per_session * GEOMYS_MAX_WINDOWS ))
 
@@ -205,8 +207,8 @@ compute_size() {
     local max_pref=384
     local max_min=256
     if [ "$GEOMYS_COLOR" = "ON" ]; then
-        max_pref=1024
-        max_min=896
+        max_pref=2560
+        max_min=1536
     fi
     [ $SIZE_PREFERRED -lt 256 ] && SIZE_PREFERRED=256 || true
     [ $SIZE_MINIMUM -lt 192 ] && SIZE_MINIMUM=192 || true
@@ -249,9 +251,9 @@ mkdir -p "$BUILD_DIR"
 cp "$REZ_FILE" "$REZ_BACKUP"
 sed -i "s/\"Geomys ${VERSION}\"/\"Geomys ${VERSION_DISPLAY}\"/" "$REZ_FILE"
 
-# Stamp SIZE resource partition
-sed -i "s/384 \* 1024/${SIZE_PREFERRED} * 1024/" "$REZ_FILE"
-sed -i "s/256 \* 1024/${SIZE_MINIMUM} * 1024/" "$REZ_FILE"
+# Stamp SIZE resource partition (preferred on first line, minimum on second)
+sed -i "0,/[0-9]* \* 1024/{s/[0-9]* \* 1024/${SIZE_PREFERRED} * 1024/}" "$REZ_FILE"
+sed -i "0,/[0-9]* \* 1024/{s/[0-9]* \* 1024/${SIZE_MINIMUM} * 1024/}" "$REZ_FILE"
 
 # Build (restore .r file on exit, even if build fails)
 cleanup() { cp "$REZ_BACKUP" "$REZ_FILE" 2>/dev/null; rm -f "$REZ_BACKUP"; }
