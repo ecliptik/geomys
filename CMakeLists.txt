@@ -17,7 +17,7 @@ option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
 option(GEOMYS_PRINT        "Enable printing support"            ON)
 option(GEOMYS_HTML         "Enable HTML tag stripping"          ON)
 option(GEOMYS_TELNET       "Enable telnet connection info"      ON)
-option(GEOMYS_DRAG         "Enable Drag Manager support"        ON)
+option(GEOMYS_DRAG         "Enable Drag Manager support (System 7.5+)" OFF)
 option(GEOMYS_APPLESCRIPT  "Enable AppleScript support"         ON)
 
 # Maximum simultaneous windows (1 = single-window, zero overhead)
