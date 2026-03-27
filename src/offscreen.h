@@ -14,10 +14,10 @@
 #include <Quickdraw.h>
 #include <Windows.h>
 
-/* Allocate offscreen buffer sized to window's portRect.
- * Call once at startup after window creation. Returns 1 on
- * success, 0 if allocation failed (caller falls back to
- * direct drawing). */
+/* Initialize the shared offscreen buffer sized to window's portRect.
+ * Idempotent: if a buffer already exists, grows it to cover the
+ * window if needed and returns 1. Returns 1 on success, 0 if
+ * allocation failed (caller falls back to direct drawing). */
 short offscreen_init(WindowPtr win);
 
 /* Free offscreen buffer */
@@ -35,8 +35,9 @@ void offscreen_end(WindowPtr win, const Rect *blit_rect);
 /* Check if offscreen is available and allocated */
 short offscreen_is_ready(void);
 
-/* Reallocate offscreen buffer if window grew beyond current
- * buffer size. No-op if buffer is already large enough. */
+/* Grow the shared offscreen buffer if window exceeds current
+ * buffer size. No-op if buffer is already large enough. The
+ * buffer never shrinks — freed once at app exit. */
 void offscreen_resize(WindowPtr win);
 
 #endif /* GEOMYS_OFFSCREEN */

@@ -1,16 +1,15 @@
 /*
- * offscreen.c - Offscreen double-buffer rendering
+ * offscreen.c - Shared offscreen double-buffer rendering
  *
- * Allocates a 1-bit deep offscreen BitMap matching the window's
- * content area. Drawing is redirected via SetPortBits, then
- * CopyBits blits the result to screen — eliminating all flicker
- * from erase-then-draw sequences.
+ * A single offscreen buffer is shared across all browser windows.
+ * Cooperative multitasking guarantees only one window draws at a
+ * time, so one buffer is sufficient. The buffer grows to fit the
+ * largest window but never shrinks (freed once at app exit).
  *
- * Memory: ~22KB for 512x342 (64 rowBytes * 342 rows).
+ * Mono path: 1-bit BitMap via SetPortBits (~22KB for 512x342).
+ * Color path: GWorld at screen depth (~400KB+ at 8-bit 640x480).
+ *
  * Reference: Flynn terminal_ui.c SetPortBits pattern.
- *
- * When GEOMYS_COLOR is enabled and the display has depth > 1,
- * uses GWorld for full-depth offscreen rendering (~171KB at 8-bit).
  */
 
 #ifdef GEOMYS_OFFSCREEN
@@ -49,45 +48,58 @@ offscreen_init(WindowPtr win)
 	if (g_has_color_qd) {
 		GDHandle gd = GetMainDevice();
 		if (gd && (*(*gd)->gdPMap)->pixelSize > 1) {
-			/* Color display — use GWorld for
-			 * full-depth offscreen rendering */
-			Rect bounds = win->portRect;
-			QDErr err;
-
-			err = NewGWorld(&g_color_gworld, 0,
-			    &bounds, 0L, 0L, 0);
-			if (err == noErr && g_color_gworld) {
-				PixMapHandle ipm;
-				CGrafPtr sp;
-				GDHandle sd;
-				Rect r;
-
-				/* Clear GWorld to white */
-				ipm = GetGWorldPixMap(
-				    g_color_gworld);
-				if (LockPixels(ipm)) {
-					GetGWorld(&sp, &sd);
-					SetGWorld(
-					    g_color_gworld, 0L);
-					r = bounds;
-					EraseRect(&r);
-					SetGWorld(sp, sd);
-					UnlockPixels(ipm);
-				}
-				g_use_gworld = 1;
-				g_ready = 1;
-				g_active = 0;
+			/* If GWorld already exists, ensure it
+			 * covers this window and reuse it */
+			if (g_color_gworld) {
+				offscreen_resize(win);
 				return 1;
 			}
-			/* GWorld alloc failed — fall through
-			 * to 1-bit path as fallback */
+
+			/* First init: create GWorld sized to
+			 * this window's portRect */
+			{
+				Rect bounds = win->portRect;
+				QDErr err;
+
+				err = NewGWorld(&g_color_gworld, 0,
+				    &bounds, 0L, 0L, 0);
+				if (err == noErr && g_color_gworld) {
+					PixMapHandle ipm;
+					CGrafPtr sp;
+					GDHandle sd;
+					Rect r;
+
+					/* Clear GWorld to white */
+					ipm = GetGWorldPixMap(
+					    g_color_gworld);
+					if (LockPixels(ipm)) {
+						GetGWorld(&sp, &sd);
+						SetGWorld(
+						    g_color_gworld,
+						    0L);
+						r = bounds;
+						EraseRect(&r);
+						SetGWorld(sp, sd);
+						UnlockPixels(ipm);
+					}
+					g_use_gworld = 1;
+					g_ready = 1;
+					g_active = 0;
+					return 1;
+				}
+				/* GWorld alloc failed — fall
+				 * through to 1-bit fallback */
+			}
 		}
 		/* Mono display with Color QD — use 1-bit buffer */
 	}
 #endif
 
-	if (g_offscreen_bits)
-		return 1;  /* already allocated */
+	if (g_offscreen_bits) {
+		/* Already allocated — grow if this window is larger */
+		offscreen_resize(win);
+		return 1;
+	}
 
 	pixel_w = win->portRect.right - win->portRect.left;
 	pixel_h = win->portRect.bottom - win->portRect.top;
@@ -150,8 +162,17 @@ offscreen_begin(WindowPtr win)
 		win_w = win->portRect.right - win->portRect.left;
 		win_h = win->portRect.bottom - win->portRect.top;
 		if (win_w > (gw_bounds.right - gw_bounds.left) ||
-		    win_h > (gw_bounds.bottom - gw_bounds.top))
-			return;  /* GWorld too small, skip */
+		    win_h > (gw_bounds.bottom - gw_bounds.top)) {
+			/* Try to grow before giving up */
+			offscreen_resize(win);
+			pm = GetGWorldPixMap(g_color_gworld);
+			gw_bounds = (*pm)->bounds;
+			if (win_w > (gw_bounds.right -
+			    gw_bounds.left) ||
+			    win_h > (gw_bounds.bottom -
+			    gw_bounds.top))
+				return;  /* still too small */
+		}
 
 		if (LockPixels(pm)) {
 			GetGWorld(&g_saved_port, &g_saved_gd);
@@ -164,13 +185,19 @@ offscreen_begin(WindowPtr win)
 
 	/* Validate buffer is large enough for this window.
 	 * If the window was resized larger than the buffer,
-	 * skip offscreen to avoid memory corruption. */
+	 * try to grow before skipping offscreen. */
 	win_w = win->portRect.right - win->portRect.left;
 	win_h = win->portRect.bottom - win->portRect.top;
 	buf_w = (g_offscreen.rowBytes * 8);
 	buf_h = g_offscreen.bounds.bottom - g_offscreen.bounds.top;
-	if (win_w > buf_w || win_h > buf_h)
-		return;
+	if (win_w > buf_w || win_h > buf_h) {
+		offscreen_resize(win);
+		buf_w = (g_offscreen.rowBytes * 8);
+		buf_h = g_offscreen.bounds.bottom -
+		    g_offscreen.bounds.top;
+		if (win_w > buf_w || win_h > buf_h)
+			return;  /* still too small */
+	}
 
 	/* Save the real screen bits */
 	g_saved_bits = win->portBits;
@@ -236,6 +263,15 @@ offscreen_is_ready(void)
 	return g_ready;
 }
 
+/*
+ * offscreen_resize - Grow shared offscreen buffer if window exceeds it.
+ *
+ * The offscreen buffer is shared across all windows (cooperative
+ * multitasking — only one window draws at a time). The buffer
+ * grows to accommodate the largest window but never shrinks.
+ * Called during window zoom/grow and from offscreen_init when a
+ * new window is created.
+ */
 void
 offscreen_resize(WindowPtr win)
 {
