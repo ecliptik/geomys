@@ -9,13 +9,13 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 ### Highlights
 - Full RFC 1436 Gopher protocol with all 19 canonical and non-canonical item types
 - Gopher+ protocol suite: Get Info (+ABSTRACT, +VIEWS, +SCORE), interactive forms (+ASK), bulk attribute fetch ($), content negotiation
-- Multi-window browsing with up to 4 simultaneous windows and background loading
+- Multi-window browsing with up to 3 simultaneous windows and background loading
 - 9 built-in themes with 256-color support on System 7 (monochrome on System 6)
 - 8 fonts with independent size selection
 - Find in Page, Print, Save Page As, text selection and clipboard
 - 20 persistent favorites with List Manager dialog
 - Local page cache with memory-aware sizing for instant back/forward
-- System 7 enhancements: AppleScript, Drag Manager, Stationery pads, Notification Manager, Balloon Help
+- System 7 enhancements: Drag Manager, Stationery pads, Notification Manager
 - Apple HIG-compliant dialogs, menus, and keyboard navigation throughout
 - Three editions: Full (~1024KB), Lite (~505KB), Minimal (~297KB)
 
@@ -25,6 +25,33 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Updated About Geomys document to v0.15.1 with complete feature coverage
 - Expanded v1.0 roadmap with acceptance criteria, QA checkpoints, and known limitations
 - Documented System 6 preferences icon as known Finder limitation
+
+## [0.15.2] — 2026-03-26: System 7 QA
+
+### Fixed
+- Dark theme blank page on System 7: `CopyBits` called without resetting destination port fg/bg to black/white, causing color distortion on indexed displays (Apple TN QD13). Fixed in `offscreen_end()` and moved `theme_restore_colors()` after `offscreen_end` so the window port is restored, not the GWorld
+- Theme switch not redrawing nav bar: `browser_draw_status()` replaced with `browser_draw()` so nav buttons redraw when changing themes
+- Return/Enter key always navigating address bar URL regardless of focus: now checks focus, allowing Enter to follow the selected link during keyboard navigation
+- System font leaking into Window Manager title bars: content drawing now restores `TextFont(systemFont)` / `TextSize(12)` after every draw pass
+- Keyboard nav auto-scroll corruption: `content_select_next/prev` now does a full `content_draw()` when auto-scrolling, instead of leaving stale content
+- Mouse hover interfering with keyboard selection: hover tracking suppressed while keyboard nav is active (resumes on Escape or click)
+- `content_draw()` no-page early return leaking GWorld state: added `offscreen_end()` to the early return path
+- GWorld offscreen buffer leaked ~400KB per additional window: `offscreen_init()` on the color path always created a new GWorld, overwriting the previous one without disposing it. Added idempotent guard matching the mono path
+
+### Changed
+- Solarized Dark theme: all foreground colors brightened 1–2 cube steps for readable contrast on 256-color CRT displays (6 of 8 colors previously failed WCAG AA 4.5:1 minimum)
+- Tokyo Night Dark theme: label/metadata color bumped from `#666699` (3.75:1) to `#9999CC` (7.4:1)
+- Arrow keys on directory pages now scroll by default; keyboard link navigation activated by Tab (Escape to exit). Allows mouse scroll wheel (mapped to arrow keys by emulators) to scroll normally
+- `GopherItem` struct reduced from 454 to 278 bytes: `display[128→80]`, `selector[256→128]`. Saves ~149KB on an 846-item directory
+- `GOPHER_INIT_ITEMS` increased from 64 to 128 with `SetPtrSize` in-place resize before allocate+copy fallback, plus `CompactMem` heap defragmentation
+- `gopher_begin_response()` retries allocation after freeing old page buffers when `NewPtr` fails, instead of immediately failing with "Connection failed"
+- Shared single GWorld offscreen buffer across all windows: saves ~400KB per additional window (~800KB with 3 windows). `offscreen_begin()` auto-grows via `offscreen_resize()` before falling back to direct drawing
+- `GEOMYS_MAX_WINDOWS` reduced from 4 to 3 in full preset to fit System 7 color memory constraints
+- SIZE resource: 2560KB preferred / 1536KB minimum (was 1024/896). Build script SIZE computation now includes ~400KB per window for 8-bit GWorld
+- AppleScript disabled by default (re-enable with `--applescript` build flag)
+
+### Removed
+- Balloon Help: ~600 lines of `hmnu` resources removed — consumed memory on System 7 for minimal user benefit
 
 ## [0.15.1] — 2026-03-26: Code Review Remediation
 
