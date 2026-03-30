@@ -141,15 +141,15 @@ build_all_presets() {
 
     # Full preset → Geomys-{ver}.*
     echo "  Building full preset..."
-    "$SCRIPT_DIR/scripts/build.sh" --preset full
+    "$SCRIPT_DIR/scripts/build.sh" --clean --preset full
 
     # Lite preset → Geomys-Lite-{ver}.*
     echo "  Building lite preset..."
-    "$SCRIPT_DIR/scripts/build.sh" --preset lite
+    "$SCRIPT_DIR/scripts/build.sh" --clean --preset lite
 
     # Minimal preset → Geomys-Minimal-{ver}.*
     echo "  Building minimal preset..."
-    "$SCRIPT_DIR/scripts/build.sh" --preset minimal
+    "$SCRIPT_DIR/scripts/build.sh" --clean --preset minimal
 
     echo "  All presets built:"
     ls -la "$SCRIPT_DIR/build"/Geomys*-${ver}.* 2>/dev/null
@@ -222,9 +222,9 @@ do_release() {
 
 | Edition | Description | Memory |
 |---------|-------------|--------|
-| **Geomys** | Full build — offscreen buffering, favorites, all features | ~512KB |
-| **Geomys Lite** | Recommended — status bar, core browsing features | ~384KB |
-| **Geomys Minimal** | Bare-bones — no status bar, stripped features | ~256KB |
+| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB |
+| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB |
+| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB |
 
 See [BUILD.md](https://github.com/$GITHUB_REPO/blob/main/docs/BUILD.md) for custom build options."
 
