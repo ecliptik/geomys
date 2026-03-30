@@ -61,7 +61,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 - Find in Page, browsing history, Save Page As, Print
 
 **Display**
-- 9 built-in themes with 256-color support on System 7
+- 9 built-in [themes](#themes) with 256-color support on System 7 ([create your own](docs/THEMES.md))
 - 8 fonts with independent size selection (9, 10, 12, 14)
 - Double-buffered rendering with SICN/cicn icons
 - CP437 character set and Unicode glyph rendering
