@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 0.15.1
+                   Version 1.0.0
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -103,9 +103,9 @@ Features
     showing item attributes, +ABSTRACT display, +SCORE
     search result scoring, +VIEWS content negotiation,
     +ASK interactive forms, bulk attribute fetch
-  - Page styles: Traditional, Plain, and Markdown
-    display modes (Options > Page Style)
-  - Multi-window browsing with up to 4 simultaneous
+  - Page styles: Text and Icons display modes
+    (Options > Page Style)
+  - Multi-window browsing with up to 3 simultaneous
     Gopher windows and background loading
   - Binary file downloads to disk via standard save
     dialog with progress display and Stop button
@@ -153,14 +153,11 @@ Features
     background page loads (System 7)
   - Stationery pad support: save URLs as stationery
     documents that open as new pages (System 7+)
-  - AppleScript support: navigate and get URL
-    commands for scripting (System 7+)
-  - Drag Manager support: drag links to Desktop or
-    other apps, drop URLs to navigate (System 7.5+)
-  - System 7 enhancements: Balloon Help, modern save
-    dialog, Apple Events (odoc/pdoc), MultiFinder
-    suspend/resume, temporary memory for cache,
-    machine type in About dialog
+  - System 7 enhancements: modern save dialog,
+    Apple Events (odoc/pdoc), MultiFinder
+    suspend/resume, Notification Manager alerts for
+    background page loads, temporary memory for
+    cache, machine type in About dialog
     (all conditional -- System 6 behavior unchanged)
 
 
@@ -221,9 +218,11 @@ and USB keyboards.
 Multiple Windows
 ----------------
 
-Geomys supports up to 4 simultaneous browser windows.
-Each window has its own page content, browsing
-history, scroll position, and text selection.
+Geomys supports up to 3 simultaneous browser windows
+(configurable at build time with --max-windows for
+systems with more RAM). Each window has its own page
+content, browsing history, scroll position, and text
+selection.
 
   Opening Additional Windows:
   - Press Command-N to open a new browser window.

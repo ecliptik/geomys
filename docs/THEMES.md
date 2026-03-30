@@ -269,7 +269,7 @@ Build presets:
 |--------|-----------------|----------------|------------------|
 | `full` | ON | ON | All 9 (mono + color) |
 | `lite` | ON | OFF | Light, Dark only |
-| `minimal` | OFF | OFF | None (no theme engine) |
+| `minimal` | ON | OFF | Light, Dark only |
 
 Override with CLI flags:
 

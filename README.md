@@ -1,6 +1,6 @@
 # Geomys
 
-A [Gopher](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh systems, from the Mac Plus and up. Implements [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) with a full Macintosh GUI. Supports monochrome on System 6 and 256 colors on System 7. Works with MacTCP. Cross-compiled on Linux using [Retro68](https://github.com/autc04/Retro68).
+A [Gopher](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh systems. Supports monochrome on System 6 and 256 colors on System 7. Multi-window browsing, 9 themes, favorites, Gopher+ protocol, file downloads, and full keyboard navigation.
 
 This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
@@ -32,9 +32,9 @@ Pre-built binaries are available on the [Releases](https://github.com/ecliptik/g
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | Full build — 4 windows, all features including 256-color | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.15.1/Geomys-0.15.1.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.15.1/Geomys-0.15.1.hqx) |
-| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~505KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.15.1/Geomys-Lite-0.15.1.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.15.1/Geomys-Lite-0.15.1.hqx) |
-| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~297KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v0.15.1/Geomys-Minimal-0.15.1.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v0.15.1/Geomys-Minimal-0.15.1.hqx) |
+| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.hqx) |
+| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.hqx) |
+| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). No build toolchain required — just download and run. See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
@@ -46,48 +46,31 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 
 ## Features
 
-**Gopher Protocol**
-- All 19 canonical and non-canonical Gopher item types:
-  - Interactive: directories (1), text files (0), CSO phonebook (2), search (7), HTML (h)
-  - Telnet handoff: telnet (8) and TN3270 (T) with connection dialog and app launching
-  - Download to disk: BinHex (4), DOS binary (5), UUencode (6), binary (9), document (d), GIF (g), image (I), PNG (p), RTF (r), sound (s)
-  - Display: informational (i), error (3)
-- [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) protocol suite: +ABSTRACT display, +SCORE search result scoring, bulk attribute fetch ($), content negotiation (+VIEWS), and +ASK interactive forms
-- Gopher+ runtime toggle in Options menu (default: off) — type indicators shown regardless
-- Binary file downloads with progress dialog
-- Image save with format/dimension detection
-- HTML tag-stripping renderer for type h pages
-- CSO/ph phonebook queries with formatted results
-- Search queries (type 7) with dialog input
+**Protocol**
+- [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) — all 19 Gopher item types
+- [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) — Get Info, content negotiation, search scoring, interactive forms
+- Binary file downloads with progress dialog and image format detection
+- HTML tag-stripping renderer, CSO/ph phonebook queries, search with dialog input
+- Telnet handoff with connection dialog and app launching (System 7)
 
 **Browsing**
-- Web browser-style chrome: address bar, back/forward/home, stop/go/refresh
-- Multi-window browsing (up to 4 simultaneous windows)
-- Local page cache with instant back/forward navigation
-- Favorites with persistent bookmarks
-- Browsing history in the Go menu
-- Find in Page with match highlighting
+- Multi-window browsing (3 windows default; increase with `--max-windows` on systems with more RAM)
+- Address bar, back/forward/home, stop/go/refresh, status bar
+- Local page cache for instant back/forward navigation
+- 20 persistent favorites with menu quick-access
+- Find in Page, browsing history, Save Page As, Print
 
 **Display**
-- 9 built-in themes (Light, Dark, Solarized, Tokyo Night, Green Screen, Classic, Platinum)
-- 256-color on System 7; monochrome on System 6
-- ROM-based SICN/cicn icons for Gopher types and navigation buttons (color on Mac II+, mono fallback)
-- 8 fonts (Monaco, Geneva, Chicago, Courier, New York; Helvetica, Times, Palatino on System 7) with independent size selection (9, 10, 12, 14)
-- Double-buffered rendering
-- Content-aware window zoom
-- Horizontal and vertical scrolling
+- 9 built-in themes with 256-color support on System 7
+- 8 fonts with independent size selection (9, 10, 12, 14)
+- Double-buffered rendering with SICN/cicn icons
+- CP437 character set and Unicode glyph rendering
 
-**Classic Mac Integration**
-- Telnet handoff dialog for type 8/T items (launch Flynn or NCSA Telnet on System 7)
-- Print support via Printing Manager
-- Show Clipboard and Save As per HIG standard Edit and File menus
-- List Manager for Favorites with keyboard type-ahead and scrolling
-- AppleScript support: `navigate` and `get URL` commands for scripted automation (System 7+)
-- Drag and drop: drag links to Desktop as text clippings, drop URLs to navigate (System 7.5+)
-- MultiFinder, Apple Events, Notification Manager, and stationery pad support
-- Balloon Help and SICN menu icons on System 7
-- Dynamic window sizing for large screens and multi-monitor support
-- Aligned with Apple Human Interface Guidelines (1992)
+**System Integration**
+- Notification Manager alerts for background page loads (System 7)
+- MultiFinder, Apple Events (odoc/pdoc), stationery pad support
+- Optional: AppleScript and Drag Manager (available via custom build flags)
+- Aligned with [Apple Human Interface Guidelines](https://archive.org/details/apple-human-interface-guidelines-1992) (1992)
 
 ## Keyboard Shortcuts
 
@@ -157,15 +140,15 @@ Geomys supports fully customizable builds. Three presets cover common configurat
 
 | Preset | Windows | Features | Memory |
 |--------|---------|----------|--------|
-| `full` | 4 | everything | ~1024KB |
-| `lite` | 2 | core browsing, themes, clipboard | ~505KB |
-| `minimal` | 1 | bare-bones, smallest binary | ~297KB |
+| `full` | 3 | everything | ~2560KB |
+| `lite` | 2 | core browsing, themes, clipboard, HTML, telnet | ~1024KB |
+| `minimal` | 1 | themes, clipboard, styles, HTML, telnet | ~512KB |
 
 The default build uses the **full** preset. Select a preset with `--preset`:
 
 ```bash
 ./scripts/build.sh --preset minimal    # stripped, for 1MB Macs
-./scripts/build.sh --preset full       # everything, 4 windows
+./scripts/build.sh --preset full       # everything, 3 windows
 ```
 
 Individual features can be toggled with `--feature` / `--no-feature` flags. Presets are applied first, then individual flags override:

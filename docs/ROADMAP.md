@@ -673,65 +673,71 @@ Security, performance, memory, and code quality improvements from code review.
 
 ---
 
-## Future Features
+## v0.15.2 — System 7 QA & Network Performance
+**Status: Complete**
 
-### Potential v1.0 — Release Candidate
+System 7 QA with 256-color testing, network performance fixes, and multi-window reliability.
+
+- Connection leak fix: directory/search connections closed after terminator
+- Stream tracking overflow protection with user-visible error
+- Bulk directory parsing via memchr/memcpy (~3-5x faster)
+- Idle-based receive timeout (resets on data arrival)
+- Read buffer doubled to 8KB
+- Gopher+ timeouts reduced, Cmd-. cancel support
+- GWorld forced to 8-bit indexed depth for correct color rendering
+- Multi-window chrome disappearance fix
+- Bracket glyph clipping fix
+- SIZE resource raised for non-color builds
+
+## v0.15.5 — P2 Follow-up Fixes
+**Status: Complete**
+
+P2 bug fixes from QA smoke testing.
+
+- Status bar hover restore on mouse leave
+- Dialog buffer damage on themed backgrounds
+- New window address bar Enter key focus
+- Dark theme icon contrast (cicn bypass)
+- Download dialog multi-window: stays visible, progress updates in background
+- Refresh after download returns to directory
+- All dialogs fixed with 2+ windows (EndUpdate ordering)
+- Content renders during active downloads
+- Download throughput ~4x (drain budget raised)
+- Build presets: enable STYLES/HTML/TELNET in minimal, STYLES in lite
+
+---
+
+## v1.0.0 — Release
+**Status: Complete**
 
 Polish pass, QA, and final release.
 
 - Final documentation pass and release notes
 - Version bump to 1.0.0 in all artifacts
 - Build all 3 editions (Full, Lite, Minimal)
-- Tag release and publish to Forgejo + GitHub mirror
+- 5-phase QA across System 6 (Snow) and System 7 (Basilisk II)
+- Real hardware testing on Macintosh Plus with System 6.0.8
 
-#### Acceptance Criteria
+### QA Results
 
-- All 19 canonical and non-canonical Gopher item types tested against
-  live servers (sdf.org and others)
-- All 3 build editions (Full, Lite, Minimal) compile and produce
-  working .dsk floppy images and .hqx archives
-- System 6.0.8 testing in Snow emulator (Mac Plus, monochrome)
-- System 7.x testing in Snow emulator (Mac Plus and Mac II profiles)
-- Gopher+ Get Info, content negotiation, and forms verified against
-  a Gopher+ server
-- Multi-window browsing: open 4 windows, background loading,
-  close/reopen cycle without memory leaks
-- All keyboard shortcuts functional on M0110 and M0110A keyboards
-- Preferences persist across launch/quit cycles on System 6 and 7
-- Color themes render correctly on 256-color systems; monochrome
-  themes render correctly on Mac Plus
+All phases completed with P0=0, P1=0:
 
-#### QA Checkpoints
+- [x] Phase 1: Minimal on System 6 — core browsing, navigation, themes
+- [x] Phase 2: Lite on System 6 — multi-window, favorites, CP437, HTML
+- [x] Phase 3: Full on System 6 — cache, Gopher+, downloads, print
+- [x] Phase 4: Full on System 7 — 256-color, GWorld, multi-window
+- [x] Phase 5: Lite on System 7 — monochrome on color display
+- [x] Final smoke test: Full on System 7 (Basilisk II)
 
-- [ ] Fresh install: copy to blank hard drive image, launch, navigate
-- [ ] Home page: set, verify on relaunch, clear, verify blank
-- [ ] Navigation: back/forward/refresh/home/stop through 5+ pages
-- [ ] Search (type 7): query dialog, results, back to results
-- [ ] CSO (type 2): phonebook lookup
-- [ ] Downloads: binary, image, sound — save to disk, verify files
-- [ ] HTML (type h): URL extraction dialog, tag-stripping renderer
-- [ ] Telnet (type 8/T): connection info dialog, Copy Host
-- [ ] Favorites: add, edit, delete, reorder, menu quick-access
-- [ ] Find in Page: search, Find Again, wrap around
-- [ ] Print: Page Setup, Print to ImageWriter/LaserWriter driver
-- [ ] Gopher+: Get Info, Choose View, Fill Form, bulk attributes
-- [ ] Multi-window: open 4, navigate independently, close all
-- [ ] Themes: cycle all 9, verify color and monochrome rendering
-- [ ] Fonts/sizes: all 8 fonts at all 4 sizes
-- [ ] Page styles: Traditional, Plain, Markdown
-- [ ] Stationery: create stationery document, open it (System 7)
-- [ ] AppleScript: navigate and get URL commands (System 7)
-- [ ] Drag Manager: drag link out, drop URL in (System 7.5)
-- [ ] Stress: 2,000-item directory, large text page, rapid navigation
+### Known Limitations (Deferred to v2.0)
 
-#### Known Limitations (Deferred to v2.0)
-
-- Preferences document icon does not appear on System 6: this is a
-  Finder limitation, not a code bug — the icon resources are correctly
-  defined and display properly on System 7 and later
-- No contextual menus: requires System 7+ Contextual Menu Manager,
-  out of scope for System 6 primary target
-- Single-level undo in address bar: only one undo/redo step is
-  supported; multi-level undo deferred
-- Edit menu does not show action names (e.g., "Undo Typing"):
-  requires TextEdit action tracking, deferred to v2.0
+- Large text files truncated at 32KB (text buffer limit)
+- Scroll bar clicks unreachable at right edge (x=495-509)
+- HTML stripped pages show odd symbols for some list bullets
+- Gopher+ sub-pages may show "???" icons for unhandled selectors
+- Font menu checkmark doesn't update per-window
+- Gopher+ on/off toggle in Options menu doesn't take effect
+- Preferences document icon does not appear on System 6 (Finder limitation)
+- No contextual menus (requires System 7+ Contextual Menu Manager)
+- Single-level undo in address bar
+- Edit menu does not show action names (e.g., "Undo Typing")

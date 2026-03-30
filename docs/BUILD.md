@@ -40,7 +40,7 @@ Geomys supports build presets for different configurations. The default preset i
 | Preset | Windows | Memory | Description |
 |--------|---------|--------|-------------|
 | `full` | 3 | 2560 KB | All features enabled (default) |
-| `lite` | 2 | 512 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
+| `lite` | 2 | 1024 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
 | `minimal` | 1 | 512 KB | Bare-bones — smallest possible binary, single window |
 
 Select a preset:

@@ -219,8 +219,18 @@ compute_size() {
         max_pref=2560
         max_min=1536
     fi
-    [ $SIZE_PREFERRED -lt 512 ] && SIZE_PREFERRED=512 || true
-    [ $SIZE_MINIMUM -lt 256 ] && SIZE_MINIMUM=256 || true
+    # Minimum floors based on window count.
+    # MultiFinder honors SIZE resource for heap partition —
+    # real hardware testing showed 512/256 is too tight for
+    # multi-window builds (Mac Plus, 4MB, MultiFinder).
+    local min_pref=512
+    local min_min=256
+    if [ "$GEOMYS_MAX_WINDOWS" -ge 2 ]; then
+        min_pref=1024
+        min_min=768
+    fi
+    [ $SIZE_PREFERRED -lt $min_pref ] && SIZE_PREFERRED=$min_pref || true
+    [ $SIZE_MINIMUM -lt $min_min ] && SIZE_MINIMUM=$min_min || true
     [ $SIZE_PREFERRED -gt $max_pref ] && SIZE_PREFERRED=$max_pref || true
     [ $SIZE_MINIMUM -gt $max_min ] && SIZE_MINIMUM=$max_min || true
 }
