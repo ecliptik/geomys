@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] — TBD: Release Candidate
+## [1.0.0] — 2026-03-30
 
 Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser for classic Macintosh — from the 68000-based Mac Plus running System 6.0.8 to color Mac II systems on System 7.
 
