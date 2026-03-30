@@ -95,6 +95,9 @@ void content_update_font(void);
 /* Recalculate max content width for horizontal scrollbar */
 void content_recalc_width(WindowPtr win);
 
+/* Incrementally measure width of newly arrived rows */
+void content_measure_new_rows(WindowPtr win, short total);
+
 /* Erase content area with theme-correct background */
 void content_erase(WindowPtr win);
 
@@ -103,6 +106,9 @@ short content_get_max_width(void);
 
 /* Get current dynamic row height */
 short content_row_height(void);
+
+/* Invalidate shadow buffer — forces full redraw on next content_draw */
+void content_invalidate_shadow(void);
 
 /* Update cursor based on mouse position over content.
  * Call from nullEvent handler. Sets hand cursor over

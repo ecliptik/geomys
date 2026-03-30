@@ -185,6 +185,8 @@ browser_init(WindowPtr win)
 
 	/* Reset status text for new session */
 	g_status[0] = '\0';
+	g_base_status[0] = '\0';
+	g_focus = FOCUS_ADDR_BAR;
 
 	/* Initialize button states — back/forward disabled initially */
 	g_btn_state[NAV_BTN_BACK] = BTN_DISABLED;

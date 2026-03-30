@@ -103,8 +103,15 @@ _TCPCreate(TCPiopb *pb, StreamPtr *stream, Ptr rcvBufPtr, long rcvBufLen,
 				break;
 			}
 		}
+		if (n == (sizeof(_TCPStreams) / sizeof(_TCPStreams[0]))) {
+			/* No tracking slot — abort and release the stream */
+			_TCPAbort(pb, pb->tcpStream, 0L, 0L, false);
+			_TCPRelease(pb, pb->tcpStream, 0L, 0L, false);
+			*stream = 0L;
+			return openErr;
+		}
 	}
-		
+
 	return osErr;
 }
 

@@ -22,7 +22,7 @@
 
 /* TCP buffer sizes */
 #define TCP_RCV_BUFSIZ   8192
-#define TCP_READ_BUFSIZ  4096
+#define TCP_READ_BUFSIZ  8192
 
 /* Gopher default port */
 #define GOPHER_DEFAULT_PORT  70
@@ -36,13 +36,14 @@ typedef struct {
 	ip_addr     local_ip;
 	tcp_port    local_port;
 	Ptr         rcv_buf;
-	char        read_buf[TCP_READ_BUFSIZ];
+	char        *read_buf;
 	short       read_len;
 	unsigned long pending_data;
 	unsigned long start_tick;   /* TickCount at receive start for timeout */
 	unsigned long connect_start_tick;  /* TickCount at async open start */
 	Boolean     timed_out;     /* set when receive timeout fires */
-	char        host[256];
+	short       tw_drain;      /* TIME_WAIT drain countdown */
+	char        host[68];
 	short       port;
 	ip_addr     dns_server;
 } Connection;

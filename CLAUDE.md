@@ -17,14 +17,33 @@ Geomys is a Gopher browser for classic Macintosh (68000/Macintosh Plus) written 
 
 ### Multi-Window Memory Constraints (System 7 Color)
 
-On System 7 with Color QuickDraw, each window requires a GWorld offscreen buffer (~400KB+ at 8-bit depth on a large display). Combined with per-page item arrays (278 bytes × item count), memory is the primary constraint for multi-window support:
+On System 7 with Color QuickDraw, a shared 8-bit GWorld offscreen buffer (~300KB at 640x480) is used for flicker-free rendering. Combined with per-page item arrays (298 bytes × item count with Gopher+), memory is the primary constraint for multi-window support:
 
-- **System 6 (monochrome)**: 1-bit offscreen (~22KB per window). Memory is rarely an issue.
-- **System 7 (256 color)**: 8-bit GWorld (~400KB+ per window). The SIZE resource allocates 2560KB preferred / 1536KB minimum.
-- **Practical window limits**: 2-3 windows on System 7 color with large displays. The full preset uses `GEOMYS_MAX_WINDOWS=3`.
-- **GopherItem size**: 278 bytes each (display[80] + selector[128] + host[64]). A large directory (800+ items) uses ~220KB.
-- Allocation failures show as "Connection failed" — the `gopher_begin_response` retry-after-free logic helps but cannot recover from total heap exhaustion.
-- Long-term fix: share a single GWorld across all windows instead of per-window allocation.
+- **System 6 (monochrome)**: 1-bit offscreen (~22KB). Memory is rarely an issue.
+- **System 7 (color)**: 8-bit shared GWorld (~300KB) + per-window item arrays.
+- **GopherItem size**: ~298 bytes each (display[100] + selector[128] + host[64] + Gopher+ fields). A large directory (1500+ items) uses ~435KB.
+- **Practical window limits**: 2-3 windows with large directories on 4MB. Item array growth (128→256→512→1024→2000) fails silently when heap is exhausted — second/third windows may show fewer items than the first.
+- Allocation failures show as "Connection failed" or truncated item lists — the item array `NewPtr` returns NULL and stops adding items at the current capacity boundary (256, 512, 1024).
+
+### Tuning for More Memory
+
+The SIZE resource controls how much memory MultiFinder/System 7 gives Geomys. Default values by preset:
+
+| Preset | Preferred | Minimum | Max Windows |
+|--------|-----------|---------|-------------|
+| Minimal | 512KB | 256KB | 1 |
+| Lite | 1024KB | 768KB | 2 |
+| Full | 2560KB | 1536KB | 3 |
+
+On machines with more RAM (8MB, 32MB+), increase the SIZE resource clamp in `scripts/build.sh` (lines 216-221) to give Geomys a larger heap partition:
+
+```bash
+# Example: raise full preset to 8MB preferred / 4MB minimum
+local max_pref=8192
+local max_min=4096
+```
+
+Users can also adjust memory after building via Finder's "Get Info" on the Geomys application — change "Application Memory Size" to the desired value. This does not require rebuilding.
 
 ## Build System
 
@@ -35,6 +54,20 @@ On System 7 with Color QuickDraw, each window requires a GWorld offscreen buffer
 - CMake flag: `-m68000` for Mac Plus compatibility
 - Target artifacts: 800K `.dsk` floppy images and `.hqx` (BinHex) compressed binaries
 - Retro68 API quirks vs classic Toolbox: `qd.thePort` not `thePort`, `GetMenuHandle` not `GetMHandle`, `AppendResMenu` not `AddResMenu`, `LMGetApplLimit()` not `GetApplLimit`
+
+### Debug Build Flag
+
+`--debug` enables `GEOMYS_DEBUG` which adds keyboard shortcuts for QA automation:
+
+| Shortcut | Action |
+|----------|--------|
+| Cmd+D | Toggle dark/light theme |
+| Cmd+T | Cycle through all themes |
+| Cmd+B | Toggle status bar visibility |
+| Cmd+I | Toggle details panel |
+| Cmd+K | Show/hide clipboard window |
+
+**QA builds must always use `--debug`** — XTEST automation cannot reliably interact with hierarchical submenus in Snow/Basilisk. The debug shortcuts provide reliable keyboard-driven alternatives. Example: `./scripts/build.sh --preset minimal --debug`
 
 ## Testing
 

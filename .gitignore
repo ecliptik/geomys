@@ -13,8 +13,8 @@ cmake_install.cmake
 Makefile
 
 # Retro68 toolchain (built from source locally, not committed)
-Retro68/
-Retro68-build/
+Retro68
+Retro68-build
 
 # Tools - binary artifacts (kept locally, not committed)
 tools/snow/
@@ -23,7 +23,14 @@ tools/blank_100MB_HFS.dsk
 
 # Test artifacts
 /screenshots/
-tests/__pycache__/
+tests/
+QA-PLAN.md
+
+# Claude Code
+.claude/
+
+# Stale build directories
+build-color-check/
 
 # Release and build artifacts
 Geomys_*

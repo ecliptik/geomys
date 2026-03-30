@@ -19,6 +19,7 @@ option(GEOMYS_HTML         "Enable HTML tag stripping"          ON)
 option(GEOMYS_TELNET       "Enable telnet connection info"      ON)
 option(GEOMYS_DRAG         "Enable Drag Manager support (System 7.5+)" OFF)
 option(GEOMYS_APPLESCRIPT  "Enable AppleScript support"         OFF)
+option(GEOMYS_DEBUG        "Enable QA debug keyboard shortcuts"  OFF)
 
 # Maximum simultaneous windows (1 = single-window, zero overhead)
 if(NOT DEFINED GEOMYS_MAX_WINDOWS)
@@ -124,6 +125,7 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_TELNET}>:GEOMYS_TELNET>
     $<$<BOOL:${GEOMYS_DRAG}>:GEOMYS_DRAG>
     $<$<BOOL:${GEOMYS_APPLESCRIPT}>:GEOMYS_APPLESCRIPT>
+    $<$<BOOL:${GEOMYS_DEBUG}>:GEOMYS_DEBUG>
     GEOMYS_MAX_WINDOWS=${GEOMYS_MAX_WINDOWS}
     CACHE_MAX=${CACHE_MAX}
 )

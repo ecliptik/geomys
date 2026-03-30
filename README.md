@@ -17,6 +17,13 @@ This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/
 | ![Geomys text page with Courier font](docs/screenshots/geomys-textpage-courier.png) | ![Geomys dark mode with favorites](docs/screenshots/geomys-darkmode-favorites.png) |
 | **Text Page & Edit Menu** | **Dark Mode & Favorites** |
 
+### System 7
+
+| |
+|:---:|
+| ![Geomys on System 7 with 256-color theme and multi-window](docs/screenshots/geomys-system7-color.png) |
+| **System 7 with 256 color and multi-window** |
+
 ---
 
 ## Download
@@ -169,6 +176,20 @@ Individual features can be toggled with `--feature` / `--no-feature` flags. Pres
 ```
 
 See [docs/BUILD.md](docs/BUILD.md) for the complete list of build flags, feature details, memory costs, and examples.
+
+### Memory and Multi-Window
+
+On System 7 with MultiFinder, Geomys requests a memory partition via the SIZE resource. Default allocations:
+
+| Preset | Preferred | Minimum |
+|--------|-----------|---------|
+| Full | 2560KB | 1536KB |
+| Lite | 1024KB | 768KB |
+| Minimal | 512KB | 256KB |
+
+Large Gopher directories (1000+ items) use significant memory (~300KB per directory). With multiple windows open, the second and third windows may show fewer items if heap space runs low. This is normal on a 4MB Mac.
+
+**To increase memory on machines with more RAM**: select the Geomys application in Finder, choose File > Get Info, and increase the "Application Memory Size" field. No rebuild required.
 
 ## Testing
 

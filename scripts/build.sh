@@ -23,6 +23,7 @@ GEOMYS_HTML=ON
 GEOMYS_TELNET=ON
 GEOMYS_DRAG=OFF
 GEOMYS_APPLESCRIPT=OFF
+GEOMYS_DEBUG=OFF
 GEOMYS_MAX_WINDOWS=3
 
 PRESET=""
@@ -35,16 +36,16 @@ apply_preset() {
             GEOMYS_STATUS_BAR=ON
             GEOMYS_FAVORITES=OFF
             GEOMYS_COLOR=OFF
-            GEOMYS_THEMES=OFF
+            GEOMYS_THEMES=ON
             GEOMYS_DOWNLOAD=OFF
             GEOMYS_GOPHER_PLUS=OFF
             GEOMYS_GLYPHS=OFF
             GEOMYS_CP437=OFF
-            GEOMYS_STYLES=OFF
+            GEOMYS_STYLES=ON
             GEOMYS_CACHE=OFF
-            GEOMYS_CLIPBOARD=OFF
-            GEOMYS_HTML=OFF
-            GEOMYS_TELNET=OFF
+            GEOMYS_CLIPBOARD=ON
+            GEOMYS_HTML=ON
+            GEOMYS_TELNET=ON
             GEOMYS_DRAG=OFF
             GEOMYS_APPLESCRIPT=OFF
             GEOMYS_MAX_WINDOWS=1
@@ -59,7 +60,7 @@ apply_preset() {
             GEOMYS_GOPHER_PLUS=OFF
             GEOMYS_GLYPHS=OFF
             GEOMYS_CP437=ON
-            GEOMYS_STYLES=OFF
+            GEOMYS_STYLES=ON
             GEOMYS_CACHE=OFF
             GEOMYS_CLIPBOARD=ON
             GEOMYS_HTML=ON
@@ -109,6 +110,9 @@ while [ $i -lt ${#ARGS[@]} ]; do
         --max-windows)
             i=$((i + 2))
             ;;
+        --clean)
+            i=$((i + 1))
+            ;;
         *)
             i=$((i + 1))
             ;;
@@ -119,6 +123,7 @@ done
 while [[ $# -gt 0 ]]; do
     case $1 in
         --preset)        shift 2 ;;  # already handled
+        --clean)         shift ;;    # CMake cache is always cleaned (line 263)
         --offscreen)     GEOMYS_OFFSCREEN=ON;      shift ;;
         --no-offscreen)  GEOMYS_OFFSCREEN=OFF;     shift ;;
         --statusbar)     GEOMYS_STATUS_BAR=ON;     shift ;;
@@ -151,6 +156,8 @@ while [[ $# -gt 0 ]]; do
         --no-drag)       GEOMYS_DRAG=OFF;             shift ;;
         --applescript)   GEOMYS_APPLESCRIPT=ON;       shift ;;
         --no-applescript) GEOMYS_APPLESCRIPT=OFF;     shift ;;
+        --debug)         GEOMYS_DEBUG=ON;             shift ;;
+        --no-debug)      GEOMYS_DEBUG=OFF;            shift ;;
         --max-windows)   GEOMYS_MAX_WINDOWS="$2";    shift 2 ;;
         *)
             MAKE_ARGS+=("$1")
@@ -202,16 +209,18 @@ compute_size() {
     SIZE_MINIMUM=$(( SIZE_PREFERRED - 128 ))
 
     # Clamp — keep SIZE modest to avoid starving system heap
-    # on 4MB Mac Plus. Original single-window: 384/256.
+    # on 4MB Mac Plus. Minimum 384/256 ensures adequate heap
+    # for CODE segments (~91KB), BSS (~25KB), offscreen, DNS,
+    # TCP buffers, and item arrays even in minimal builds.
     # Color builds need more headroom for offscreen GWorlds.
-    local max_pref=384
-    local max_min=256
+    local max_pref=1024
+    local max_min=768
     if [ "$GEOMYS_COLOR" = "ON" ]; then
         max_pref=2560
         max_min=1536
     fi
-    [ $SIZE_PREFERRED -lt 256 ] && SIZE_PREFERRED=256 || true
-    [ $SIZE_MINIMUM -lt 192 ] && SIZE_MINIMUM=192 || true
+    [ $SIZE_PREFERRED -lt 512 ] && SIZE_PREFERRED=512 || true
+    [ $SIZE_MINIMUM -lt 256 ] && SIZE_MINIMUM=256 || true
     [ $SIZE_PREFERRED -gt $max_pref ] && SIZE_PREFERRED=$max_pref || true
     [ $SIZE_MINIMUM -gt $max_min ] && SIZE_MINIMUM=$max_min || true
 }
@@ -259,6 +268,9 @@ sed -i "0,/[0-9]* \* 1024/{s/[0-9]* \* 1024/${SIZE_MINIMUM} * 1024/}" "$REZ_FILE
 cleanup() { cp "$REZ_BACKUP" "$REZ_FILE" 2>/dev/null; rm -f "$REZ_BACKUP"; }
 trap cleanup EXIT
 
+# Clean CMake cache to prevent stale flags from a previous preset
+rm -f "$BUILD_DIR/CMakeCache.txt"
+
 cd "$BUILD_DIR"
 cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSizeRel \
     -DGEOMYS_OFFSCREEN="$GEOMYS_OFFSCREEN" \
@@ -277,6 +289,7 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_TELNET="$GEOMYS_TELNET" \
     -DGEOMYS_DRAG="$GEOMYS_DRAG" \
     -DGEOMYS_APPLESCRIPT="$GEOMYS_APPLESCRIPT" \
+    -DGEOMYS_DEBUG="$GEOMYS_DEBUG" \
     -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS"
 make "${MAKE_ARGS[@]}"
 

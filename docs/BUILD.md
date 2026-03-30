@@ -39,9 +39,9 @@ Geomys supports build presets for different configurations. The default preset i
 
 | Preset | Windows | Memory | Description |
 |--------|---------|--------|-------------|
-| `full` | 4 | 1024 KB | All features enabled (default) |
-| `lite` | 2 | 505 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
-| `minimal` | 1 | 297 KB | Bare-bones — smallest possible binary, single window |
+| `full` | 3 | 2560 KB | All features enabled (default) |
+| `lite` | 2 | 512 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
+| `minimal` | 1 | 512 KB | Bare-bones — smallest possible binary, single window |
 
 Select a preset:
 
@@ -58,23 +58,28 @@ The build system uses CMake feature flags to enable or disable components at com
 
 | Flag | Purpose | Default | Minimal | Lite | Full |
 |------|---------|---------|---------|------|------|
-| `GEOMYS_MAX_WINDOWS` | Max simultaneous windows | 4 | 1 | 2 | 4 |
-| `GEOMYS_OFFSCREEN` | Offscreen double-buffer | ON | OFF | ON | ON |
+| `GEOMYS_MAX_WINDOWS` | Max simultaneous windows | 3 | 1 | 2 | 3 |
+| `GEOMYS_OFFSCREEN` | Offscreen double-buffer | ON | ON* | ON | ON |
 | `GEOMYS_STATUS_BAR` | Status bar | ON | ON | ON | ON |
 | `GEOMYS_FAVORITES` | Favorites system | ON | OFF | ON | ON |
 | `GEOMYS_COLOR` | 256-color support | ON | OFF | OFF | ON |
-| `GEOMYS_THEMES` | Theme system (9 themes) | ON | OFF | ON | ON |
+| `GEOMYS_THEMES` | Theme system (9 themes) | ON | ON | ON | ON |
 | `GEOMYS_DOWNLOAD` | File downloads and image save | ON | OFF | OFF | ON |
 | `GEOMYS_GOPHER_PLUS` | Gopher+ protocol support | ON | OFF | OFF | ON |
-| `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | OFF | ON |
+| `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | ON | ON |
 | `GEOMYS_CP437` | CP437 character set | ON | OFF | ON | ON |
+| `GEOMYS_STYLES` | Page format styles (text/icons) | ON | ON | ON | ON |
 | `GEOMYS_CACHE` | Local page caching | ON | OFF | OFF | ON |
-| `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | OFF | ON | ON |
-| `GEOMYS_PRINT` | Printing support | ON | OFF | OFF | ON |
+| `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | ON | ON | ON |
+| `GEOMYS_HTML` | HTML content stripping | ON | ON | ON | ON |
+| `GEOMYS_TELNET` | Telnet session info dialog | ON | ON | ON | ON |
+
+\* Minimal sets `OFFSCREEN=OFF` but it is auto-enabled because `THEMES` requires it.
 
 ### Dependencies
 
 - **CP437 requires GLYPHS** — enabling `--cp437` automatically enables `--glyphs` if it is not already on.
+- **THEMES requires OFFSCREEN** — enabling `--themes` automatically enables `--offscreen` for flicker-free redraw.
 
 ## Command-Line Flags
 
@@ -91,8 +96,11 @@ Individual feature flags can be toggled on or off after a preset is applied. Use
 | `--gopher-plus` | `--no-gopher-plus` | Gopher+ protocol |
 | `--glyphs` | `--no-glyphs` | Unicode glyph rendering |
 | `--cp437` | `--no-cp437` | CP437 character set |
+| `--styles` | `--no-styles` | Page format styles |
 | `--cache` | `--no-cache` | Local page caching |
 | `--clipboard` | `--no-clipboard` | Text selection and clipboard |
+| `--html` | `--no-html` | HTML content stripping |
+| `--telnet` | `--no-telnet` | Telnet session info dialog |
 
 ### Window Count
 

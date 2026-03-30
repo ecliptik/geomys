@@ -543,6 +543,10 @@ do_new_window(void)
 
 	init_session(s);
 
+	/* Activate address bar so Enter works immediately
+	 * without requiring a click first */
+	browser_activate(true);
+
 	/* Navigate to home page or show blank */
 	if (g_prefs.home_url[0])
 		do_navigate_url(g_prefs.home_url);
@@ -564,6 +568,7 @@ poll_active_session(void)
 	unsigned long draw_deadline;
 	short drain_count = 0;
 	Boolean needs_draw = false;
+	short prev_rows = 0;
 
 	if (!g_gopher.receiving)
 		return;
@@ -583,18 +588,43 @@ poll_active_session(void)
 		SetPort(save);
 	}
 
-	draw_deadline = TickCount() + 4;
-	while (g_gopher.receiving && drain_count < 16) {
-		if (gopher_idle(&g_gopher))
-			needs_draw = true;
-		drain_count++;
-		if (TickCount() >= draw_deadline)
-			break;
+	/* Snapshot row count before draining data so we can
+	 * mark only newly-arrived rows dirty, avoiding a
+	 * full content redraw each cycle. */
+	if (g_gopher.page_type == PAGE_DIRECTORY)
+		prev_rows = g_gopher.item_count;
+	else
+		prev_rows = g_gopher.text_line_count;
+
+	{
+		/* Downloads write straight to disk with no
+		 * parsing or drawing — allow 16 reads per
+		 * iteration (~128KB) with a longer time
+		 * budget (6 ticks vs 2 for pages). */
+		short drain_max = 4;
+		short deadline_ticks = 2;
+#ifdef GEOMYS_DOWNLOAD
+		if (g_gopher.page_type == PAGE_DOWNLOAD ||
+		    g_gopher.page_type == PAGE_IMAGE) {
+			drain_max = 16;
+			deadline_ticks = 6;
+		}
+#endif
+		draw_deadline = TickCount() + deadline_ticks;
+		while (g_gopher.receiving &&
+		    drain_count < drain_max) {
+			if (gopher_idle(&g_gopher))
+				needs_draw = true;
+			drain_count++;
+			if (TickCount() >= draw_deadline)
+				break;
+		}
 	}
 
 	if (needs_draw) {
 		GrafPtr save;
 		char prog[80];
+		short cur_rows;
 
 #ifdef GEOMYS_DOWNLOAD
 		if (g_gopher.page_type == PAGE_DOWNLOAD ||
@@ -657,6 +687,31 @@ poll_active_session(void)
 		if (g_gopher.page_type != PAGE_DOWNLOAD &&
 		    g_gopher.page_type != PAGE_IMAGE) {
 #endif
+			/* Mark only newly-arrived rows dirty.
+			 * This avoids full-redraw fallback in
+			 * content_draw, allowing the shadow
+			 * buffer to skip unchanged rows.
+			 * First batch (prev_rows==0) needs a
+			 * full dirty mark since shadow slots
+			 * are zero-initialized and would falsely
+			 * match new row 0. */
+			if (g_gopher.page_type ==
+			    PAGE_DIRECTORY)
+				cur_rows = g_gopher.item_count;
+			else
+				cur_rows =
+				    g_gopher.text_line_count;
+			if (cur_rows != prev_rows) {
+				/* New rows arrived — force full
+				 * redraw to ensure all visible
+				 * rows render during loading */
+				content_mark_all_dirty();
+			}
+
+			/* Measure new rows incrementally */
+			content_measure_new_rows(
+			    g_window, cur_rows);
+
 			content_draw(g_window);
 			content_update_scroll(g_window);
 #ifdef GEOMYS_DOWNLOAD
@@ -703,6 +758,15 @@ poll_all_sessions(void)
 
 		/* Poll connection only — no drawing */
 		(void)gopher_idle(&bs->gopher);
+#ifdef GEOMYS_DOWNLOAD
+		/* Update download progress even when this
+		 * session is in the background */
+		if (g_dl_dialog &&
+		    (bs->gopher.page_type == PAGE_DOWNLOAD ||
+		    bs->gopher.page_type == PAGE_IMAGE)) {
+			dl_progress_update(bs->gopher.dl_written);
+		}
+#endif
 		if (!bs->gopher.receiving) {
 			/* Page done: switch for handle_page_loaded */
 			session_switch_to(bs);
@@ -737,8 +801,11 @@ finish_download(void)
 	g_gopher.dl_vrefnum = 0;
 	g_gopher.dl_filename[0] = 0;
 
-	/* Restore previous page and redraw */
+	/* Restore previous page and selector, then redraw */
 	g_gopher.page_type = g_gopher.dl_prev_page;
+	strncpy(g_gopher.cur_selector, g_gopher.dl_prev_selector,
+	    sizeof(g_gopher.cur_selector) - 1);
+	g_gopher.cur_selector[sizeof(g_gopher.cur_selector) - 1] = '\0';
 
 	/* Restore title bar from history */
 	restore_title_bar();
@@ -964,11 +1031,19 @@ handle_page_loaded(void)
 		g_print_after_load = false;
 #endif
 	} else {
-		if (g_gopher.page_type == PAGE_DIRECTORY)
+		if (g_gopher.page_type == PAGE_DIRECTORY) {
+#ifdef GEOMYS_DEBUG
+			char diag[80];
+			gopher_diag_str(diag, sizeof(diag));
+			snprintf(uri, sizeof(uri),
+			    "%d items [%s]",
+			    g_gopher.item_count, diag);
+#else
 			snprintf(uri, sizeof(uri),
 			    "Done \xD0 %d items",
 			    g_gopher.item_count);
-		else
+#endif
+		} else
 			snprintf(uri, sizeof(uri),
 			    "Done \xD0 %ld bytes",
 			    g_gopher.text_len);
@@ -1299,6 +1374,20 @@ dl_progress_close(void)
 	if (g_dl_dialog) {
 		DisposeDialog(g_dl_dialog);
 		g_dl_dialog = 0L;
+
+		/* Force full repaint of browser window content.
+		 * DisposeDialog adds the dialog rect to the
+		 * behind-window's update region, but the
+		 * updateEvt may arrive after a direct draw
+		 * that doesn't cover the damaged area. */
+		if (g_window) {
+			GrafPtr save;
+
+			GetPort(&save);
+			SetPort(g_window);
+			InvalRect(&g_window->portRect);
+			SetPort(save);
+		}
 	}
 }
 #endif
@@ -1343,8 +1432,13 @@ do_cancel_loading(void)
 		g_gopher.img_header_len = 0;
 		g_gopher.img_sniffed = false;
 
-		/* Restore page and title from before download */
+		/* Restore page, selector, and title from before download */
 		g_gopher.page_type = g_gopher.dl_prev_page;
+		strncpy(g_gopher.cur_selector,
+		    g_gopher.dl_prev_selector,
+		    sizeof(g_gopher.cur_selector) - 1);
+		g_gopher.cur_selector[
+		    sizeof(g_gopher.cur_selector) - 1] = '\0';
 		restore_title_bar();
 	} else
 #endif
@@ -1412,6 +1506,59 @@ handle_key_down(EventRecord *event)
 
 		/* Cmd-R, Cmd-L, Cmd-. handled via Go menu
 		 * through MenuKey below */
+
+		/*
+		 * QA test shortcuts — keyboard equivalents for menu
+		 * actions that are hard to automate via XTEST.
+		 * Only enabled with GEOMYS_DEBUG build flag.
+		 */
+#ifdef GEOMYS_DEBUG
+#ifdef GEOMYS_THEMES
+		/* Cmd-D: toggle dark/light theme.
+		 * Dispatches through handle_menu with THEME_MENU_ID
+		 * to use the exact same code path as the menu. */
+		if (key == 'd' || key == 'D') {
+			short cur = theme_get();
+			short item = (cur == 0) ?
+			    THEME_ITEM_DARK : THEME_ITEM_LIGHT;
+			handle_menu(((long)THEME_MENU_ID << 16)
+			    | (long)item);
+			return;
+		}
+		/* Cmd-T: cycle through all themes */
+		if (key == 't' || key == 'T') {
+			short cur = theme_get();
+			short count = theme_usable_count();
+			short next = (cur + 1) % count;
+			/* Map theme index to menu item number
+			 * (separator at item 3 offsets items 2+) */
+			short item = (next <= 1) ? next + 1 : next + 2;
+			handle_menu(((long)THEME_MENU_ID << 16)
+			    | (long)item);
+			return;
+		}
+#endif
+		/* Cmd-B: toggle status bar visibility */
+		if (key == 'b' || key == 'B') {
+			handle_menu((long)OPTIONS_MENU_ID << 16
+			    | OPT_MENU_STATUS_BAR);
+			return;
+		}
+		/* Cmd-I: toggle details panel */
+		if (key == 'i' || key == 'I') {
+			handle_menu((long)OPTIONS_MENU_ID << 16
+			    | OPT_MENU_DETAILS);
+			return;
+		}
+#ifdef GEOMYS_CLIPBOARD
+		/* Cmd-K: show/hide clipboard window */
+		if (key == 'k' || key == 'K') {
+			handle_menu((long)EDIT_MENU_ID << 16
+			    | EDIT_MENU_SHOW_CLIP);
+			return;
+		}
+#endif
+#endif /* GEOMYS_DEBUG */
 
 		update_menus();
 		handle_menu(MenuKey(key));
@@ -2324,25 +2471,12 @@ update_nav_buttons(void)
 	    history_can_forward() ? BTN_ENABLED : BTN_DISABLED);
 
 	/* Update action button: stop during loading,
-	 * go if URL was edited, refresh otherwise */
+	 * refresh otherwise */
 	if (g_app_state == APP_STATE_LOADING &&
-	    g_gopher.receiving) {
+	    g_gopher.receiving)
 		browser_set_action_state(ACTION_STOP);
-	} else {
-		char url[300];
-		char cur[300];
-
-		browser_get_url(url, sizeof(url));
-		gopher_build_uri(cur, sizeof(cur),
-		    g_gopher.cur_host, g_gopher.cur_port,
-		    g_gopher.cur_type,
-		    g_gopher.cur_selector);
-		if (strcmp(url, cur) != 0 &&
-		    url[0] != '\0')
-			browser_set_action_state(ACTION_GO);
-		else
-			browser_set_action_state(ACTION_REFRESH);
-	}
+	else
+		browser_set_action_state(ACTION_REFRESH);
 
 	GetPort(&save);
 	SetPort(g_window);
@@ -2873,6 +3007,12 @@ handle_mouse_down(EventRecord *event)
 	case inContent:
 		if (win != FrontWindow()) {
 			SelectWindow(win);
+#ifdef GEOMYS_DOWNLOAD
+			/* Keep download dialog in front of all
+			 * browser windows during active downloads */
+			if (g_dl_dialog)
+				BringToFront((WindowPtr)g_dl_dialog);
+#endif
 		} else if (win == clipboard_window_ptr()) {
 			clipboard_window_click(win,
 			    event->where);
@@ -2960,6 +3100,23 @@ handle_update(EventRecord *event)
 		if (s != active_session)
 			session_switch_to(s);
 #endif
+		/* Reset clip to full portRect before drawing.
+		 * Prevents stale clipRgn (e.g. from a prior
+		 * content_draw or hover update) from clipping
+		 * out the chrome area during multi-window
+		 * update events.
+		 *
+		 * Note: we draw the full window inside the
+		 * BeginUpdate/EndUpdate pair so the Window
+		 * Manager update tracking stays correct —
+		 * dialogs (ModalDialog, SelectWindow) depend
+		 * on this.  The ClipRect to portRect ensures
+		 * themed backgrounds redraw fully even when
+		 * only part of the window was in the update
+		 * region. */
+		ClipRect(&win->portRect);
+
+		content_invalidate_shadow();
 		content_mark_all_dirty();
 		browser_draw(win);
 		content_draw(win);
@@ -2979,13 +3136,18 @@ handle_update(EventRecord *event)
 			    win->portRect.right + 1,
 			    win->portRect.bottom + 1);
 			ClipRect(&clip_r);
-			EraseRect(&clip_r);
+#ifdef GEOMYS_THEMES
+			if (theme_is_dark() && !theme_is_color())
+				PaintRect(&clip_r);
+			else
+#endif
+				EraseRect(&clip_r);
 			DrawGrowIcon(win);
 			SetClip(save_clip);
 			DisposeRgn(save_clip);
 		}
 
-#if GEOMYS_MAX_WINDOWS > 1 
+#if GEOMYS_MAX_WINDOWS > 1
 		if (s != orig && orig)
 			session_switch_to(orig);
 #endif
@@ -3009,33 +3171,35 @@ handle_activate(EventRecord *event)
 		return;
 
 	if (event->modifiers & activeFlag) {
-#if GEOMYS_MAX_WINDOWS > 1 
+		GrafPtr save;
+
+		GetPort(&save);
+		SetPort(win);
+#if GEOMYS_MAX_WINDOWS > 1
 		session_switch_to(s);
 #endif
+		/* Port must be set to win BEFORE activate
+		 * calls — browser_activate draws TE cursor
+		 * and content_activate may call content_draw,
+		 * both of which need the correct port. */
 		browser_activate(true);
 #ifdef GEOMYS_CLIPBOARD
 		content_activate(win, true);
 #endif
 		/* Restore scrollbar and force full redraw to
 		 * ensure correct content after session switch */
-		{
-			GrafPtr save;
-
-			GetPort(&save);
-			SetPort(win);
-			content_update_scroll(win);
+		content_update_scroll(win);
 #if GEOMYS_MAX_WINDOWS > 1
-			/* Ensure back/forward buttons reflect
-			 * this session's history state */
-			update_nav_buttons();
+		/* Ensure back/forward buttons reflect
+		 * this session's history state */
+		update_nav_buttons();
 
-			/* Force full redraw with correct session
-			 * state — prevents stale content from
-			 * previous session showing through */
-			InvalRect(&win->portRect);
+		/* Force full redraw with correct session
+		 * state — prevents stale content from
+		 * previous session showing through */
+		InvalRect(&win->portRect);
 #endif
-			SetPort(save);
-		}
+		SetPort(save);
 	} else {
 #if GEOMYS_MAX_WINDOWS > 1
 		if (s == active_session) {

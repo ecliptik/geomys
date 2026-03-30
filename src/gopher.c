@@ -34,6 +34,18 @@ static void gopher_parse_line(GopherState *gs, const char *line, short len);
 static void gopher_process_data(GopherState *gs);
 static void cso_process_data(GopherState *gs, char *buf, short len);
 
+#ifdef GEOMYS_DEBUG
+/* Diagnostic counters for directory parsing */
+static struct {
+	short lines_total;    /* lines with \n found */
+	short lines_empty;    /* skipped (line_len == 0 after CR strip) */
+	short lines_parsed;   /* passed to gopher_parse_line */
+	short lines_capped;   /* rejected by GOPHER_MAX_ITEMS */
+	short alloc_fails;    /* item array growth failures */
+	short reads;          /* conn_idle reads processed */
+} g_diag;
+#endif
+
 void
 gopher_init(GopherState *gs)
 {
@@ -127,6 +139,10 @@ gopher_clear_page(GopherState *gs)
 
 	gs->page_type = PAGE_NONE;
 	gs->line_len = 0;
+
+#ifdef GEOMYS_DEBUG
+	memset(&g_diag, 0, sizeof(g_diag));
+#endif
 }
 
 Boolean
@@ -240,8 +256,17 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	if (new_page_type == PAGE_DOWNLOAD ||
 	    new_page_type == PAGE_IMAGE) {
 		gs->dl_prev_page = gs->page_type;
+		strncpy(gs->dl_prev_selector,
+		    gs->cur_selector,
+		    sizeof(gs->dl_prev_selector) - 1);
+		gs->dl_prev_selector[
+		    sizeof(gs->dl_prev_selector) - 1] = '\0';
 		gs->page_type = new_page_type;
 		gs->line_len = 0;
+#ifdef GEOMYS_GOPHER_PLUS
+		gs->gplus_active = false;
+		gs->gplus_status_parsed = false;
+#endif
 	} else
 #endif
 	{
@@ -440,6 +465,9 @@ gopher_idle(GopherState *gs)
 	conn_idle(&gs->conn);
 
 	if (gs->conn.read_len > 0) {
+#ifdef GEOMYS_DEBUG
+		g_diag.reads++;
+#endif
 		gopher_process_data(gs);
 		gs->conn.read_len = 0;
 		return true;
@@ -710,33 +738,65 @@ gopher_process_data(GopherState *gs)
 		return;
 	}
 
-	/* Directory mode: parse line by line */
-	for (i = 0; i < len; i++) {
-		char c = buf[i];
+	/* Directory mode: bulk line scanning with memchr */
+	{
+		char *p = buf;
+		char *end = buf + len;
 
-		if (c == '\n') {
-			/* End of line — parse it */
-			/* Strip trailing CR */
-			if (gs->line_len > 0 &&
-			    gs->line_buf[gs->line_len - 1] == '\r')
-				gs->line_len--;
-			gs->line_buf[gs->line_len] = '\0';
+		while (p < end) {
+			char *nl = (char *)memchr(p, '\n', end - p);
+			char *chunk_end = nl ? nl : end;
+			short chunk_len = (short)(chunk_end - p);
+			short space = (short)sizeof(gs->line_buf) - 1
+			    - gs->line_len;
 
-			/* Check for terminating "." */
-			if (gs->line_len == 1 &&
-			    gs->line_buf[0] == '.') {
-				gs->receiving = false;
-				return;
+			if (chunk_len > space)
+				chunk_len = space;
+			if (chunk_len > 0) {
+				memcpy(gs->line_buf + gs->line_len,
+				    p, chunk_len);
+				gs->line_len += chunk_len;
 			}
 
-			if (gs->line_len > 0)
-				gopher_parse_line(gs, gs->line_buf,
-				    gs->line_len);
+			if (nl) {
+				/* Strip trailing CR */
+				if (gs->line_len > 0 &&
+				    gs->line_buf[gs->line_len - 1] == '\r')
+					gs->line_len--;
+				gs->line_buf[gs->line_len] = '\0';
 
-			gs->line_len = 0;
-		} else {
-			if (gs->line_len < (short)sizeof(gs->line_buf) - 1)
-				gs->line_buf[gs->line_len++] = c;
+#ifdef GEOMYS_DEBUG
+				g_diag.lines_total++;
+#endif
+
+				/* Check for terminating "." */
+				if (gs->line_len == 1 &&
+				    gs->line_buf[0] == '.') {
+					gs->receiving = false;
+					conn_close(&gs->conn);
+					gs->conn.state = CONN_STATE_DONE;
+					return;
+				}
+
+				if (gs->line_len > 0) {
+					gopher_parse_line(gs,
+					    gs->line_buf,
+					    gs->line_len);
+#ifdef GEOMYS_DEBUG
+					g_diag.lines_parsed++;
+#endif
+				}
+#ifdef GEOMYS_DEBUG
+				else {
+					g_diag.lines_empty++;
+				}
+#endif
+
+				gs->line_len = 0;
+				p = nl + 1;
+			} else {
+				break;
+			}
 		}
 	}
 }
@@ -933,8 +993,12 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 	short field = 0;
 	short copy_len;
 
-	if (gs->item_count >= GOPHER_MAX_ITEMS)
+	if (gs->item_count >= GOPHER_MAX_ITEMS) {
+#ifdef GEOMYS_DEBUG
+		g_diag.lines_capped++;
+#endif
 		return;
+	}
 
 	/* Grow items array if full — try in-place resize first
 	 * to avoid peak memory of old+new arrays simultaneously */
@@ -956,8 +1020,12 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 			/* Compact heap to maximize contiguous space */
 			CompactMem(new_size);
 			new_items = (GopherItem *)NewPtr(new_size);
-			if (!new_items)
+			if (!new_items) {
+#ifdef GEOMYS_DEBUG
+				g_diag.alloc_fails++;
+#endif
 				return;  /* out of memory — stop adding */
+			}
 			memcpy(new_items, gs->items,
 			    (long)sizeof(GopherItem) *
 			    gs->item_count);
@@ -1053,14 +1121,17 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 				const char *s =
 				    item->display + di;
 				short val = 0, mult = 1;
+				short digits_left = 3;
 				Boolean found = false;
 
 				s--;  /* before ')' */
 				while (s > item->display &&
-				    *s >= '0' && *s <= '9') {
+				    *s >= '0' && *s <= '9' &&
+				    digits_left > 0) {
 					val += (*s - '0') * mult;
 					mult *= 10;
 					found = true;
+					digits_left--;
 					s--;
 				}
 				if (found && s >= item->display + 7 &&
@@ -1161,3 +1232,15 @@ gopher_build_uri(char *uri, short uri_size, const char *host,
 		snprintf(uri, uri_size, "gopher://%s",
 		    host);
 }
+
+#ifdef GEOMYS_DEBUG
+void
+gopher_diag_str(char *buf, short buf_size)
+{
+	snprintf(buf, buf_size,
+	    "L:%d P:%d E:%d C:%d A:%d R:%d",
+	    g_diag.lines_total, g_diag.lines_parsed,
+	    g_diag.lines_empty, g_diag.lines_capped,
+	    g_diag.alloc_fails, g_diag.reads);
+}
+#endif

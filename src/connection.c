@@ -153,7 +153,7 @@ conn_validate_host(const char *host)
 	Boolean has_alpha = false;
 
 	len = strlen(host);
-	if (len == 0 || len > 253)
+	if (len == 0 || len > 63)
 		return false;
 
 	label_len = 0;
@@ -330,11 +330,26 @@ conn_connect(Connection *conn, const char *host, short port,
 		    "Not enough memory. Try closing "
 		    "other windows or applications.");
 
+	conn->read_buf = NewPtr(TCP_READ_BUFSIZ);
+	if (!conn->read_buf) {
+		DisposePtr(conn->rcv_buf);
+		conn->rcv_buf = 0L;
+		return conn_fail(conn,
+		    "Not enough memory. Try closing "
+		    "other windows or applications.");
+	}
+
 	err = _TCPCreate(&conn->pb, &conn->stream, conn->rcv_buf,
 	    TCP_RCV_BUFSIZ, 0L, 0L, 0L, false);
 	if (err != noErr) {
+		DisposePtr(conn->read_buf);
+		conn->read_buf = 0L;
 		DisposePtr(conn->rcv_buf);
 		conn->rcv_buf = 0L;
+		if (err == openErr)
+			return conn_fail(conn,
+			    "Too many open connections. "
+			    "Close a window and try again.");
 		return conn_fail(conn,
 		    "Failed to create TCP stream. "
 		    "Verify MacTCP is configured.");
@@ -350,6 +365,8 @@ conn_connect(Connection *conn, const char *host, short port,
 	if (err != noErr && err != 1) {
 		/* Async call failed to queue — clean up without modal alert */
 		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
+		DisposePtr(conn->read_buf);
+		conn->read_buf = 0L;
 		DisposePtr(conn->rcv_buf);
 		conn->rcv_buf = 0L;
 		conn->stream = 0L;
@@ -397,6 +414,7 @@ conn_connect_poll(Connection *conn)
 	conn->state = CONN_STATE_RECEIVING;
 	conn->start_tick = TickCount();
 	conn->timed_out = false;
+	conn->tw_drain = 0;
 	conn->read_len = 0;
 	return 0;  /* connected */
 }
@@ -432,6 +450,9 @@ conn_idle(Connection *conn)
 	if (conn->state != CONN_STATE_RECEIVING)
 		return;
 
+	if (!conn->read_buf)
+		return;
+
 	/* Check for receive timeout */
 	if (conn->start_tick &&
 	    (TickCount() - conn->start_tick > CONN_TIMEOUT_TICKS)) {
@@ -451,13 +472,21 @@ conn_idle(Connection *conn)
 
 	conn->pending_data = status.amtUnreadData;
 
-	/* Remote closed — drain remaining data, then mark done */
+	/* Remote closed — drain remaining data, then mark done.
+	 * Don't close immediately when amtUnreadData==0; the
+	 * emulated TCP stack may still be delivering data from
+	 * the DaynaPORT pipeline.  Wait for 3 consecutive polls
+	 * with no data before closing. */
 	if (status.connectionState == TCP_STATE_TIME_WAIT) {
 		if (status.amtUnreadData == 0) {
-			conn_close(conn);
-			conn->state = CONN_STATE_DONE;
-			return;
+			if (++conn->tw_drain >= 3) {
+				conn_close(conn);
+				conn->state = CONN_STATE_DONE;
+				return;
+			}
+			return;  /* check again next poll */
 		}
+		conn->tw_drain = 0;  /* data arrived, reset */
 	}
 
 	if (status.amtUnreadData == 0)
@@ -476,6 +505,7 @@ conn_idle(Connection *conn)
 	}
 
 	conn->read_len = len;
+	conn->start_tick = TickCount();  /* reset timeout on successful read */
 	conn->pending_data = (status.amtUnreadData > (unsigned long)len)
 	    ? status.amtUnreadData - len : 0;
 }
@@ -495,6 +525,11 @@ conn_close(Connection *conn)
 	if (conn->rcv_buf) {
 		DisposePtr(conn->rcv_buf);
 		conn->rcv_buf = 0L;
+	}
+
+	if (conn->read_buf) {
+		DisposePtr(conn->read_buf);
+		conn->read_buf = 0L;
 	}
 
 	conn->read_len = 0;

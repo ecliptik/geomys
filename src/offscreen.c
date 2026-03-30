@@ -45,9 +45,12 @@ offscreen_init(WindowPtr win)
 	long size;
 
 #ifdef GEOMYS_COLOR
+	/* On System 7 (Color QD present), always use GWorld —
+	 * even on B&W displays.  NewCWindow creates a CGrafPort,
+	 * and SetPortBits corrupts CGrafPort's portPixMap field.
+	 * The 8-bit GWorld + CopyBits handles all screen depths. */
 	if (g_has_color_qd) {
-		GDHandle gd = GetMainDevice();
-		if (gd && (*(*gd)->gdPMap)->pixelSize > 1) {
+		{
 			/* If GWorld already exists, ensure it
 			 * covers this window and reuse it */
 			if (g_color_gworld) {
@@ -56,12 +59,16 @@ offscreen_init(WindowPtr win)
 			}
 
 			/* First init: create GWorld sized to
-			 * this window's portRect */
+			 * this window's portRect.
+			 * Force 8-bit depth so themes render
+			 * correctly at any screen depth (256,
+			 * Thousands, Millions).  CopyBits
+			 * handles 8→N depth conversion. */
 			{
 				Rect bounds = win->portRect;
 				QDErr err;
 
-				err = NewGWorld(&g_color_gworld, 0,
+				err = NewGWorld(&g_color_gworld, 8,
 				    &bounds, 0L, 0L, 0);
 				if (err == noErr && g_color_gworld) {
 					PixMapHandle ipm;
@@ -91,7 +98,6 @@ offscreen_init(WindowPtr win)
 				 * through to 1-bit fallback */
 			}
 		}
-		/* Mono display with Color QD — use 1-bit buffer */
 	}
 #endif
 
@@ -143,13 +149,13 @@ offscreen_cleanup(void)
 	g_active = 0;
 }
 
-void
+short
 offscreen_begin(WindowPtr win)
 {
 	short win_w, win_h, buf_w, buf_h;
 
 	if (!g_ready || g_active)
-		return;
+		return 0;
 
 #ifdef GEOMYS_COLOR
 	if (g_use_gworld && g_color_gworld) {
@@ -171,15 +177,16 @@ offscreen_begin(WindowPtr win)
 			    gw_bounds.left) ||
 			    win_h > (gw_bounds.bottom -
 			    gw_bounds.top))
-				return;  /* still too small */
+				return 0;  /* still too small */
 		}
 
 		if (LockPixels(pm)) {
 			GetGWorld(&g_saved_port, &g_saved_gd);
 			SetGWorld(g_color_gworld, 0L);
 			g_active = 1;
+			return 1;
 		}
-		return;
+		return 0;
 	}
 #endif
 
@@ -196,7 +203,7 @@ offscreen_begin(WindowPtr win)
 		buf_h = g_offscreen.bounds.bottom -
 		    g_offscreen.bounds.top;
 		if (win_w > buf_w || win_h > buf_h)
-			return;  /* still too small */
+			return 0;  /* still too small */
 	}
 
 	/* Save the real screen bits */
@@ -210,6 +217,7 @@ offscreen_begin(WindowPtr win)
 	/* Redirect QuickDraw to offscreen */
 	SetPortBits(&g_offscreen);
 	g_active = 1;
+	return 1;
 }
 
 void
@@ -263,6 +271,16 @@ offscreen_is_ready(void)
 	return g_ready;
 }
 
+short
+offscreen_is_color(void)
+{
+#ifdef GEOMYS_COLOR
+	return g_use_gworld;
+#else
+	return 0;
+#endif
+}
+
 /*
  * offscreen_resize - Grow shared offscreen buffer if window exceeds it.
  *
@@ -299,8 +317,8 @@ offscreen_resize(WindowPtr win)
 				return;  /* big enough */
 		}
 
-		/* Reallocate GWorld with new size */
-		err = NewGWorld(&new_gw, 0, &bounds,
+		/* Reallocate GWorld with new size (8-bit) */
+		err = NewGWorld(&new_gw, 8, &bounds,
 		    0L, 0L, 0);
 		if (err == noErr && new_gw) {
 			CGrafPtr sp;

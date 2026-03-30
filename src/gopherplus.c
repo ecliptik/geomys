@@ -582,9 +582,9 @@ gopherplus_fetch_info(const char *host, short port,
 	}
 
 	/* Poll until async TCP open completes */
-	timeout = TickCount() + 600;  /* 10 second timeout */
+	timeout = TickCount() + 300;  /* 5 second connect timeout */
 	while (conn->state == CONN_STATE_OPENING) {
-		EventRecord dummy;
+		EventRecord ev;
 
 		r = conn_connect_poll(conn);
 		if (r < 0) {
@@ -599,7 +599,16 @@ gopherplus_fetch_info(const char *host, short port,
 			DisposePtr((Ptr)conn);
 			return false;
 		}
-		WaitNextEvent(0, &dummy, 1, 0L);
+		/* Allow Cmd-. cancel */
+		if (EventAvail(keyDownMask, &ev) &&
+		    (ev.modifiers & cmdKey) &&
+		    (ev.message & charCodeMask) == '.') {
+			WaitNextEvent(keyDownMask, &ev, 0, 0L);
+			conn_close(conn);
+			DisposePtr((Ptr)conn);
+			return false;
+		}
+		WaitNextEvent(0, &ev, 1, 0L);
 	}
 
 	/* Build and send Gopher+ attribute request: selector\t!\r\n */
@@ -619,9 +628,9 @@ gopherplus_fetch_info(const char *host, short port,
 	}
 	resp_len = 0;
 
-	timeout = TickCount() + 600;  /* 10 second read timeout */
+	timeout = TickCount() + 480;  /* 8 second read timeout */
 	while (conn->state == CONN_STATE_RECEIVING) {
-		EventRecord dummy;
+		EventRecord ev;
 
 		conn_idle(conn);
 
@@ -637,7 +646,7 @@ gopherplus_fetch_info(const char *host, short port,
 				resp_len += copy_len;
 			}
 			conn->read_len = 0;
-			timeout = TickCount() + 600;
+			timeout = TickCount() + 480;
 		}
 
 		if (conn->state != CONN_STATE_RECEIVING)
@@ -645,7 +654,17 @@ gopherplus_fetch_info(const char *host, short port,
 		if (TickCount() > timeout)
 			break;
 
-		WaitNextEvent(0, &dummy, 1, 0L);
+		/* Allow Cmd-. cancel */
+		if (EventAvail(keyDownMask, &ev) &&
+		    (ev.modifiers & cmdKey) &&
+		    (ev.message & charCodeMask) == '.') {
+			WaitNextEvent(keyDownMask, &ev, 0, 0L);
+			conn_close(conn);
+			DisposePtr((Ptr)conn);
+			DisposePtr(resp_buf);
+			return false;
+		}
+		WaitNextEvent(0, &ev, 1, 0L);
 	}
 
 	conn_close(conn);
@@ -1617,9 +1636,9 @@ gopherplus_fetch_bulk(const char *host, short port,
 	}
 
 	/* Poll async open */
-	timeout = TickCount() + 600;
+	timeout = TickCount() + 300;  /* 5 second connect timeout */
 	while (conn->state == CONN_STATE_OPENING) {
-		EventRecord dummy;
+		EventRecord ev;
 
 		r = conn_connect_poll(conn);
 		if (r < 0) {
@@ -1634,7 +1653,16 @@ gopherplus_fetch_bulk(const char *host, short port,
 			DisposePtr((Ptr)conn);
 			return false;
 		}
-		WaitNextEvent(0, &dummy, 1, 0L);
+		/* Allow Cmd-. cancel */
+		if (EventAvail(keyDownMask, &ev) &&
+		    (ev.modifiers & cmdKey) &&
+		    (ev.message & charCodeMask) == '.') {
+			WaitNextEvent(keyDownMask, &ev, 0, 0L);
+			conn_close(conn);
+			DisposePtr((Ptr)conn);
+			return false;
+		}
+		WaitNextEvent(0, &ev, 1, 0L);
 	}
 
 	/* Send bulk attribute request: selector\t$\r\n */
@@ -1654,9 +1682,9 @@ gopherplus_fetch_bulk(const char *host, short port,
 	}
 	resp_len = 0;
 
-	timeout = TickCount() + 900;  /* 15 second read timeout */
+	timeout = TickCount() + 600;  /* 10 second read timeout */
 	while (conn->state == CONN_STATE_RECEIVING) {
-		EventRecord dummy;
+		EventRecord ev;
 
 		conn_idle(conn);
 
@@ -1672,7 +1700,7 @@ gopherplus_fetch_bulk(const char *host, short port,
 				resp_len += copy_len;
 			}
 			conn->read_len = 0;
-			timeout = TickCount() + 900;
+			timeout = TickCount() + 600;
 		}
 
 		if (conn->state != CONN_STATE_RECEIVING)
@@ -1680,7 +1708,17 @@ gopherplus_fetch_bulk(const char *host, short port,
 		if (TickCount() > timeout)
 			break;
 
-		WaitNextEvent(0, &dummy, 1, 0L);
+		/* Allow Cmd-. cancel */
+		if (EventAvail(keyDownMask, &ev) &&
+		    (ev.modifiers & cmdKey) &&
+		    (ev.message & charCodeMask) == '.') {
+			WaitNextEvent(keyDownMask, &ev, 0, 0L);
+			conn_close(conn);
+			DisposePtr((Ptr)conn);
+			DisposePtr(resp_buf);
+			return false;
+		}
+		WaitNextEvent(0, &ev, 1, 0L);
 	}
 
 	conn_close(conn);

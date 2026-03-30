@@ -1572,11 +1572,11 @@ resource 'SICN' (273, "Stop") {
 	}
 };
 
-/* 274: Go - right-pointing filled triangle (navigate) */
+/* 274: Go - right arrow with tail (navigate, distinct from Forward) */
 resource 'SICN' (274, "Go") {
 	{
-		$"0000 0000 0000 0400 0600 0700 0780 07C0"
-		$"07E0 07C0 0780 0700 0600 0400 0000 0000"
+		$"0000 0000 0000 0100 0180 01C0 7FE0 7FF0"
+		$"7FE0 01C0 0180 0100 0000 0000 0000 0000"
 	}
 };
 

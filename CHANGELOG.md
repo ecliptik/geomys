@@ -26,6 +26,63 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Expanded v1.0 roadmap with acceptance criteria, QA checkpoints, and known limitations
 - Documented System 6 preferences icon as known Finder limitation
 
+## [0.15.5] — 2026-03-30: P2 Follow-up Fixes
+
+### Fixed
+- **Status bar hover restore**: link hover text no longer permanently overwrites status bar — mouse leaving content area restores the previous status message (loading, download progress, or idle)
+- **Dialog buffer damage**: white rectangles no longer left on themed backgrounds when system dialogs or Geomys dialogs overlap the content area. Fixed by invalidating the browser window rect on dialog dismissal
+- **New window Enter key**: address bar in newly opened windows (Cmd+N) now accepts Enter immediately without requiring a click first
+- **Dark theme icon contrast**: file-type icons on dark themes no longer render as black-on-dark; cicn bypassed on dark themes, SICN uses theme foreground color
+- **Refresh after download**: Refresh now returns to the directory listing instead of re-fetching the downloaded binary file. cur_selector preserved across downloads via dl_prev_selector
+- **Dialogs with multiple windows**: Search, Manage Bookmarks, About, and Get Info dialogs now appear correctly with 2+ windows open. Fixed EndUpdate/draw ordering in handle_update
+- **Download dialog visibility**: download progress dialog stays visible when switching between browser windows (BringToFront on window switch)
+- **Download progress in background**: byte count continues updating even when the downloading window is not the active session
+- **Content rendering during downloads**: browser window shows the directory listing during downloads instead of going blank when switching away and back
+
+### Performance
+- **Download throughput ~4x**: drain budget raised from 4 to 16 reads per poll iteration for PAGE_DOWNLOAD and PAGE_IMAGE (no parsing/drawing needed), with extended time budget (6 ticks vs 2). Downloads now pull up to ~128KB per iteration instead of ~32KB
+
+### Build
+- Minimal preset: enabled STYLES, HTML, and TELNET flags (were incorrectly OFF)
+- Lite preset: enabled STYLES flag (was incorrectly OFF)
+- Updated BUILD.md to match current preset feature matrix
+
+## [0.15.4] — 2026-03-28: Network Performance
+
+### Networking
+- **Connection leak fix**: close TCP connection after Gopher `.\r\n` terminator instead of leaving it idle until next navigation
+- **Stream overflow fix**: return `openErr` when all 10 MacTCP stream slots are full, with user-facing "Too many open connections" alert
+- **Idle timeout**: receive timeout (30s) now resets on each successful TCP read, preventing large directory loads from being killed mid-stream
+- **TIME_WAIT drain grace**: wait for 3 consecutive empty polls before closing a TIME_WAIT connection, mitigating emulated DaynaPORT data delivery races
+- **Bulk directory parsing**: replaced byte-at-a-time directory line scanning with `memchr()`/`memcpy()` bulk operations, matching the existing text mode pattern (~3-5x faster for large directories)
+- **Read buffer doubled**: `TCP_READ_BUFSIZ` increased from 4096 to 8192 to match MacTCP receive buffer, halving iteration count per `conn_idle()` call
+- **Gopher+ fetch improvements**: reduced connect timeouts (10s→5s), read timeouts (10s→8s for info, 15s→10s for bulk), added Cmd-. cancel via `EventAvail` peek
+
+### Debug
+- Directory parsing diagnostic counters (`L:P:E:C:A:R`) shown in status bar on debug builds for QA automation
+
+## [0.15.3] — 2026-03-26: Code Review Cleanup
+
+### Security
+- Limit Gopher+ score parsing to 3 digits, preventing short overflow on malicious Veronica-2 responses
+
+### Performance
+- Pre-allocate scroll region handle, eliminating `NewRgn`/`DisposeRgn` heap churn at 30 cps key repeat
+- Incremental max width measurement during page load instead of full O(n) recompute
+- Single-pass CP437 translation combining high-byte check and translate
+- Cache row computation and theme pointer in cursor update path
+
+### Memory
+- Shrink `Connection.host` from 256 to 68 bytes, saving 188 bytes per session
+- Expand dirty-row tracking from 512 to `GOPHER_MAX_ITEMS` (2000)
+- Dynamic `read_buf` allocation — 4KB buffer allocated only during active connections, saving ~8KB with 3 idle windows
+
+### Refactored
+- Extract `navigate_gopher_item()` unifying triplicated navigation dispatch (~150 lines removed), fixes missing `GOPHER_SOUND`/`GOPHER_RTF` in non-clipboard download path
+- Add `port_save_set()` helper replacing ~16 `GetPort`/`SetPort` boilerplate sites
+- Add `content_restore_port_defaults()` helper for theme/font restoration
+- Merge `content_select_next`/`prev` into `content_select_step()` (~50 lines removed)
+
 ## [0.15.2] — 2026-03-26: System 7 QA
 
 ### Fixed

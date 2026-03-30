@@ -179,9 +179,11 @@ init_menus(void)
 		InsertMenu(size_submenu, -1);
 
 	/* Load and insert Page Style hierarchical submenu */
+#ifdef GEOMYS_STYLES
 	style_submenu = GetMenu(STYLE_MENU_ID);
 	if (style_submenu)
 		InsertMenu(style_submenu, -1);
+#endif
 
 	/* Set hierarchical menu markers in Options */
 	if (options_menu) {
@@ -191,18 +193,22 @@ init_menus(void)
 		SetItemCmd(options_menu, OPT_MENU_SIZE, 0x1B);
 		SetItemMark(options_menu, OPT_MENU_SIZE,
 		    SIZE_MENU_ID);
+#ifdef GEOMYS_STYLES
 		SetItemCmd(options_menu, OPT_MENU_STYLE, 0x1B);
 		SetItemMark(options_menu, OPT_MENU_STYLE,
 		    STYLE_MENU_ID);
+#endif
 	}
 
 	/* Set initial style checkmark based on prefs */
+#ifdef GEOMYS_STYLES
 	if (style_submenu) {
 		CheckItem(style_submenu, STYLE_ITEM_TEXT,
 		    g_prefs.page_style == STYLE_TEXT);
 		CheckItem(style_submenu, STYLE_ITEM_ICONS,
 		    g_prefs.page_style == STYLE_ICONS);
 	}
+#endif
 
 	/* Set initial font checkmark based on prefs (font only) */
 	if (font_submenu) {
@@ -275,15 +281,28 @@ init_menus(void)
 				CheckItem(theme_submenu, check_item, true);
 		}
 
-		/* Disable color themes on monochrome systems */
 #ifdef GEOMYS_COLOR
-		if (!g_has_color_qd)
-#endif
-		{
+		/* Runtime: disable color themes on monochrome hw */
+		if (!g_has_color_qd) {
 			short ci;
-			for (ci = THEME_ITEM_SOLARIZED_L; ci <= THEME_ITEM_LAST; ci++)
+			for (ci = THEME_ITEM_SOLARIZED_L;
+			    ci <= THEME_ITEM_LAST; ci++)
 				DisableItem(theme_submenu, ci);
 		}
+#else
+		/* No color support compiled in — remove color
+		 * themes entirely, leaving only Light and Dark.
+		 * Delete bottom-to-top to preserve numbering. */
+		{
+			short ci;
+			for (ci = THEME_ITEM_LAST;
+			    ci >= THEME_ITEM_SOLARIZED_L; ci--)
+				DeleteMenuItem(theme_submenu, ci);
+			/* Remove separator between Light/Dark
+			 * and the now-gone color themes */
+			DeleteMenuItem(theme_submenu, 3);
+		}
+#endif
 	}
 #endif /* GEOMYS_THEMES */
 
@@ -300,6 +319,18 @@ init_menus(void)
 		    "\pHide Status Bar" :
 		    "\pShow Status Bar");
 
+#ifdef GEOMYS_DEBUG
+	/* QA keyboard shortcuts — top-level menu items only
+	 * (MenuKey doesn't scan hierarchical submenus). */
+	if (options_menu) {
+		SetItemCmd(options_menu, OPT_MENU_STATUS_BAR, 'B');
+		SetItemCmd(options_menu, OPT_MENU_DETAILS, 'I');
+		/* Theme Cmd+D handled in main.c key handler */
+	}
+	if (edit_menu)
+		SetItemCmd(edit_menu, EDIT_MENU_SHOW_CLIP, 'K');
+#endif
+
 #ifdef GEOMYS_GOPHER_PLUS
 	/* Set initial Gopher+ On/Off text */
 	if (options_menu)
@@ -311,6 +342,38 @@ init_menus(void)
 #endif
 
 	/* Favorites menu — managed by favorites.c */
+
+	/*
+	 * Remove menu items for features disabled at compile time.
+	 * Delete from bottom to top within each menu to avoid
+	 * shifting item numbers during deletion.  Separators
+	 * adjacent to deleted items are also removed.
+	 */
+
+	/* --- Options menu: prune disabled features ---
+	 * Only delete items at the BOTTOM of the menu
+	 * (Gopher+ and its separator) where deletion
+	 * doesn't shift items referenced by constants.
+	 * Mid-menu items (Style) are disabled instead. */
+#ifndef GEOMYS_GOPHER_PLUS
+	if (options_menu) {
+		DeleteMenuItem(options_menu, OPT_MENU_GOPHER_PLUS);
+		DeleteMenuItem(options_menu, 11); /* separator */
+	}
+#endif
+#ifndef GEOMYS_STYLES
+	if (options_menu)
+		DisableItem(options_menu, OPT_MENU_STYLE);
+	style_submenu = 0L;
+#endif
+
+	/* --- Favorites menu: remove entirely if disabled --- */
+#ifndef GEOMYS_FAVORITES
+	if (favorites_menu) {
+		DeleteMenu(FAVORITES_MENU_ID);
+		favorites_menu = 0L;
+	}
+#endif
 
 	/* Add SICN icon to Go > Home (System 7+).
 	 * Other Go items have Cmd-key shortcuts which
@@ -360,15 +423,13 @@ update_menus(void)
 #endif
 
 #ifdef GEOMYS_DOWNLOAD
-		{
-			if (g_gopher.page_type != PAGE_NONE &&
-			    g_app_state == APP_STATE_IDLE)
-				EnableItem(file_menu,
-				    FILE_MENU_SAVE_AS);
-			else
-				DisableItem(file_menu,
-				    FILE_MENU_SAVE_AS);
-		}
+		if (g_gopher.page_type != PAGE_NONE &&
+		    g_app_state == APP_STATE_IDLE)
+			EnableItem(file_menu,
+			    FILE_MENU_SAVE_AS);
+		else
+			DisableItem(file_menu,
+			    FILE_MENU_SAVE_AS);
 #else
 		DisableItem(file_menu, FILE_MENU_SAVE_AS);
 #endif

@@ -55,7 +55,7 @@
 
 typedef struct {
 	char    type;
-	char    display[80];
+	char    display[100];
 	char    selector[128];
 	char    host[64];
 	short   port;
@@ -115,6 +115,7 @@ typedef struct {
 	short       dl_vrefnum;     /* volume for cleanup on error */
 	Str63       dl_filename;    /* for cleanup on error */
 	short       dl_prev_page;   /* page_type before download started */
+	char        dl_prev_selector[256]; /* cur_selector before download */
 
 	/* Image sniff state (PAGE_IMAGE) */
 	char        img_header[26]; /* enough for GIF or PNG header */
@@ -156,5 +157,10 @@ Boolean gopher_parse_uri(const char *uri, char *host, short host_size,
 /* Build a gopher:// URI from components */
 void gopher_build_uri(char *uri, short uri_size, const char *host,
     short port, char type, const char *selector);
+
+#ifdef GEOMYS_DEBUG
+/* Format directory parsing diagnostics into buf */
+void gopher_diag_str(char *buf, short buf_size);
+#endif
 
 #endif /* GOPHER_H */
