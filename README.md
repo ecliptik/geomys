@@ -176,7 +176,8 @@ Large Gopher directories (1000+ items) use significant memory (~300KB per direct
 
 ## Testing
 
-Uses [Snow](https://snowemu.com/) emulator (v1.3.1) with a Mac Plus ROM and System 6.0.8 SCSI hard drive image. Snow supports DaynaPORT SCSI/Link Ethernet emulation for MacTCP networking.
+- **System 6 (monochrome)**: [Snow](https://snowemu.com/) emulator (v1.3.1) with Mac Plus ROM and System 6.0.8 SCSI hard drive image. DaynaPORT SCSI/Link Ethernet emulation for MacTCP networking.
+- **System 7 (color)**: [Basilisk II](https://basilisk.cebix.net/) emulator with Macintosh IIci ROM and System 7.6.1. Color QuickDraw support for 256-color themes and multi-window testing.
 
 ## Acknowledgments
 
