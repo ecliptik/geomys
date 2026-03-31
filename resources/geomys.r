@@ -354,7 +354,7 @@ resource 'DITL' (138, "HTML URL") {
 
 /* Home Page dialog — movableDBoxProc for System 7 */
 resource 'DLOG' (133, "Home Page") {
-	{80, 80, 195, 420},
+	{80, 80, 220, 420},
 	movableDBoxProc,
 	visible,
 	noGoAway,
@@ -367,11 +367,11 @@ resource 'DLOG' (133, "Home Page") {
 resource 'DITL' (133, "Home Page") {
 	{
 		/* 1: OK button */
-		{80, 250, 100, 320},
+		{105, 250, 125, 320},
 		Button { enabled, "OK" };
 
 		/* 2: Cancel button */
-		{80, 160, 100, 230},
+		{105, 160, 125, 230},
 		Button { enabled, "Cancel" };
 
 		/* 3: URL label */
@@ -383,12 +383,16 @@ resource 'DITL' (133, "Home Page") {
 		EditText { enabled, "" };
 
 		/* 5: Use Blank checkbox */
-		{45, 15, 61, 200},
+		{70, 15, 86, 200},
 		CheckBox { enabled, "Use Blank Page" };
 
 		/* 6: Default button outline (UserItem) */
-		{76, 246, 104, 324},
+		{101, 246, 129, 324},
 		UserItem { disabled };
+
+		/* 7: Use Current Page button */
+		{43, 105, 63, 245},
+		Button { enabled, "Use Current Page" };
 	}
 };
 

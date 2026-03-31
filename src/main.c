@@ -2690,6 +2690,17 @@ do_home_page_dialog(void)
 
 	setup_default_button_outline(dlg, 6);
 
+	/* Disable "Use Current Page" if no page loaded */
+	{
+		char cur_url[300];
+		browser_get_url(cur_url, sizeof(cur_url));
+		if (cur_url[0] == '\0') {
+			GetDialogItem(dlg, 7, &item_type, &item_h,
+			    &item_rect);
+			HiliteControl((ControlHandle)item_h, 255);
+		}
+	}
+
 	do {
 		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
 
@@ -2701,6 +2712,28 @@ do_home_page_dialog(void)
 			    (ControlHandle)item_h);
 			SetControlValue((ControlHandle)item_h,
 			    use_blank ? 1 : 0);
+		}
+
+		/* Use Current Page button */
+		if (item == 7) {
+			char cur_url[300];
+			Str255 purl;
+
+			browser_get_url(cur_url, sizeof(cur_url));
+			if (cur_url[0] != '\0') {
+				c2pstr(purl, cur_url);
+				GetDialogItem(dlg, 4, &item_type,
+				    &item_h, &item_rect);
+				SetDialogItemText(item_h, purl);
+
+				if (use_blank) {
+					use_blank = false;
+					GetDialogItem(dlg, 5, &item_type,
+					    &item_h, &item_rect);
+					SetControlValue(
+					    (ControlHandle)item_h, 0);
+				}
+			}
 		}
 	} while (item != 1 && item != 2);
 
