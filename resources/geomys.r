@@ -196,7 +196,7 @@ resource 'DITL' (130, "About Geomys") {
 
 		/* 7: URL */
 		{102, 15, 118, 290},
-		StaticText { disabled, "https://github.com/ecliptik/geomys" };
+		StaticText { disabled, "https://codeberg.org/ecliptik/geomys" };
 
 		/* 8: Default button outline (UserItem) */
 		{134, 111, 162, 189},

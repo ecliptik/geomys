@@ -225,7 +225,7 @@ update_readme_downloads() {
         return 0
     fi
 
-    # Replace version in GitHub release download URLs
+    # Replace version in Codeberg release download URLs
     # Matches: /releases/download/vX.Y.Z/Geomys...-X.Y.Z.ext
     if grep -q "releases/download/v" "$readme"; then
         sed -i -E "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/([A-Za-z-]*)-[0-9]+\.[0-9]+\.[0-9]+\.|releases/download/${tag}/\1-${ver}.|g" "$readme"
@@ -285,7 +285,7 @@ do_release() {
 | **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB |
 | **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB |
 
-See [BUILD.md](https://github.com/$GITHUB_REPO/blob/main/docs/BUILD.md) for custom build options."
+See [BUILD.md](https://codeberg.org/$CODEBERG_REPO/src/branch/main/docs/BUILD.md) for custom build options."
 
     local name="Geomys $tag"
     release_forgejo "$tag" "$name" "$body"

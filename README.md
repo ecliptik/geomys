@@ -28,13 +28,13 @@ This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/
 
 ## Download
 
-Pre-built binaries are available on the [Releases](https://github.com/ecliptik/geomys/releases) page and [Macintosh Garden](https://macintoshgarden.org/apps/geomys):
+Pre-built binaries are available on the [Releases](https://codeberg.org/ecliptik/geomys/releases) page and [Macintosh Garden](https://macintoshgarden.org/apps/geomys):
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.hqx) |
-| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.hqx) |
-| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.hqx) |
+| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.hqx) |
+| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.hqx) |
+| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). No build toolchain required — just download and run. See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
@@ -186,9 +186,13 @@ Large Gopher directories (1000+ items) use significant memory (~300KB per direct
 - **[Snow](https://snowemu.com/)** emulator
 - **[wallops](https://github.com/jcs/wallops)** by joshua stein — MacTCP wrapper (`tcp.c`/`tcp.h`), DNS resolution (`dns.c`/`dns.h`), and utility functions. ISC license.
 - **[subtext](https://github.com/jcs/subtext)** by joshua stein — Additional utility and networking code. ISC license.
-- **[Flynn](https://github.com/ecliptik/flynn)** — Sibling Telnet client project and architectural reference. ISC license.
+- **[Flynn](https://codeberg.org/ecliptik/flynn)** — Sibling Telnet client project and architectural reference. ISC license.
 - **University of Illinois Board of Trustees** — TCP networking code (`tcp.c`, 1990-1992)
 
 ## License
 
 ISC License. See [LICENSE](LICENSE) for full details.
+
+---
+
+> **Note:** The [GitHub repository](https://github.com/ecliptik/geomys) is a read-only mirror. Please open issues and pull requests on [Codeberg](https://codeberg.org/ecliptik/geomys).
