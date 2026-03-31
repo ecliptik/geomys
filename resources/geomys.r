@@ -434,9 +434,9 @@ resource 'DITL' (134, "Favorites") {
 		{224, 276, 252, 354},
 		UserItem { disabled };
 
-		/* 7: Delete button */
+		/* 7: Remove button */
 		{75, 280, 95, 350},
-		Button { enabled, "Delete" };
+		Button { enabled, "Remove" };
 
 		/* 8: Move Up button */
 		{115, 280, 135, 350},
@@ -496,7 +496,7 @@ resource 'DITL' (135, "Edit Favorite") {
 	}
 };
 
-/* Delete confirmation alert — Cancel is default (item 1) per HIG */
+/* Remove confirmation alert — Cancel is default (item 1) per HIG */
 resource 'ALRT' (129) {
 	{60, 80, 180, 420},
 	129,
@@ -509,15 +509,15 @@ resource 'ALRT' (129) {
 	noAutoCenter
 };
 
-resource 'DITL' (129, "Delete Confirm") {
+resource 'DITL' (129, "Remove Confirm") {
 	{
 		/* 1: Cancel button (default — safe action) */
 		{85, 250, 105, 320},
 		Button { enabled, "Cancel" };
 
-		/* 2: Delete button (destructive) */
+		/* 2: Remove button (destructive) */
 		{85, 140, 105, 210},
-		Button { enabled, "Delete" };
+		Button { enabled, "Remove" };
 
 		/* 3: Text */
 		{15, 75, 70, 325},

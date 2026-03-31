@@ -573,7 +573,7 @@ favorites_manage(GeomysPrefs *prefs)
 			}
 			break;
 		}
-		case 7:  /* Delete */
+		case 7:  /* Remove */
 			selection =
 			    fav_list_get_selection();
 			if (selection >= 0 &&
@@ -582,7 +582,7 @@ favorites_manage(GeomysPrefs *prefs)
 				short i;
 
 				ParamText(
-				    "\pDelete this favorite?",
+				    "\pRemove this favorite?",
 				    "\p", "\p", "\p");
 				if (CautionAlert(129, 0L) == 2) {
 					for (i = selection;
