@@ -84,8 +84,9 @@ Users can also adjust memory after building via Finder's "Get Info" on the Geomy
 ## Repository Conventions
 
 - Git remote (primary): `ssh://git@forgejo.ecliptik.com/ecliptik/geomys.git`
-- Codeberg mirror: `https://codeberg.org/ecliptik/geomys` (auto-mirrored from Forgejo)
-- GitHub mirror: `https://github.com/ecliptik/geomys` (read-only, never push directly)
+- Codeberg mirror: `https://codeberg.org/ecliptik/geomys` (read-only, auto-mirrored from Forgejo)
+- GitHub mirror: `https://github.com/ecliptik/geomys` (read-only, auto-mirrored from Forgejo)
+- Never push directly to Codeberg or GitHub — only push to Forgejo. Releases are created on all three via `release.sh`.
 - Use feature branches for new features, squash commits when merging to main
 - Never use git worktrees when working with agent teams
 - Always include `Co-Authored-By: Claude Code` in commits (enforced by prepare-commit-msg hook)
