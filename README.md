@@ -28,7 +28,7 @@ This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/
 
 ## Download
 
-Pre-built binaries are available on the [Releases](https://github.com/ecliptik/geomys/releases) page:
+Pre-built binaries are available on the [Releases](https://github.com/ecliptik/geomys/releases) page and [Macintosh Garden](https://macintoshgarden.org/apps/geomys):
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
