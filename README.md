@@ -32,9 +32,9 @@ Pre-built binaries are available on the [Releases](https://codeberg.org/ecliptik
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-1.0.0.hqx) |
-| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Lite-1.0.0.hqx) |
-| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.0/Geomys-Minimal-1.0.0.hqx) |
+| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.hqx) |
+| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.hqx) |
+| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). No build toolchain required — just download and run. See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 

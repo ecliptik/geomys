@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] — 2026-03-31
+
+### Changed
+- About dialog and documentation URLs now point to Codeberg instead of GitHub
+- Release script publishes to Codeberg in addition to Forgejo and GitHub
+- README notes that GitHub is a read-only mirror; issues should be opened on Codeberg
+- Renamed "Delete" to "Remove" in Favorites dialog
+- Added "Use Current Page" button to Home Page dialog
+
 ## [1.0.0] — 2026-03-30
 
 Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser for classic Macintosh — from the 68000-based Mac Plus running System 6.0.8 to color Mac II systems on System 7.
