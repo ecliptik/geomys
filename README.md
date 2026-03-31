@@ -1,6 +1,6 @@
 # Geomys
 
-A [Gopher](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh systems. Supports monochrome on System 6 and 256 colors on System 7. Multi-window browsing, 9 themes, favorites, Gopher+ protocol, file downloads, and full keyboard navigation.
+Geomys is a [Gopher](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh computers. It supports monochrome and 256 colors, System 6 and 7, multi-window browsing, themes, favorites, Gopher+ protocol, file downloads, and keyboard navigation.
 
 This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
