@@ -229,7 +229,7 @@ resource 'DITL' (132, "Search") {
 
 		/* 3: Label */
 		{15, 15, 31, 320},
-		StaticText { disabled, "Search:" };
+		StaticText { disabled, "Search" };
 
 		/* 4: Query field */
 		{35, 15, 51, 320},
@@ -265,7 +265,7 @@ resource 'DITL' (142, "CSO") {
 
 		/* 3: Label (set at runtime to show CSO item name) */
 		{15, 15, 31, 320},
-		StaticText { disabled, "Look up in:" };
+		StaticText { disabled, "Look up in" };
 
 		/* 4: Query field */
 		{35, 15, 51, 320},
@@ -304,7 +304,7 @@ resource 'DITL' (137, "Find") {
 
 		/* 3: Label */
 		{15, 15, 31, 60},
-		StaticText { disabled, "Find:" };
+		StaticText { disabled, "Find" };
 
 		/* 4: Query field */
 		{35, 15, 51, 320},
@@ -340,7 +340,7 @@ resource 'DITL' (138, "HTML URL") {
 
 		/* 3: Description text */
 		{10, 15, 42, 385},
-		StaticText { disabled, "This link points to a web page outside of Gopher:" };
+		StaticText { disabled, "This link points to a web page outside of Gopher" };
 
 		/* 4: URL field (editable for Cmd-C copy) */
 		{50, 15, 66, 385},
@@ -376,7 +376,7 @@ resource 'DITL' (133, "Home Page") {
 
 		/* 3: URL label */
 		{15, 15, 31, 100},
-		StaticText { disabled, "Home Page:" };
+		StaticText { disabled, "Home Page" };
 
 		/* 4: URL field */
 		{15, 105, 31, 325},
@@ -476,7 +476,7 @@ resource 'DITL' (135, "Edit Favorite") {
 
 		/* 3: Name label */
 		{15, 15, 31, 70},
-		StaticText { disabled, "Name:" };
+		StaticText { disabled, "Name" };
 
 		/* 4: Name field */
 		{15, 75, 31, 315},
@@ -484,7 +484,7 @@ resource 'DITL' (135, "Edit Favorite") {
 
 		/* 5: URL label */
 		{45, 15, 61, 70},
-		StaticText { disabled, "URL:" };
+		StaticText { disabled, "URL" };
 
 		/* 6: URL field */
 		{45, 75, 61, 315},
@@ -622,7 +622,7 @@ resource 'DITL' (140, "Telnet") {
 
 		/* 5: Host label */
 		{38, 15, 54, 55},
-		StaticText { disabled, "Host:" };
+		StaticText { disabled, "Host" };
 
 		/* 6: Host value (editable for Cmd-C) */
 		{38, 60, 54, 345},
@@ -630,7 +630,7 @@ resource 'DITL' (140, "Telnet") {
 
 		/* 7: Port label */
 		{62, 15, 78, 55},
-		StaticText { disabled, "Port:" };
+		StaticText { disabled, "Port" };
 
 		/* 8: Port value */
 		{62, 60, 78, 120},
@@ -638,7 +638,7 @@ resource 'DITL' (140, "Telnet") {
 
 		/* 9: Login label */
 		{86, 15, 102, 55},
-		StaticText { disabled, "Login:" };
+		StaticText { disabled, "Login" };
 
 		/* 10: Login value */
 		{86, 60, 102, 345},
@@ -681,7 +681,7 @@ resource 'DITL' (141, "DNS Server") {
 
 		/* 3: DNS Server label */
 		{15, 15, 31, 110},
-		StaticText { disabled, "DNS Server:" };
+		StaticText { disabled, "DNS Server" };
 
 		/* 4: DNS Server IP field */
 		{15, 115, 31, 275},
