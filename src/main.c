@@ -98,7 +98,7 @@ static void init_session(BrowserSession *s);
 static void main_event_loop(void);
 static void handle_mouse_down(EventRecord *event);
 static void handle_key_down(EventRecord *event);
-static void handle_update(EventRecord *event);
+void handle_update(EventRecord *event);
 static void handle_activate(EventRecord *event);
 /* do_navigate_url declared in main.h */
 static void handle_nav_button(short btn_id);
@@ -1340,8 +1340,7 @@ dl_progress_open(void)
 	c2pstr(pbytes, "0");
 	ParamText(g_dl_pname, pbytes, "\p", "\p");
 
-	g_dl_dialog = GetNewDialog(DLOG_DL_PROGRESS_ID,
-	    0L, (WindowPtr)-1);
+	g_dl_dialog = get_modal_dialog(DLOG_DL_PROGRESS_ID);
 	if (g_dl_dialog) {
 		center_dialog_on_screen(g_dl_dialog);
 		ShowWindow((WindowPtr)g_dl_dialog);
@@ -1680,7 +1679,7 @@ do_open_location_dialog(void)
 	if (active_session)
 		browser_activate(false);
 
-	dlg = GetNewDialog(DLOG_OPEN_LOC_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_OPEN_LOC_ID);
 	if (!dlg) {
 		if (active_session)
 			browser_activate(true);
@@ -1936,7 +1935,7 @@ do_search_dialog(const char *title, const char *host,
 	/* Create dialog behind all windows so it doesn't
 	 * draw at the DLOG resource position first —
 	 * avoids white rectangle artifact on color displays */
-	dlg = GetNewDialog(DLOG_SEARCH_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_SEARCH_ID);
 	if (!dlg) {
 		browser_activate(true);
 		return;
@@ -2074,7 +2073,7 @@ do_cso_dialog(const char *title, const char *host,
 	/* Deactivate address bar so modal dialog gets keystrokes */
 	browser_activate(false);
 
-	dlg = GetNewDialog(DLOG_CSO_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_CSO_ID);
 	if (!dlg) {
 		browser_activate(true);
 		return;
@@ -2210,7 +2209,7 @@ do_find_dialog(void)
 	/* Deactivate address bar so modal dialog gets keystrokes */
 	browser_activate(false);
 
-	dlg = GetNewDialog(DLOG_FIND_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_FIND_ID);
 	if (!dlg) {
 		browser_activate(true);
 		return;
@@ -2344,7 +2343,7 @@ do_html_url_dialog(const char *url, const char *display)
 	InitCursor();
 	browser_activate(false);
 
-	dlg = GetNewDialog(DLOG_HTML_URL_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_HTML_URL_ID);
 	if (!dlg) {
 		browser_activate(true);
 		return;
@@ -2449,7 +2448,7 @@ do_telnet_dialog(char type, const char *display,
 	InitCursor();
 	browser_activate(false);
 
-	dlg = GetNewDialog(DLOG_TELNET_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_TELNET_ID);
 	if (!dlg) {
 		browser_activate(true);
 		return;
@@ -2790,7 +2789,7 @@ do_home_page_dialog(void)
 	Str255 pstr;
 	Boolean use_blank;
 
-	dlg = GetNewDialog(DLOG_HOME_PAGE_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_HOME_PAGE_ID);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
@@ -2886,7 +2885,7 @@ do_dns_server_dialog(void)
 	Rect item_rect;
 	Str255 pstr;
 
-	dlg = GetNewDialog(DLOG_DNS_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_DNS_ID);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
@@ -3214,7 +3213,7 @@ handle_mouse_down(EventRecord *event)
 	}
 }
 
-static void
+void
 handle_update(EventRecord *event)
 {
 	WindowPtr win;

@@ -894,8 +894,8 @@ do_ask_dialog(GopherPlusAskForm *form, const char *title)
 	ptitle[0] = (unsigned char)tlen;
 	memcpy(ptitle + 1, title, tlen);
 
-	dlg = NewDialog(0L, &bounds, ptitle, true,
-	    movableDBoxProc, (WindowPtr)-1L, false,
+	dlg = NewDialog(0L, &bounds, ptitle, false,
+	    modal_dialog_proc(), (WindowPtr)-1L, false,
 	    0L, ditl.h);
 	if (!dlg) {
 		DisposeHandle(ditl.h);
@@ -1033,7 +1033,7 @@ do_view_select_dialog(GopherPlusInfo *info)
 	DialogPtr dlg;
 	short hit, i, chosen;
 
-	dlg = GetNewDialog(DLOG_VIEW_SELECT_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_VIEW_SELECT_ID);
 	if (!dlg)
 		return -1;
 
@@ -1209,7 +1209,7 @@ do_getinfo_dialog(void)
 	}
 
 	/* Create and display dialog */
-	dlg = GetNewDialog(DLOG_GETINFO_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_GETINFO_ID);
 	if (!dlg) {
 		browser_activate(true);
 		return;

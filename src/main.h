@@ -170,6 +170,9 @@
 #define APP_STATE_IDLE      0
 #define APP_STATE_LOADING   1
 
+/* Window update handler (used by dialog filters for bg redraw) */
+void handle_update(EventRecord *event);
+
 /* Functions callable from menus and content click handlers */
 void do_new_window(void);
 void do_navigate_url_titled(const char *url, const char *title);

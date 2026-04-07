@@ -8,6 +8,8 @@
 void do_about(void);
 void setup_default_button_outline(DialogPtr dlg, short outline_item);
 void center_dialog_on_screen(DialogPtr dlg);
+short modal_dialog_proc(void);
+DialogPtr get_modal_dialog(short dlog_id);
 pascal Boolean std_dlg_filter(DialogPtr dlg, EventRecord *evt, short *item);
 
 /* Status window for connection progress */

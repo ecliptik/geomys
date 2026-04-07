@@ -10,6 +10,8 @@
 #include <Dialogs.h>
 #include <Memory.h>
 #include <ToolUtils.h>
+#include <Resources.h>
+#include <Gestalt.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -129,6 +131,65 @@ setup_default_button_outline(DialogPtr dlg, short outline_item)
 	    (Handle)draw_default_button, &item_rect);
 }
 
+/* ---- HIG-appropriate modal dialog proc ---- */
+
+/*
+ * Return the correct window proc for modal dialogs:
+ *   System 6:  dBoxProc      (plain box, no title bar)
+ *   System 7+: movableDBoxProc (movable modal with title bar)
+ */
+short
+modal_dialog_proc(void)
+{
+	static short proc = -1;
+	long sysver;
+
+	if (proc < 0) {
+		proc = dBoxProc;
+		if (TrapAvailable(_GestaltDispatch) &&
+		    Gestalt(gestaltSystemVersion, &sysver) == noErr &&
+		    sysver >= 0x0700)
+			proc = movableDBoxProc;
+	}
+	return proc;
+}
+
+/*
+ * Load a modal dialog from a DLOG resource, patching the procID
+ * to match the running system's HIG convention.
+ * Resources are defined as dBoxProc (System 6 baseline); on System 7+
+ * the procID is patched to movableDBoxProc before creation.
+ */
+#define DLOG_PROCID_OFFSET 8  /* offset of procID in DLOG resource (after Rect) */
+
+DialogPtr
+get_modal_dialog(short dlog_id)
+{
+	Handle h;
+	short target;
+	DialogPtr dlg;
+
+	target = modal_dialog_proc();
+
+	h = GetResource('DLOG', dlog_id);
+	if (h && target != dBoxProc) {
+		HNoPurge(h);
+		HLock(h);
+		*(short *)(*h + DLOG_PROCID_OFFSET) = target;
+	}
+
+	dlg = GetNewDialog(dlog_id, 0L, (WindowPtr)-1L);
+
+	/* Restore resource so reloads get the original value */
+	if (h && target != dBoxProc) {
+		*(short *)(*h + DLOG_PROCID_OFFSET) = dBoxProc;
+		HUnlock(h);
+		HPurge(h);
+	}
+
+	return dlg;
+}
+
 /* ---- Dialog centering ---- */
 
 /*
@@ -153,6 +214,7 @@ center_dialog_on_screen(DialogPtr dlg)
 	top = scr.top + (scr.bottom - scr.top - h) / 3;  /* 1/3 from top */
 
 	MoveWindow((WindowPtr)dlg, left, top, false);
+	ShowWindow((WindowPtr)dlg);
 }
 
 /* ---- Standard dialog filter ---- */
@@ -164,15 +226,31 @@ center_dialog_on_screen(DialogPtr dlg)
 pascal Boolean
 std_dlg_filter(DialogPtr dlg, EventRecord *evt, short *item)
 {
-	(void)dlg;
+	/* Handle dragging of movableDBoxProc dialogs.
+	 * Some System 7 ROMs don't have ModalDialog handle
+	 * inDrag for movable modals — do it explicitly. */
+	if (evt->what == mouseDown) {
+		WindowPtr win;
+		short part = FindWindow(evt->where, &win);
 
-	/* Handle update events for windows behind movable modals */
+		if (part == inDrag && win == (WindowPtr)dlg) {
+			Rect limit = qd.screenBits.bounds;
+
+			InsetRect(&limit, 4, 4);
+			DragWindow(win, evt->where, &limit);
+			return true;
+		}
+	}
+
+	/* Handle update events for windows behind movable modals.
+	 * Dispatches to handle_update() for full window redraw
+	 * (chrome, content, scrollbar) instead of empty
+	 * BeginUpdate/EndUpdate which would leave blank areas. */
 	if (evt->what == updateEvt) {
 		WindowPtr win = (WindowPtr)evt->message;
 
 		if (win != (WindowPtr)dlg) {
-			BeginUpdate(win);
-			EndUpdate(win);
+			handle_update(evt);
 			return true;
 		}
 	}
@@ -209,7 +287,7 @@ do_about(void)
 	Rect item_rect;
 	Str255 pstr;
 
-	dlg = GetNewDialog(DLOG_ABOUT_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_ABOUT_ID);
 	if (!dlg)
 		return;
 

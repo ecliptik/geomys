@@ -502,6 +502,14 @@ update_menus(void)
 		update_go_menu_history();
 	}
 
+	/* Favorites menu: disable Add when no page is loaded */
+	if (favorites_menu) {
+		if (g_gopher.cur_host[0])
+			EnableItem(favorites_menu, FAV_MENU_ADD);
+		else
+			DisableItem(favorites_menu, FAV_MENU_ADD);
+	}
+
 	/* Edit menu: enable when DA is active so SystemEdit works,
 	 * or based on focus for clipboard operations */
 	if (edit_menu) {

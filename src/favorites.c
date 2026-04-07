@@ -124,7 +124,7 @@ favorites_add(GeomysPrefs *prefs, const char *name,
 		return;
 	}
 
-	dlg = GetNewDialog(DLOG_EDIT_FAV_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_EDIT_FAV_ID);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
@@ -317,7 +317,7 @@ favorites_manage(GeomysPrefs *prefs)
 	GrafPtr save;
 	Boolean done = false;
 
-	dlg = GetNewDialog(DLOG_FAVORITES_ID, 0L, 0L);
+	dlg = get_modal_dialog(DLOG_FAVORITES_ID);
 	if (!dlg)
 		return;
 	center_dialog_on_screen(dlg);
@@ -380,9 +380,8 @@ favorites_manage(GeomysPrefs *prefs)
 				Rect eir;
 				Str255 eps;
 
-				edlg = GetNewDialog(
-				    DLOG_EDIT_FAV_ID,
-				    0L, (WindowPtr)-1L);
+				edlg = get_modal_dialog(
+				    DLOG_EDIT_FAV_ID);
 				if (edlg) {
 					center_dialog_on_screen(
 					    edlg);
@@ -463,9 +462,8 @@ favorites_manage(GeomysPrefs *prefs)
 				Rect eir;
 				Str255 eps;
 
-				edlg = GetNewDialog(
-				    DLOG_EDIT_FAV_ID,
-				    0L, (WindowPtr)-1L);
+				edlg = get_modal_dialog(
+				    DLOG_EDIT_FAV_ID);
 				if (edlg) {
 					center_dialog_on_screen(
 					    edlg);

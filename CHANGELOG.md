@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - App stays running after last window is closed — File > New Window or Open Location to reopen
 
 ### Changed
+- HIG-correct modal dialogs: dBoxProc (plain box) on System 6, movableDBoxProc (title bar, draggable) on System 7 — runtime detection via Gestalt
+- Dialogs created invisible and shown after centering to eliminate visible position shift on open
 - File menu: "New" → "New Window", "Open..." → "Open Location...", "Close" → "Close Window"
 - Theme names and order match Flynn (TokyoNight Day/TokyoNight naming)
 - Removed Platinum and Compact Mac themes (System 7 replaces Platinum)
@@ -19,6 +21,10 @@ All notable changes to this project will be documented in this file.
 - README: "vibe coded" → "built agentically"
 
 ### Fixed
+- Dialog shift on open: dialogs no longer visibly jump from resource bounds to centered position
+- Background window corruption when movable modal dialog overlaps content on System 7
+- Menu bar flash when clicking movable modal dialog title bar on System 7
+- Favorites > Add Favorite now disabled on blank pages (prevents garbage URL in bookmark)
 - DNS parser signed short overflow on crafted packets (ported from Flynn security audit)
 - DNS TCP resolver stack buffers made static (~1KB stack savings)
 - Crash (out of memory) when closing last window — NULL active_session guards
@@ -209,7 +215,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - `gopherplus_fetch_info()`: synchronous TCP attribute fetch with 10-second connect/read timeouts, yields via WaitNextEvent during fetch
 - `gopher_type_label()`: human-readable type names for all canonical and non-canonical Gopher types
 - File menu "Get Info..." item (Cmd+I) with separator, enabled when a directory page is loaded and a row is keyboard-selected
-- DLOG/DITL 143: movableDBoxProc Get Info dialog with "Done" button and 8 static text fields
+- DLOG/DITL 143: dBoxProc modal Get Info dialog with "Done" button and 8 static text fields
 - Color icon resources for preferences document (resource 129): `icl4`, `icl8`, `ics4`, `ics8` — completes the icon suite alongside existing ICN# and ics# for proper Finder display on color systems
 
 ### Changed

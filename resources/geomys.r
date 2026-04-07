@@ -181,7 +181,7 @@ resource 'MENU' (140, "Directory") {
 resource 'DLOG' (130, "About Geomys") {
 	{70, 100, 240, 400},
 	dBoxProc,
-	visible,
+	invisible,
 	noGoAway,
 	0x0,
 	130,
@@ -225,12 +225,11 @@ resource 'DITL' (130, "About Geomys") {
 	}
 };
 
-/* Open URL dialog — movableDBoxProc for System 7 (falls back on System 6) */
-/* Search query dialog — movableDBoxProc for System 7 */
+/* Search query dialog — HIG modal dBoxProc */
 resource 'DLOG' (132, "Search") {
 	{90, 80, 185, 420},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	132,
@@ -262,11 +261,11 @@ resource 'DITL' (132, "Search") {
 	}
 };
 
-/* CSO phonebook query dialog — movableDBoxProc for System 7 */
+/* CSO phonebook query dialog — HIG modal dBoxProc */
 resource 'DLOG' (142, "CSO") {
 	{90, 80, 185, 420},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	142,
@@ -301,11 +300,11 @@ resource 'DITL' (142, "CSO") {
 /* Clipboard window is created programmatically in menus.c
  * per HIG p.112 (document window with scrollbar). */
 
-/* Find in Page dialog — movableDBoxProc for System 7 */
+/* Find in Page dialog — HIG modal dBoxProc */
 resource 'DLOG' (137, "Find") {
 	{90, 80, 185, 420},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	137,
@@ -340,8 +339,8 @@ resource 'DITL' (137, "Find") {
 /* HTML URL dialog — shows external URL for type h items */
 resource 'DLOG' (138, "HTML URL") {
 	{80, 50, 195, 450},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	138,
@@ -377,11 +376,11 @@ resource 'DITL' (138, "HTML URL") {
 	}
 };
 
-/* Home Page dialog — movableDBoxProc for System 7 */
+/* Home Page dialog — HIG modal dBoxProc */
 resource 'DLOG' (133, "Home Page") {
 	{80, 80, 220, 420},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	133,
@@ -421,11 +420,11 @@ resource 'DITL' (133, "Home Page") {
 	}
 };
 
-/* Favorites manager dialog — movableDBoxProc for System 7 */
+/* Favorites manager dialog — HIG modal dBoxProc */
 resource 'DLOG' (134, "Favorites") {
 	{40, 60, 300, 430},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	134,
@@ -477,11 +476,11 @@ resource 'DITL' (134, "Favorites") {
 	}
 };
 
-/* Edit/Add Favorite dialog — movableDBoxProc for System 7 */
+/* Edit/Add Favorite dialog — HIG modal dBoxProc */
 resource 'DLOG' (135, "Edit Favorite") {
 	{90, 90, 210, 420},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	135,
@@ -587,11 +586,11 @@ resource 'DITL' (128, "Alert") {
 	}
 };
 
-/* Download progress dialog — movable modal with Stop button */
+/* Download progress dialog — dBoxProc modal with Stop button */
 resource 'DLOG' (139, "Download Progress") {
 	{80, 90, 170, 410},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0,
 	139,
@@ -618,8 +617,8 @@ resource 'DITL' (139, "Download Progress") {
 /* Telnet connection dialog — shows host, port, optional login */
 resource 'DLOG' (140, "Telnet") {
 	{70, 60, 260, 420},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	140,
@@ -685,8 +684,8 @@ resource 'DITL' (140, "Telnet") {
 
 resource 'DLOG' (141, "DNS Server") {
 	{80, 100, 175, 400},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	141,
@@ -718,11 +717,11 @@ resource 'DITL' (141, "DNS Server") {
 	}
 };
 
-/* Gopher+ Get Info dialog — movableDBoxProc */
+/* Gopher+ Get Info dialog — dBoxProc */
 resource 'DLOG' (143, "Get Info") {
 	{70, 80, 325, 430},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	143,
@@ -782,11 +781,11 @@ resource 'DITL' (143, "Get Info") {
 	}
 };
 
-/* Gopher+ View Selection dialog — movableDBoxProc */
+/* Gopher+ View Selection dialog — dBoxProc */
 resource 'DLOG' (144, "Choose View") {
 	{80, 100, 290, 390},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	144,
@@ -835,11 +834,11 @@ resource 'DITL' (144, "Choose View") {
 	}
 };
 
-/* Open Location dialog — movableDBoxProc for System 7 */
+/* Open Location dialog — HIG modal dBoxProc */
 resource 'DLOG' (145, "Open Location") {
 	{90, 60, 185, 440},
-	movableDBoxProc,
-	visible,
+	dBoxProc,
+	invisible,
 	noGoAway,
 	0x0,
 	145,

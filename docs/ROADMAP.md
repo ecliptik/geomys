@@ -550,7 +550,7 @@ Added missing color icon resources for the preferences document type (resource 1
 Full Gopher+ attribute fetch and display for items on Gopher+ servers.
 
 - File menu: "Get Info..." (Cmd+I) at position 5, enabled on directory pages with keyboard-selected row
-- DLOG/DITL 143: movableDBoxProc dialog with "Done" button, 8 static text fields (display name, type, server, selector, admin, modified, views)
+- DLOG/DITL 143: dBoxProc modal dialog with "Done" button, 8 static text fields (display name, type, server, selector, admin, modified, views)
 - `GopherPlusInfo` aggregate struct for complete attribute response
 - `gopherplus_parse_response()`: scans for +ADMIN and +VIEWS blocks in attribute data
 - `gopherplus_fetch_info()`: synchronous TCP fetch using `selector\t!` request, 10-second timeouts, yields via WaitNextEvent
