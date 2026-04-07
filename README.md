@@ -22,7 +22,7 @@ This project was 100% built agentically using [Claude Code](https://docs.anthrop
 | |
 |:---:|
 | ![Geomys on System 7 with 256-color theme and multi-window](docs/screenshots/geomys-system7-color.png) |
-| **System 7 with 256 color and multi-window** |
+| **Themes and Multiple Windows** |
 
 ---
 
