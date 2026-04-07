@@ -57,17 +57,7 @@ Users can also adjust memory after building via Finder's "Get Info" on the Geomy
 
 ### Debug Build Flag
 
-`--debug` enables `GEOMYS_DEBUG` which adds keyboard shortcuts for QA automation:
-
-| Shortcut | Action |
-|----------|--------|
-| Cmd+D | Toggle dark/light theme |
-| Cmd+T | Cycle through all themes |
-| Cmd+B | Toggle status bar visibility |
-| Cmd+I | Toggle details panel |
-| Cmd+K | Show/hide clipboard window |
-
-**QA builds must always use `--debug`** — XTEST automation cannot reliably interact with hierarchical submenus in Snow/Basilisk. The debug shortcuts provide reliable keyboard-driven alternatives. Example: `./scripts/build.sh --preset minimal --debug`
+`--debug` enables `GEOMYS_DEBUG` which adds diagnostic info to the status bar (item counts, timing). Example: `./scripts/build.sh --preset minimal --debug`
 
 ## Testing
 

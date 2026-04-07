@@ -61,7 +61,7 @@ resource 'MENU' (130, "Edit") {
 		"Find\311", noIcon, "F", noMark, plain;
 		"Find Again", noIcon, "G", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Show Clipboard", noIcon, noKey, noMark, plain
+		"Show Clipboard", noIcon, "K", noMark, plain
 	}
 };
 
@@ -80,7 +80,7 @@ resource 'MENU' (134, "Go") {
 resource 'MENU' (131, "Favorites") {
 	131, textMenuProc, allEnabled, enabled, "Favorites",
 	{
-		"Manage Favorites\311", noIcon, noKey, noMark, plain;
+		"Manage Favorites\311", noIcon, "B", noMark, plain;
 		"Add Favorite\311", noIcon, "D", noMark, plain
 	}
 };
@@ -93,13 +93,13 @@ resource 'MENU' (132, "Options") {
 		"Page Style", noIcon, noKey, noMark, plain;
 		"Theme", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Home Page\311", noIcon, noKey, noMark, plain;
-		"DNS Server\311", noIcon, noKey, noMark, plain;
-		"-", noIcon, noKey, noMark, plain;
 		"Show Details", noIcon, noKey, noMark, plain;
 		"Show Status Bar", noIcon, noKey, noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
-		"Gopher+ On", noIcon, noKey, noMark, plain
+		"Turn Gopher+ On", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Home Page\311", noIcon, noKey, noMark, plain;
+		"DNS Server\311", noIcon, noKey, noMark, plain
 	}
 };
 

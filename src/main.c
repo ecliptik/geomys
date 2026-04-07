@@ -1534,53 +1534,7 @@ handle_key_down(EventRecord *event)
 		 * actions that are hard to automate via XTEST.
 		 * Only enabled with GEOMYS_DEBUG build flag.
 		 */
-#ifdef GEOMYS_DEBUG
-#ifdef GEOMYS_THEMES
-		/* Cmd-D: toggle dark/light theme.
-		 * Dispatches through handle_menu with THEME_MENU_ID
-		 * to use the exact same code path as the menu. */
-		if (key == 'd' || key == 'D') {
-			short cur = theme_get();
-			short item = (cur == 0) ?
-			    THEME_ITEM_DARK : THEME_ITEM_LIGHT;
-			handle_menu(((long)THEME_MENU_ID << 16)
-			    | (long)item);
-			return;
-		}
-		/* Cmd-T: cycle through all themes */
-		if (key == 't' || key == 'T') {
-			short cur = theme_get();
-			short count = theme_usable_count();
-			short next = (cur + 1) % count;
-			/* Map theme index to menu item number
-			 * (separator at item 3 offsets items 2+) */
-			short item = (next <= 1) ? next + 1 : next + 2;
-			handle_menu(((long)THEME_MENU_ID << 16)
-			    | (long)item);
-			return;
-		}
-#endif
-		/* Cmd-B: toggle status bar visibility */
-		if (key == 'b' || key == 'B') {
-			handle_menu((long)OPTIONS_MENU_ID << 16
-			    | OPT_MENU_STATUS_BAR);
-			return;
-		}
-		/* Cmd-I: toggle details panel */
-		if (key == 'i' || key == 'I') {
-			handle_menu((long)OPTIONS_MENU_ID << 16
-			    | OPT_MENU_DETAILS);
-			return;
-		}
-#ifdef GEOMYS_CLIPBOARD
-		/* Cmd-K: show/hide clipboard window */
-		if (key == 'k' || key == 'K') {
-			handle_menu((long)EDIT_MENU_ID << 16
-			    | EDIT_MENU_SHOW_CLIP);
-			return;
-		}
-#endif
-#endif /* GEOMYS_DEBUG */
+		/* Cmd+K for clipboard is handled via MenuKey below */
 
 		update_menus();
 		handle_menu(MenuKey(key));

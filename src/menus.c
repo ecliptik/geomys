@@ -321,26 +321,16 @@ init_menus(void)
 		    "\pHide Status Bar" :
 		    "\pShow Status Bar");
 
-#ifdef GEOMYS_DEBUG
-	/* QA keyboard shortcuts — top-level menu items only
-	 * (MenuKey doesn't scan hierarchical submenus). */
-	if (options_menu) {
-		SetItemCmd(options_menu, OPT_MENU_STATUS_BAR, 'B');
-		SetItemCmd(options_menu, OPT_MENU_DETAILS, 'I');
-		/* Theme Cmd+D handled in main.c key handler */
-	}
-	if (edit_menu)
-		SetItemCmd(edit_menu, EDIT_MENU_SHOW_CLIP, 'K');
-#endif
+	/* Cmd+K for Show Clipboard is always-on in the resource */
 
 #ifdef GEOMYS_GOPHER_PLUS
-	/* Set initial Gopher+ On/Off text */
+	/* Set initial Turn Gopher+ On/Off text */
 	if (options_menu)
 		SetMenuItemText(options_menu,
 		    OPT_MENU_GOPHER_PLUS,
 		    g_prefs.gopher_plus ?
-		    "\pGopher+ Off" :
-		    "\pGopher+ On");
+		    "\pTurn Gopher+ Off" :
+		    "\pTurn Gopher+ On");
 #endif
 
 	/* Favorites menu — managed by favorites.c */
@@ -353,14 +343,13 @@ init_menus(void)
 	 */
 
 	/* --- Options menu: prune disabled features ---
-	 * Only delete items at the BOTTOM of the menu
-	 * (Gopher+ and its separator) where deletion
-	 * doesn't shift items referenced by constants.
-	 * Mid-menu items (Style) are disabled instead. */
+	 * Delete Gopher+ toggle and its surrounding separator
+	 * from bottom to top.  Home/DNS constants are defined
+	 * conditionally in main.h to account for the shift. */
 #ifndef GEOMYS_GOPHER_PLUS
 	if (options_menu) {
-		DeleteMenuItem(options_menu, OPT_MENU_GOPHER_PLUS);
-		DeleteMenuItem(options_menu, 11); /* separator */
+		DeleteMenuItem(options_menu, 10); /* separator after Gopher+ */
+		DeleteMenuItem(options_menu, 9);  /* Gopher+ item */
 	}
 #endif
 #ifndef GEOMYS_STYLES
@@ -377,11 +366,7 @@ init_menus(void)
 	}
 #endif
 
-	/* Add SICN icon to Go > Home (System 7+).
-	 * Other Go items have Cmd-key shortcuts which
-	 * conflict with the 0x1E SICN command byte. */
-	menu_set_item_sicn(go_menu, GO_MENU_HOME,
-	    SICN_HOME);
+	/* Go > Home has no icon — SICN looked blobby in menus */
 
 	DrawMenuBar();
 }
@@ -430,6 +415,7 @@ update_menus(void)
 		EnableItem(directory_menu, 0);
 	if (window_menu)
 		EnableItem(window_menu, 0);
+	DrawMenuBar();
 
 	front = FrontWindow();
 	/* DA windows have negative windowKind */
@@ -501,10 +487,7 @@ update_menus(void)
 			EnableItem(go_menu, GO_MENU_FORWARD);
 		else
 			DisableItem(go_menu, GO_MENU_FORWARD);
-		if (g_prefs.home_url[0])
-			EnableItem(go_menu, GO_MENU_HOME);
-		else
-			DisableItem(go_menu, GO_MENU_HOME);
+		EnableItem(go_menu, GO_MENU_HOME);
 		if (g_gopher.cur_host[0] &&
 		    g_app_state == APP_STATE_IDLE)
 			EnableItem(go_menu, GO_MENU_REFRESH);
@@ -1294,6 +1277,11 @@ update_window_menu(void)
 		AppendMenu(window_menu, "\p ");
 		SetMenuItemText(window_menu, item_num, wtitle);
 
+		/* Cmd+0 through Cmd+9 for first 10 windows */
+		if (item_num - WIN_MENU_FIRST_WIN < 10)
+			SetItemCmd(window_menu, item_num,
+			    '0' + (item_num - WIN_MENU_FIRST_WIN));
+
 		/* Checkmark on active window */
 		CheckItem(window_menu, item_num,
 		    s == active_session);
@@ -1502,8 +1490,8 @@ handle_menu(long menu_id)
 				SetMenuItemText(options_menu,
 				    OPT_MENU_GOPHER_PLUS,
 				    g_prefs.gopher_plus ?
-				    "\pGopher+ Off" :
-				    "\pGopher+ On");
+				    "\pTurn Gopher+ Off" :
+				    "\pTurn Gopher+ On");
 			prefs_save(&g_prefs);
 			/* Redraw to update +/score display */
 			if (g_window) {

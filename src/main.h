@@ -90,13 +90,19 @@
 #define OPT_MENU_STYLE      3   /* hierarchical submenu trigger */
 #define OPT_MENU_THEME      4   /* hierarchical submenu trigger */
 /* separator = 5 */
-#define OPT_MENU_HOME       6
-#define OPT_MENU_DNS        7
+#define OPT_MENU_DETAILS    6   /* "Show/Hide Details" toggle */
+#define OPT_MENU_STATUS_BAR 7   /* "Show/Hide Status Bar" toggle */
 /* separator = 8 */
-#define OPT_MENU_DETAILS    9   /* "Show/Hide Details" toggle */
-#define OPT_MENU_STATUS_BAR 10  /* "Show/Hide Status Bar" toggle */
-/* separator = 11 */
-#define OPT_MENU_GOPHER_PLUS 12 /* "Gopher+ On/Off" toggle */
+#ifdef GEOMYS_GOPHER_PLUS
+#define OPT_MENU_GOPHER_PLUS 9  /* "Turn Gopher+ On/Off" toggle */
+/* separator = 10 */
+#define OPT_MENU_HOME       11
+#define OPT_MENU_DNS        12
+#else
+/* Gopher+ items deleted at startup; Home/DNS shift up */
+#define OPT_MENU_HOME       9
+#define OPT_MENU_DNS        10
+#endif
 
 /* Font submenu items */
 #define FONT_MONACO         1
