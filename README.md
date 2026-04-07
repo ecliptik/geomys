@@ -32,9 +32,9 @@ Pre-built binaries are available on the [Releases](https://codeberg.org/ecliptik
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.hqx) |
-| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.hqx) |
-| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.hqx) |
+| **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.hqx) |
+| **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.hqx) |
+| **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). No build toolchain required — just download and run. See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
@@ -142,9 +142,9 @@ Geomys supports fully customizable builds. Three presets cover common configurat
 
 | Preset | Windows | Features | Memory |
 |--------|---------|----------|--------|
-| `full` | 3 | everything | ~2560KB |
-| `lite` | 2 | core browsing, themes, clipboard, HTML, telnet | ~1024KB |
-| `minimal` | 1 | themes, clipboard, styles, HTML, telnet | ~512KB |
+| `full` | 3 | all features | ~2560KB |
+| `lite` | 2 | core browsing | ~1024KB |
+| `minimal` | 1 | only essentials | ~512KB |
 
 The default build uses the **full** preset. Select a preset with `--preset`:
 
