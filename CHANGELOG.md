@@ -7,17 +7,21 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Directory menu with curated Gopher destinations (SDF, Floodgap, Circumlunar, Bitreich, HN Gopher, Veronica-2 search)
 - Open Location dialog (Cmd+L) — prompts for a gopher:// URL, works with or without a window open
-- 5 new color themes: Dracula, Nord, Monokai, Gruvbox, Amber CRT, System 7
+- 6 new color themes: Dracula, Nord, Monokai, Gruvbox, Amber CRT, System 7
+- External Link dialog: Copy URL button and silent browser launch on System 7
 - App stays running after last window is closed — File > New Window or Open Location to reopen
+- Keyboard shortcuts aligned with Flynn: Cmd+1-9 for windows, Cmd+K clipboard
 
 ### Changed
 - HIG-correct modal dialogs: dBoxProc (plain box) on System 6, movableDBoxProc (title bar, draggable) on System 7 — runtime detection via Gestalt
 - Dialogs created invisible and shown after centering to eliminate visible position shift on open
+- Removed Go button from toolbar; Refresh button dims when no page is loaded
 - File menu: "New" → "New Window", "Open..." → "Open Location...", "Close" → "Close Window"
 - Theme names and order match Flynn (TokyoNight Day/TokyoNight naming)
 - Removed Platinum and Compact Mac themes (System 7 replaces Platinum)
 - Address bar updates immediately when navigation starts, not after page loads
 - Favorites, Options, and Directory menus remain enabled with no windows open
+- Removed trailing colons from dialog labels per HIG
 - README: "vibe coded" → "built agentically"
 
 ### Fixed
@@ -25,6 +29,8 @@ All notable changes to this project will be documented in this file.
 - Background window corruption when movable modal dialog overlaps content on System 7
 - Menu bar flash when clicking movable modal dialog title bar on System 7
 - Favorites > Add Favorite now disabled on blank pages (prevents garbage URL in bookmark)
+- Home button icon now matches monochrome theme correctly
+- Greyed-out menu bar after closing dialogs
 - DNS parser signed short overflow on crafted packets (ported from Flynn security audit)
 - DNS TCP resolver stack buffers made static (~1KB stack savings)
 - Crash (out of memory) when closing last window — NULL active_session guards

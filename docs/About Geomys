@@ -1,7 +1,7 @@
 =====================================================
                      Geomys
        A Gopher Browser for Macintosh
-                   Version 1.0.1
+                   Version 1.1.0
 =====================================================
 
 Browse Gopherspace from your classic Macintosh.
@@ -35,7 +35,7 @@ all designed to follow the Apple Human Interface
 Guidelines.
 
 On System 7 with Color QuickDraw, Geomys supports
-256-color rendering with 9 built-in themes. Color
+256-color rendering with 14 built-in themes. Color
 support is automatic and has zero impact on System 6
 monochrome systems.
 
@@ -115,18 +115,22 @@ Features
   - HTML URL extraction with copyable dialog
   - Go menu: Back, Forward, Home, Refresh, Stop,
     Open Location, and browsing history
+  - Directory menu with curated Gopher destinations
   - Dynamic stop/go/refresh button right of address
     bar that changes based on browser state
   - Status bar with hover hints showing URIs and
     file info
-  - 9 color themes including Light, Dark, Solarized,
-    Tokyo Night, Green Screen, Classic, Platinum
+  - 14 themes including Light, Dark, Solarized,
+    TokyoNight, Dracula, Nord, Monokai, Gruvbox,
+    Amber CRT, System 7, Green Screen, Classic
   - Find in Page (Cmd-F) with Find Again (Cmd-G)
   - Print support (Cmd-P) via Printing Manager
   - Text selection and copy to clipboard (Cmd-C)
   - Keyboard link navigation with Up/Down arrows
   - Save Page As (Cmd-S) for text and directory pages
   - CP437 character set and Unicode glyph rendering
+  - External link dialog with Copy URL button and
+    silent browser launch on System 7
   - Telnet connection dialog with Copy Host and
     System 7 app launching for type 8/T items
   - Local page cache with memory-aware sizing for
@@ -244,7 +248,9 @@ selection.
   - Close the window via the close box or Command-W.
   - If a page is loading, you will be asked to
     confirm before closing.
-  - Geomys quits when the last window closes.
+  - After closing the last window, Geomys stays
+    running. Use File > New Window or Open Location
+    to reopen. Choose File > Quit to exit.
 
 Font and theme changes from the Options menu apply
 to all windows. The Window menu count
@@ -360,10 +366,15 @@ page and display settings.
 
   Color themes (Mac II+ with Color QuickDraw):
     Solarized Light/Dark
-    Tokyo Night Light/Dark
+    TokyoNight Day/TokyoNight
+    Dracula       Dark purple-accented palette
+    Nord          Arctic blue-tinted palette
+    Monokai       Dark warm palette, vivid accents
+    Gruvbox       Retro earthy palette
+    Amber CRT     Amber phosphor CRT aesthetic
+    System 7      Macintosh System 7 CLUT colors
     Green Screen  Green-on-black CRT aesthetic
     Classic       1990s web browser colors
-    Platinum      Mac OS 8/9 Appearance Manager
 
   Color themes are automatically disabled on
   monochrome systems.
