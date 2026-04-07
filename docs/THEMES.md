@@ -9,7 +9,7 @@ Geomys uses a compile-time theme system. Each theme is a static `ThemeColors` st
 Two categories of themes exist:
 
 - **Mono themes** (Light, Dark) — work on all systems, including the Mac Plus. These use only black and white values; color fields are present but ignored on monochrome hardware.
-- **Color themes** (Solarized, Tokyo Night, Green Screen, Classic, Platinum) — require a Mac II or later with Color QuickDraw. Detected at runtime via `SysEnvirons()`. Color themes are only compiled when `GEOMYS_COLOR=ON`.
+- **Color themes** (Solarized, Tokyo Night, Amber CRT, System 7, Dracula, Nord, Green Screen, Classic, Monokai, Gruvbox) — require a Mac II or later with Color QuickDraw. Detected at runtime via `SysEnvirons()`. Color themes are only compiled when `GEOMYS_COLOR=ON`.
 
 ## Built-in Themes
 
@@ -19,11 +19,16 @@ Two categories of themes exist:
 | Dark | Mono | Black background, white text. Uses `srcBic` rendering for flicker-free display. |
 | Solarized Light | Color | Ethan Schoonover's Solarized palette, light variant. |
 | Solarized Dark | Color | Solarized palette, dark variant. |
-| Tokyo Night Light | Color | Based on the Tokyo Night color scheme, light variant. |
-| Tokyo Night Dark | Color | Tokyo Night, dark variant. |
+| TokyoNight Day | Color | Based on the Tokyo Night color scheme, light variant. |
+| TokyoNight | Color | Tokyo Night, dark variant. |
+| Amber CRT | Color | Amber phosphor CRT aesthetic. |
+| System 7 | Color | Macintosh System 7 with CLUT accent colors. |
+| Dracula | Color | Dark purple-accented palette. |
+| Nord | Color | Arctic blue-tinted palette. |
 | Green Screen | Color | Phosphor green on black, classic CRT terminal aesthetic. |
 | Classic | Color | 1990s web browser colors — blue links, purple visited, gray background. |
-| Platinum | Color | Mac OS 8/9 Appearance Manager inspired — gray background, purple accents. |
+| Monokai | Color | Dark warm palette with vivid accents. |
+| Gruvbox | Color | Retro earthy palette with warm accents. |
 
 ## Theme Architecture
 
@@ -146,10 +151,10 @@ Three files need changes to register a new theme.
 
 ```c
 /* Add after the last existing theme index */
-#define THEME_MY_THEME          9
+#define THEME_MY_THEME          14
 
 /* Update THEME_COUNT (inside the #ifdef GEOMYS_COLOR block) */
-#define THEME_COUNT        10    /* was 9 */
+#define THEME_COUNT        15    /* was 14 */
 ```
 
 Theme indices must be sequential starting from 0. Mono themes occupy indices 0-1; color themes follow.
@@ -169,7 +174,7 @@ static const ThemeColors *theme_table[] = {
 #ifdef GEOMYS_COLOR
     &theme_solarized_light,
     /* ... existing themes ... */
-    &theme_platinum,
+    &theme_gruvbox,
     &theme_my_theme,        /* new */
 #endif
 };
@@ -184,7 +189,7 @@ resource 'MENU' (137, "Theme") {
     137, textMenuProc, allEnabled, enabled, "Theme",
     {
         /* ... existing items ... */
-        "Platinum", noIcon, noKey, noMark, plain;
+        "Gruvbox", noIcon, noKey, noMark, plain;
         "My Theme", noIcon, noKey, noMark, plain   /* new */
     }
 };
@@ -195,8 +200,8 @@ resource 'MENU' (137, "Theme") {
 In `src/main.h`, add a menu item constant for the new theme:
 
 ```c
-#define THEME_ITEM_MY_THEME        11
-#define THEME_ITEM_LAST            11    /* was 10 */
+#define THEME_ITEM_MY_THEME        16
+#define THEME_ITEM_LAST            16    /* was 15 */
 ```
 
 The menu item numbers account for the separator between mono and color themes (item 3), so color theme items start at 4.
@@ -267,7 +272,7 @@ Build presets:
 
 | Preset | `GEOMYS_THEMES` | `GEOMYS_COLOR` | Available Themes |
 |--------|-----------------|----------------|------------------|
-| `full` | ON | ON | All 9 (mono + color) |
+| `full` | ON | ON | All 14 (mono + color) |
 | `lite` | ON | OFF | Light, Dark only |
 | `minimal` | ON | OFF | Light, Dark only |
 
@@ -291,11 +296,16 @@ src/
     dark.h            # Dark (mono)
     solarized_light.h # Solarized Light (color)
     solarized_dark.h  # Solarized Dark (color)
-    tokyo_light.h     # Tokyo Night Light (color)
-    tokyo_dark.h      # Tokyo Night Dark (color)
+    tokyo_light.h     # TokyoNight Day (color)
+    tokyo_dark.h      # TokyoNight (color)
+    amber_crt.h       # Amber CRT (color)
+    system7.h         # System 7 (color)
+    dracula.h         # Dracula (color)
+    nord.h            # Nord (color)
     green_screen.h    # Green Screen (color)
     classic.h         # Classic (color)
-    platinum.h        # Platinum (color)
+    monokai.h         # Monokai (color)
+    gruvbox.h         # Gruvbox (color)
 resources/
   geomys.r            # Theme menu (MENU 137)
 ```

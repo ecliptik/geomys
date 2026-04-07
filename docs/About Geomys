@@ -10,50 +10,33 @@ Browse Gopherspace from your classic Macintosh.
 About Geomys
 -----------
 
-Geomys is a Gopher protocol browser for the Apple
-Macintosh Plus and later models running System 6.0.8
-or later. It connects to Gopher servers over TCP/IP
-using MacTCP (also works under Open Transport's
-MacTCP compatibility layer), providing a graphical
-browser interface for navigating Gopherspace.
+Geomys is a Gopher browser for the Macintosh Plus
+and later, running System 6.0.8 or System 7. It
+uses MacTCP for networking (also works under Open
+Transport's compatibility layer).
 
-Geomys implements RFC 1436 (The Internet Gopher
-Protocol) and RFC 4266 (The gopher URI Scheme),
-with Gopher+ protocol extension support for item
-attributes, content negotiation, and interactive
-forms. All 19 canonical and non-canonical Gopher item types
-are handled: directories, text files, CSO phonebook
-queries, search, and HTML pages are fully interactive;
-binary files, images, documents, and sound files save
-to disk; telnet and TN3270 items display connection
-details with optional app launching.
-
-The browser features a web-style interface with an
-address bar, back/forward/home buttons, a combined
-stop/go/refresh action button, and a status bar --
-all designed to follow the Apple Human Interface
-Guidelines.
+It implements RFC 1436 and RFC 4266 with Gopher+
+support, handling all 19 Gopher item types. The
+browser has a web-style interface with address bar,
+back/forward/home, stop/go/refresh, and status bar,
+following the Apple Human Interface Guidelines.
 
 On System 7 with Color QuickDraw, Geomys supports
 256-color rendering with 14 built-in themes. Color
-support is automatic and has zero impact on System 6
-monochrome systems.
+is detected automatically at runtime.
 
 
 System Requirements
 -------------------
 
   - Macintosh Plus or later (68000 CPU)
-  - System 6.0.8 or later (tested through 7.5.5)
+  - System 6.0.8 or later (tested through 7.6.1)
   - MacTCP 2.1 (configured with a valid TCP/IP
     connection; also works under Open Transport's
     MacTCP compatibility layer)
   - 4 MB RAM recommended
   - Network connection (Ethernet or compatible)
 
-Color themes require Mac II or later with Color
-QuickDraw. Monochrome themes (Light, Dark) work
-on all systems including Mac Plus.
 
 
 Getting Started
@@ -185,6 +168,7 @@ and USB keyboards.
   Command-F       Find in Page
   Command-G       Find Again
   Command-C       Copy selected text
+  Command-K       Show Clipboard
   Command-Z       Undo (address bar)
   Command-Q       Quit Geomys
 
@@ -364,7 +348,7 @@ page and display settings.
     Light         White background, black text
     Dark          Black background, white text
 
-  Color themes (Mac II+ with Color QuickDraw):
+  Color themes (requires Color QuickDraw):
     Solarized Light/Dark
     TokyoNight Day/TokyoNight
     Dracula       Dark purple-accented palette
@@ -375,9 +359,6 @@ page and display settings.
     System 7      Macintosh System 7 CLUT colors
     Green Screen  Green-on-black CRT aesthetic
     Classic       1990s web browser colors
-
-  Color themes are automatically disabled on
-  monochrome systems.
 
   Show Details
   ~~~~~~~~~~~~

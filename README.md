@@ -47,29 +47,27 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 ## Features
 
 **Protocol**
-- [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) and [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) — all 19 Gopher item types
-- [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) — Get Info, content negotiation, search scoring, interactive forms
-- Binary file downloads with progress dialog and image format detection
-- HTML tag-stripping renderer, CSO/ph phonebook queries, search with dialog input
-- Telnet handoff with connection dialog and app launching (System 7)
+- [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) / [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) — all 19 Gopher item types with [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) support
+- Binary file downloads with progress dialog
+- HTML rendering, CSO/ph queries, search dialogs, telnet handoff
+- Content negotiation, interactive forms, search scoring (Gopher+)
 
 **Browsing**
-- Multi-window browsing (3 windows default; increase with `--max-windows` on systems with more RAM)
-- Address bar, back/forward/home, stop/go/refresh, status bar
-- Local page cache for instant back/forward navigation
-- 20 persistent favorites with menu quick-access
+- Multi-window browsing (up to 3 windows, configurable with `--max-windows`)
+- Address bar, back/forward/home, refresh, status bar
+- Local page cache with 20 persistent favorites
 - Find in Page, browsing history, Save Page As, Print
 
 **Display**
 - 14 built-in [themes](#themes) with 256-color support on System 7 ([create your own](docs/THEMES.md))
-- 8 fonts with independent size selection (9, 10, 12, 14)
+- 8 fonts with size selection (9, 10, 12, 14)
 - Double-buffered rendering with SICN/cicn icons
-- CP437 character set and Unicode glyph rendering
+- CP437 and Unicode glyph support
 
 **System Integration**
-- Notification Manager alerts for background page loads (System 7)
-- MultiFinder, Apple Events (odoc/pdoc), stationery pad support
-- Optional: AppleScript and Drag Manager (available via custom build flags)
+- MultiFinder and Apple Events (odoc/pdoc) support
+- Notification Manager alerts for background loads (System 7)
+- Optional AppleScript and Drag Manager via build flags
 - Aligned with [Apple Human Interface Guidelines](https://archive.org/details/apple-human-interface-guidelines-1992) (1992)
 
 ## Keyboard Shortcuts
@@ -87,6 +85,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 | Close Window | Cmd+W | Close active window |
 | Save Page As | Cmd+S | Save as text file |
 | Print | Cmd+P | Print current page |
+| Get Info | Cmd+I | Gopher+ item attributes |
 | Add Favorite | Cmd+D | Bookmark current page |
 | Manage Favorites | Cmd+B | Open bookmark manager |
 | Copy | Cmd+C | Copy selection to clipboard |
@@ -117,8 +116,6 @@ Geomys ships with 14 built-in themes selectable from Options > Theme:
 | [Classic](src/themes/classic.h) | Color | 1990s web browser colors. |
 | [Monokai](src/themes/monokai.h) | Color | Dark warm palette with vivid accents. |
 | [Gruvbox](src/themes/gruvbox.h) | Color | Retro earthy palette with warm accents. |
-
-Mono themes work on all systems including the Mac Plus. Color themes require a Mac II or later with Color QuickDraw (detected automatically at runtime).
 
 To create custom themes or learn how the theme engine works, see the full [Theme Guide](docs/THEMES.md).
 
