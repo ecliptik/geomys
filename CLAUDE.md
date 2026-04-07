@@ -71,15 +71,43 @@ Users can also adjust memory after building via Finder's "Get Info" on the Geomy
 
 ## Testing
 
-### Emulator: Snow
-
-[Snow](https://snowemu.com/) emulator with Mac Plus ROM and System 6.0.8 SCSI hard drive image.
+Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for full details:
+- `docs/TESTING.md` — build-deploy-test workflows for both emulators
+- `docs/SNOW.md` — Snow emulator config, networking, keyboard
+- `docs/SNOW-GUI-AUTOMATION.md` — X11/XTEST coordinate system and automation techniques
 
 **IMPORTANT: Do NOT launch Snow, deploy to disk images, or run any automated testing unless the user explicitly asks. All testing and QA is done by the human. Only build and deploy when asked.**
 
-- **Networking**: DaynaPORT SCSI/Link Ethernet emulation, NAT mode
-- **Launch**: `DISPLAY=:0 tools/snow/snowemu diskimages/geomys.snoww &`
-- Always kill Snow before doing a new build or adding to the Snow disk image
+### Emulator: Snow (System 6 — Primary)
+
+- **Launch**: `DISPLAY=:0 /home/claude/emulators/snow/snowemu /home/claude/emulators/snow/geomys.snoww &`
+- **Networking**: DaynaPORT SCSI/Link, NAT mode. Host services reachable at `192.168.7.167` (NOT the 10.0.0.1 gateway)
+- **Deploy**: `./scripts/deploy.sh --target snow --auto-open` handles kill → build → copy → relaunch
+
+### Emulator: Basilisk II (System 7 — Secondary)
+
+- **Launch**: `/home/claude/emulators/basilisk/launch.sh`
+- **Deploy**: `./scripts/deploy.sh --target basilisk` (copies to ExtFS shared dir — no Basilisk restart needed, just reopen the app inside the emulator)
+- **System 6 incompatible** — Basilisk II cannot run System 6. Use Snow for System 6 testing.
+
+### Emulator Rules (Critical — Violations Cause Data Corruption)
+
+- **Never update a disk image while Snow is running** — the image is memory-mapped; corruption will result. Always `pkill -f snowemu; sleep 1` first.
+- **Never run multiple Snow instances** or Snow and Basilisk II simultaneously — they share the X11 display.
+- **Never hard-kill Basilisk II repeatedly** — corrupts the disk image and `sheep_net` kernel module. Quit from inside the emulator (Special > Shut Down) when possible. If you must kill externally, do it once and reset before relaunching:
+  ```bash
+  sudo rmmod sheep_net && sudo modprobe sheep_net
+  cp ~/GlobalTalk\ System\ 761\ HD.hda /home/claude/emulators/disks/system7.hda
+  ```
+- **Use `scrot` for screenshots, NEVER ImageMagick `import`** — `import` grabs the X pointer and permanently breaks Snow mouse input.
+  ```bash
+  DISPLAY=:0 scrot -u /tmp/screenshot.png    # Focused window only
+  ```
+- **GUI automation requires XTEST incremental motion** — `xdotool mousemove` and `XWarpPointer` do NOT work with Snow. Use the canonical library: `/home/claude/emulators/scripts/snow_automation.py`
+- **Mac Plus M0110 keyboard has no Escape or Control keys.** Snow faithfully emulates this — X11 Escape/Control keysyms are ignored.
+  - Escape: Cmd+. (Right Alt + period)
+  - Ctrl+letter: Option+letter (Left Alt + letter)
+- Always set `DISPLAY=:0` when launching Snow or Basilisk II
 
 ## Repository Conventions
 

@@ -11,8 +11,8 @@ static const ThemeColors theme_green_screen = {
 
 	/* Content area */
 	{ 0x00, 0x11, 0x00 },  /* bg: near-black green #001100 */
-	{ 0x33, 0xFF, 0x33 },  /* text: phosphor green #33FF33 */
-	{ 0x66, 0xFF, 0x66 },  /* link: bright green #66FF66 */
+	{ 0x00, 0xCC, 0x00 },  /* text: dim phosphor #00CC00 */
+	{ 0x33, 0xFF, 0x33 },  /* link: bright phosphor #33FF33 */
 	{ 0x00, 0xCC, 0x66 },  /* link_search: teal green #00CC66 */
 	{ 0x99, 0xFF, 0x99 },  /* link_external: pale green #99FF99 */
 	{ 0x00, 0xFF, 0x99 },  /* link_download: bright teal #00FF99 */

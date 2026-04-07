@@ -2,7 +2,7 @@
 
 Geomys is a [Gopher](https://en.wikipedia.org/wiki/Gopher_(protocol)) browser for classic 68000 Macintosh computers. It supports monochrome and 256 colors, System 6 and 7, multi-window browsing, themes, favorites, Gopher+ protocol, file downloads, and keyboard navigation.
 
-This project was 100% vibe coded using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+This project was 100% built agentically using [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 <p align="center">
 <a href="#download">Download</a> · <a href="#features">Features</a> · <a href="#keyboard-shortcuts">Keyboard Shortcuts</a> · <a href="#themes">Themes</a> · <a href="#building">Building</a> · <a href="#testing">Testing</a> · <a href="#acknowledgments">Acknowledgments</a> · <a href="#license">License</a>
@@ -61,7 +61,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 - Find in Page, browsing history, Save Page As, Print
 
 **Display**
-- 9 built-in [themes](#themes) with 256-color support on System 7 ([create your own](docs/THEMES.md))
+- 14 built-in [themes](#themes) with 256-color support on System 7 ([create your own](docs/THEMES.md))
 - 8 fonts with independent size selection (9, 10, 12, 14)
 - Double-buffered rendering with SICN/cicn icons
 - CP437 character set and Unicode glyph rendering
@@ -101,17 +101,22 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 
 ## Themes
 
-Geomys ships with 9 built-in themes selectable from Options > Theme:
+Geomys ships with 14 built-in themes selectable from Options > Theme:
 
 | Theme | Type | Description |
 |-------|------|-------------|
 | [Light](src/themes/light.h) | Mono | White on black, default. Works on all systems. |
 | [Dark](src/themes/dark.h) | Mono | Black on white. Works on all systems. |
 | [Solarized Light](src/themes/solarized_light.h) / [Dark](src/themes/solarized_dark.h) | Color | Ethan Schoonover's Solarized palette. |
-| [Tokyo Night Light](src/themes/tokyo_light.h) / [Dark](src/themes/tokyo_dark.h) | Color | Based on the Tokyo Night color scheme. |
+| [TokyoNight Day](src/themes/tokyo_light.h) / [TokyoNight](src/themes/tokyo_dark.h) | Color | Based on the Tokyo Night color scheme. |
+| [Amber CRT](src/themes/amber_crt.h) | Color | Amber phosphor CRT aesthetic. |
+| [System 7](src/themes/system7.h) | Color | Macintosh System 7 with CLUT accent colors. |
+| [Dracula](src/themes/dracula.h) | Color | Dark purple-accented palette. |
+| [Nord](src/themes/nord.h) | Color | Arctic blue-tinted palette. |
 | [Green Screen](src/themes/green_screen.h) | Color | Phosphor green on black CRT aesthetic. |
 | [Classic](src/themes/classic.h) | Color | 1990s web browser colors. |
-| [Platinum](src/themes/platinum.h) | Color | Mac OS 8/9 Appearance Manager inspired. |
+| [Monokai](src/themes/monokai.h) | Color | Dark warm palette with vivid accents. |
+| [Gruvbox](src/themes/gruvbox.h) | Color | Retro earthy palette with warm accents. |
 
 Mono themes work on all systems including the Mac Plus. Color themes require a Mac II or later with Color QuickDraw (detected automatically at runtime).
 

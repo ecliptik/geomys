@@ -75,8 +75,7 @@ session_destroy_and_fixup(BrowserSession *s)
 {
 	session_destroy(s);
 
-	/* Single-session: no fixup needed, just quit */
-	g_running = false;
+	/* Single-session: no fixup needed, app stays running */
 }
 
 BrowserSession *
@@ -230,8 +229,7 @@ session_destroy_and_fixup(BrowserSession *s)
 	session_destroy(s);
 
 	if (g_num_sessions == 0) {
-		/* Last window closed — quit */
-		g_running = false;
+		/* Last window closed — app stays running */
 		return;
 	}
 }

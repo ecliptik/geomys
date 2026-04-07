@@ -132,7 +132,9 @@ dns_parse_response(const unsigned char *pkt, short pktlen,
 {
 	unsigned short flags, qdcount, ancount;
 	unsigned short rtype, rdlen;
-	short offset, i;
+	unsigned short offset;
+	short skip;
+	short i;
 
 	if (pktlen < HDR_SIZE)
 		return DNS_ERR_FORMAT;
@@ -172,17 +174,18 @@ dns_parse_response(const unsigned char *pkt, short pktlen,
 	/* Skip question section */
 	offset = HDR_SIZE;
 	for (i = 0; i < qdcount; i++) {
-		offset = dns_skip_name(pkt, pktlen, offset);
-		if (offset < 0 || offset + 4 > pktlen)
+		skip = dns_skip_name(pkt, pktlen, offset);
+		if (skip < 0 || skip + 4 > pktlen)
 			return DNS_ERR_FORMAT;
-		offset += 4;  /* QTYPE + QCLASS */
+		offset = skip + 4;  /* QTYPE + QCLASS */
 	}
 
 	/* Scan answers for an A record */
 	for (i = 0; i < ancount; i++) {
-		offset = dns_skip_name(pkt, pktlen, offset);
-		if (offset < 0 || offset + 10 > pktlen)
+		skip = dns_skip_name(pkt, pktlen, offset);
+		if (skip < 0 || skip + 10 > pktlen)
 			return DNS_ERR_FORMAT;
+		offset = skip;
 
 		rtype = (pkt[offset] << 8) | pkt[offset + 1];
 		/* CLASS at offset+2, TTL at offset+4 (4 bytes) */
@@ -231,8 +234,8 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 	Ptr tcp_buf;
 	OSErr err;
 	short result;
-	unsigned char send_buf[2 + DNS_BUF_SIZE];
-	unsigned char recv_buf[2 + DNS_BUF_SIZE];
+	static unsigned char send_buf[2 + DNS_BUF_SIZE];
+	static unsigned char recv_buf[2 + DNS_BUF_SIZE];
 	unsigned short rcv_len, msg_len;
 	wdsEntry wds[2];
 	ip_addr local_ip;

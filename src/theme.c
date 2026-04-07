@@ -21,9 +21,14 @@
 #include "themes/solarized_dark.h"
 #include "themes/tokyo_light.h"
 #include "themes/tokyo_dark.h"
+#include "themes/amber_crt.h"
+#include "themes/system7.h"
+#include "themes/dracula.h"
+#include "themes/nord.h"
 #include "themes/green_screen.h"
 #include "themes/classic.h"
-#include "themes/platinum.h"
+#include "themes/monokai.h"
+#include "themes/gruvbox.h"
 #endif
 
 /* Theme table — mono themes first, color themes after */
@@ -35,9 +40,14 @@ static const ThemeColors *theme_table[] = {
 	&theme_solarized_dark,
 	&theme_tokyo_light,
 	&theme_tokyo_dark,
+	&theme_amber_crt,
+	&theme_system7,
+	&theme_dracula,
+	&theme_nord,
 	&theme_green_screen,
 	&theme_classic,
-	&theme_platinum,
+	&theme_monokai,
+	&theme_gruvbox,
 #endif
 };
 

@@ -6,7 +6,7 @@
  */
 
 static const ThemeColors theme_tokyo_dark = {
-	"Tokyo Dark",   /* name */
+	"TokyoNight",   /* name */
 	1,              /* is_color */
 	1,              /* is_dark */
 

@@ -46,14 +46,19 @@ typedef struct {
 #define THEME_SOLARIZED_DARK    3
 #define THEME_TOKYO_LIGHT       4
 #define THEME_TOKYO_DARK        5
-#define THEME_GREEN_SCREEN      6
-#define THEME_CLASSIC           7
-#define THEME_PLATINUM          8
+#define THEME_AMBER_CRT         6
+#define THEME_SYSTEM7           7
+#define THEME_DRACULA           8
+#define THEME_NORD              9
+#define THEME_GREEN_SCREEN      10
+#define THEME_CLASSIC           11
+#define THEME_MONOKAI           12
+#define THEME_GRUVBOX           13
 
 /* Total theme count (mono themes always available, color themes conditional) */
 #define THEME_COUNT_MONO   2
 #ifdef GEOMYS_COLOR
-#define THEME_COUNT        9
+#define THEME_COUNT        14
 #else
 #define THEME_COUNT        2
 #endif

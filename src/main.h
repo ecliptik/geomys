@@ -21,6 +21,19 @@
 #define STYLE_MENU_ID       136
 #define THEME_MENU_ID       137
 #define SIZE_MENU_ID        138
+#define DIRECTORY_MENU_ID   140
+
+/* Directory menu items */
+#define DIR_ITEM_HOME           1   /* Geomys Home */
+#define DIR_ITEM_WHAT_IS        2   /* What is Gopher? */
+/* separator = 3 */
+#define DIR_ITEM_SDF            4   /* Super-Dimensional Fortress */
+#define DIR_ITEM_FLOODGAP       5   /* Floodgap Systems */
+#define DIR_ITEM_CIRCUMLUNAR    6   /* Circumlunar Universe */
+#define DIR_ITEM_BITREICH       7   /* Bitreich */
+#define DIR_ITEM_HNGOPHER       8   /* HN Gopher */
+/* separator = 9 */
+#define DIR_ITEM_VERONICA       10  /* Search Veronica-2 */
 
 /* Go menu items */
 #define GO_MENU_BACK        1
@@ -114,10 +127,15 @@
 #define THEME_ITEM_SOLARIZED_D     5
 #define THEME_ITEM_TOKYO_L         6
 #define THEME_ITEM_TOKYO_D         7
-#define THEME_ITEM_GREEN           8
-#define THEME_ITEM_CLASSIC         9
-#define THEME_ITEM_PLATINUM        10
-#define THEME_ITEM_LAST            10
+#define THEME_ITEM_AMBER_CRT       8
+#define THEME_ITEM_SYSTEM7         9
+#define THEME_ITEM_DRACULA         10
+#define THEME_ITEM_NORD            11
+#define THEME_ITEM_GREEN           12
+#define THEME_ITEM_CLASSIC         13
+#define THEME_ITEM_MONOKAI         14
+#define THEME_ITEM_GRUVBOX         15
+#define THEME_ITEM_LAST            15
 
 /* Dialog resource IDs */
 #define DLOG_ABOUT_ID       130
@@ -133,6 +151,7 @@
 #define DLOG_CSO_ID         142
 #define DLOG_GETINFO_ID     143
 #define DLOG_VIEW_SELECT_ID 144
+#define DLOG_OPEN_LOC_ID    145
 /* Minimum window dimensions (Mac Plus: 512x342) */
 #define MIN_WIN_WIDTH       512
 #define MIN_WIN_HEIGHT      342
@@ -149,6 +168,7 @@
 void do_new_window(void);
 void do_navigate_url_titled(const char *url, const char *title);
 void do_navigate_url(const char *url);  /* title = NULL */
+void do_open_location_dialog(void);
 void do_search_dialog(const char *title, const char *host,
     short port, const char *selector);
 void do_cso_dialog(const char *title, const char *host,

@@ -6,14 +6,14 @@
  */
 
 static const ThemeColors theme_tokyo_light = {
-	"Tokyo Light",  /* name */
+	"TokyoNight Day",  /* name */
 	1,              /* is_color */
 	0,              /* is_dark */
 
 	/* Content area */
 	{ 0xCC, 0xCC, 0xCC },  /* bg: #E1E2E7 → #CCCCCC (neutral gray, no purple tint) */
-	{ 0x33, 0x66, 0xCC },  /* text: fg #3760BF → #3366CC */
-	{ 0x33, 0x66, 0xFF },  /* link: blue #2E7DE9 → #3366FF */
+	{ 0x33, 0x33, 0x99 },  /* text: fg #3760BF → #333399 (darker) */
+	{ 0x00, 0x66, 0xFF },  /* link: blue #2E7DE9 → #0066FF (brighter, distinct) */
 	{ 0x00, 0x99, 0x66 },  /* link_search: teal #118C74 → #009966 */
 	{ 0x99, 0x66, 0x00 },  /* link_external: orange #B15C00 → #996600 */
 	{ 0x00, 0x66, 0x99 },  /* link_download: teal #166775 → #006699 */

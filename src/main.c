@@ -109,6 +109,7 @@ static void handle_page_loaded(void);
 static void calc_std_state(WindowPtr win);
 static void restore_title_bar(void);
 static void poll_active_session(void);
+static void dismiss_modal(DialogPtr dlg);
 #if GEOMYS_MAX_WINDOWS > 1
 static void poll_all_sessions(void);
 #endif
@@ -433,7 +434,14 @@ create_session_window(BrowserSession *s)
 
 #if GEOMYS_MAX_WINDOWS > 1
 	{
-		short offset = (g_cascade_count % 4) * CASCADE_OFFSET;
+		short offset;
+
+		/* Reset cascade when this is the only window
+		 * (session_new already incremented the count) */
+		if (session_count() <= 1)
+			g_cascade_count = 0;
+
+		offset = (g_cascade_count % 4) * CASCADE_OFFSET;
 		short w = scr_w - 4;
 		short h = scr_h - 44;
 
@@ -569,6 +577,9 @@ poll_active_session(void)
 	short drain_count = 0;
 	Boolean needs_draw = false;
 	short prev_rows = 0;
+
+	if (!active_session)
+		return;
 
 	if (!g_gopher.receiving)
 		return;
@@ -1138,7 +1149,8 @@ main_event_loop(void)
 				}
 			}
 #else
-		} else if (g_app_state == APP_STATE_LOADING) {
+		} else if (active_session &&
+		    g_app_state == APP_STATE_LOADING) {
 			wait_ticks = 1L;
 		} else {
 			wait_ticks = 3L;
@@ -1156,7 +1168,7 @@ main_event_loop(void)
 #endif
 
 			/* Address bar cursor blink + content cursor update */
-			if (!g_suspended && g_window) {
+			if (!g_suspended && active_session && g_window) {
 				GrafPtr save;
 				Point mouse_pt;
 
@@ -1483,6 +1495,16 @@ handle_key_down(EventRecord *event)
 
 	key = event->message & charCodeMask;
 
+	/* With no active session, only allow Cmd key shortcuts
+	 * (routed through update_menus which handles NULL) */
+	if (!active_session) {
+		if (event->modifiers & cmdKey) {
+			update_menus();
+			handle_menu(MenuKey(key));
+		}
+		return;
+	}
+
 	if (event->modifiers & cmdKey) {
 		/* Cmd-[ = back, Cmd-] = forward */
 		if (key == '[') {
@@ -1686,6 +1708,71 @@ do_navigate_url(const char *url)
 }
 
 /*
+ * Open Location dialog — prompts for a gopher:// URL and navigates.
+ * Creates a new window if none exists.
+ */
+void
+do_open_location_dialog(void)
+{
+	DialogPtr dlg;
+	short item;
+	short item_type;
+	Handle item_h;
+	Rect item_rect;
+	Str255 pstr;
+
+	InitCursor();
+
+	if (active_session)
+		browser_activate(false);
+
+	dlg = GetNewDialog(DLOG_OPEN_LOC_ID, 0L, 0L);
+	if (!dlg) {
+		if (active_session)
+			browser_activate(true);
+		return;
+	}
+	center_dialog_on_screen(dlg);
+	SelectWindow((WindowPtr)dlg);
+
+	setup_default_button_outline(dlg, 5);
+
+	/* Select text after "gopher://" prefix for easy typing */
+	SelectDialogItemText(dlg, 4, 9, 9);
+
+	do {
+		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+	} while (item != 1 && item != 2);
+
+	if (item == 1) {
+		char url[300];
+
+		GetDialogItem(dlg, 4, &item_type, &item_h,
+		    &item_rect);
+		GetDialogItemText(item_h, pstr);
+		{
+			short len = pstr[0];
+			if (len >= (short)sizeof(url))
+				len = sizeof(url) - 1;
+			memcpy(url, pstr + 1, len);
+			url[len] = '\0';
+		}
+
+		/* Dispose dialog without touching active_session
+		 * (may be NULL). do_navigate_url creates a window. */
+		DisposeDialog(dlg);
+
+		if (url[0])
+			do_navigate_url(url);
+		return;
+	}
+
+	DisposeDialog(dlg);
+	if (active_session)
+		browser_activate(true);
+}
+
+/*
  * Navigate to a gopher:// URL string with optional page title.
  * If title is NULL, uses the hostname.
  */
@@ -1702,16 +1789,25 @@ do_navigate_url_titled(const char *url, const char *title)
 	    &port, &type, selector, sizeof(selector)))
 		return;
 
+	/* Create a window if none exists */
+	if (!active_session) {
+		do_new_window();
+		if (!active_session)
+			return;
+	}
+
 	/* Save scroll position before resetting */
 	history_set_scroll(content_get_scroll_pos());
 
 	g_app_state = APP_STATE_LOADING;
 	content_scroll_to_top();
 
-	/* Show loading state in title bar and status bar.
+	/* Show loading state in title bar, address bar, and status bar.
 	 * Blank content area immediately so stale content
 	 * does not persist while the new page loads. */
 	set_wtitlef(g_window, "Loading %.50s\311", host);
+	gopher_build_uri(uri, sizeof(uri), host, port, type, selector);
+	browser_set_url(uri);
 	snprintf(uri, sizeof(uri), "Loading %.50s\311", host);
 	browser_set_status(uri);
 	{
@@ -1926,6 +2022,13 @@ do_search_dialog(const char *title, const char *host,
 			/* Append query to selector with tab */
 			snprintf(full_sel, sizeof(full_sel),
 			    "%s\t%s", selector, query);
+
+			/* Create a window if none exists */
+			if (!active_session) {
+				do_new_window();
+				if (!active_session)
+					return;
+			}
 
 			/* Save scroll before resetting */
 			history_set_scroll(
@@ -2949,8 +3052,6 @@ handle_mouse_down(EventRecord *event)
 				s = session_from_window(win);
 				if (s)
 					session_destroy_and_fixup(s);
-				else
-					g_running = false;
 			}
 		}
 		break;

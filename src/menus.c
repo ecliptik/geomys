@@ -46,6 +46,7 @@ static MenuHandle apple_menu, file_menu, edit_menu;
 static MenuHandle go_menu;
 static MenuHandle favorites_menu, options_menu;
 static MenuHandle window_menu;
+static MenuHandle directory_menu;
 static MenuHandle font_submenu;
 static MenuHandle size_submenu;
 static MenuHandle style_submenu;
@@ -133,6 +134,7 @@ init_menus(void)
 	go_menu = GetMenuHandle(GO_MENU_ID);
 	favorites_menu = GetMenuHandle(FAVORITES_MENU_ID);
 	options_menu = GetMenuHandle(OPTIONS_MENU_ID);
+	directory_menu = GetMenuHandle(DIRECTORY_MENU_ID);
 
 	/* Detect System 7+ for SICN menu icon support */
 	{
@@ -392,6 +394,43 @@ update_menus(void)
 	WindowPtr front;
 	Boolean da_active;
 
+	/* No active session — disable everything except
+	 * File > New Window and File > Quit */
+	if (!active_session) {
+		if (file_menu) {
+			short i, n;
+
+			n = CountMItems(file_menu);
+			for (i = 1; i <= n; i++)
+				DisableItem(file_menu, i);
+			EnableItem(file_menu, FILE_MENU_NEW);
+			EnableItem(file_menu, FILE_MENU_OPEN);
+			EnableItem(file_menu, FILE_MENU_QUIT);
+		}
+		if (edit_menu)
+			DisableItem(edit_menu, 0);
+		if (go_menu)
+			DisableItem(go_menu, 0);
+		if (window_menu)
+			DisableItem(window_menu, 0);
+		DrawMenuBar();
+		return;
+	}
+
+	/* Re-enable menus that may have been disabled */
+	if (edit_menu)
+		EnableItem(edit_menu, 0);
+	if (go_menu)
+		EnableItem(go_menu, 0);
+	if (favorites_menu)
+		EnableItem(favorites_menu, 0);
+	if (options_menu)
+		EnableItem(options_menu, 0);
+	if (directory_menu)
+		EnableItem(directory_menu, 0);
+	if (window_menu)
+		EnableItem(window_menu, 0);
+
 	front = FrontWindow();
 	/* DA windows have negative windowKind */
 	da_active = (front && ((WindowPeek)front)->windowKind < 0);
@@ -598,11 +637,7 @@ handle_file_menu(short item)
 		do_new_window();
 		break;
 	case FILE_MENU_OPEN:
-		browser_set_focus(FOCUS_ADDR_BAR);
-		browser_activate(true);
-#ifdef GEOMYS_CLIPBOARD
-		browser_edit_select_all();
-#endif
+		do_open_location_dialog();
 		break;
 #ifdef GEOMYS_GOPHER_PLUS
 	case FILE_MENU_GETINFO:
@@ -623,8 +658,6 @@ handle_file_menu(short item)
 	case FILE_MENU_CLOSE:
 		if (active_session)
 			session_destroy_and_fixup(active_session);
-		else
-			g_running = false;
 		break;
 	case FILE_MENU_QUIT:
 		g_running = false;
@@ -1656,6 +1689,39 @@ handle_menu(long menu_id)
 		break;
 	}
 #endif /* GEOMYS_THEMES */
+	case DIRECTORY_MENU_ID:
+		switch (item) {
+		case DIR_ITEM_HOME:
+			do_navigate_url(
+			    "gopher://sdf.org/1/users/ecliptik/geomys/");
+			break;
+		case DIR_ITEM_WHAT_IS:
+			do_navigate_url(
+			    "gopher://gopher.floodgap.com/1/gopher");
+			break;
+		case DIR_ITEM_SDF:
+			do_navigate_url("gopher://sdf.org");
+			break;
+		case DIR_ITEM_FLOODGAP:
+			do_navigate_url(
+			    "gopher://gopher.floodgap.com");
+			break;
+		case DIR_ITEM_CIRCUMLUNAR:
+			do_navigate_url(
+			    "gopher://zaibatsu.circumlunar.space");
+			break;
+		case DIR_ITEM_BITREICH:
+			do_navigate_url("gopher://bitreich.org");
+			break;
+		case DIR_ITEM_HNGOPHER:
+			do_navigate_url("gopher://hngopher.com");
+			break;
+		case DIR_ITEM_VERONICA:
+			do_search_dialog("Search Veronica-2",
+			    "gopher.floodgap.com", 70, "/v2/vs");
+			break;
+		}
+		break;
 	default:
 		handled = false;
 		break;

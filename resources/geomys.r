@@ -18,7 +18,7 @@ type 'SICN' {
 };
 
 resource 'MBAR' (128) {
-	{ 128, 129, 130, 134, 131, 132, 133 }
+	{ 128, 129, 130, 134, 131, 132, 140, 133 }
 };
 
 resource 'MENU' (128, "Apple") {
@@ -31,9 +31,9 @@ resource 'MENU' (128, "Apple") {
 resource 'MENU' (129, "File") {
 	129, textMenuProc, allEnabled, enabled, "File",
 	{
-		"New", noIcon, "N", noMark, plain;
-		"Open\311", noIcon, "L", noMark, plain;
-		"Close", noIcon, "W", noMark, plain;
+		"New Window", noIcon, "N", noMark, plain;
+		"Open Location\311", noIcon, "L", noMark, plain;
+		"Close Window", noIcon, "W", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
 		"Get Info\311", noIcon, "I", noMark, plain;
 		"-", noIcon, noKey, noMark, plain;
@@ -148,11 +148,32 @@ resource 'MENU' (137, "Theme") {
 		"-", noIcon, noKey, noMark, plain;
 		"Solarized Light", noIcon, noKey, noMark, plain;
 		"Solarized Dark", noIcon, noKey, noMark, plain;
-		"Tokyo Night Light", noIcon, noKey, noMark, plain;
-		"Tokyo Night Dark", noIcon, noKey, noMark, plain;
+		"TokyoNight Day", noIcon, noKey, noMark, plain;
+		"TokyoNight", noIcon, noKey, noMark, plain;
+		"Amber CRT", noIcon, noKey, noMark, plain;
+		"System 7", noIcon, noKey, noMark, plain;
+		"Dracula", noIcon, noKey, noMark, plain;
+		"Nord", noIcon, noKey, noMark, plain;
 		"Green Screen", noIcon, noKey, noMark, plain;
 		"Classic", noIcon, noKey, noMark, plain;
-		"Platinum", noIcon, noKey, noMark, plain
+		"Monokai", noIcon, noKey, noMark, plain;
+		"Gruvbox", noIcon, noKey, noMark, plain
+	}
+};
+
+resource 'MENU' (140, "Directory") {
+	140, textMenuProc, allEnabled, enabled, "Directory",
+	{
+		"Geomys Home", noIcon, noKey, noMark, plain;
+		"What is Gopher?", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Super-Dimensional Fortress", noIcon, noKey, noMark, plain;
+		"Floodgap Systems", noIcon, noKey, noMark, plain;
+		"Circumlunar Universe", noIcon, noKey, noMark, plain;
+		"Bitreich", noIcon, noKey, noMark, plain;
+		"HN Gopher", noIcon, noKey, noMark, plain;
+		"-", noIcon, noKey, noMark, plain;
+		"Search Veronica-2", noIcon, noKey, noMark, plain
 	}
 };
 
@@ -806,6 +827,42 @@ resource 'DITL' (144, "Choose View") {
 
 		/* 11: Default button outline (UserItem) */
 		{174, 196, 202, 274},
+		UserItem { disabled };
+	}
+};
+
+/* Open Location dialog — movableDBoxProc for System 7 */
+resource 'DLOG' (145, "Open Location") {
+	{90, 60, 185, 440},
+	movableDBoxProc,
+	visible,
+	noGoAway,
+	0x0,
+	145,
+	"Open Location",
+	noAutoCenter
+};
+
+resource 'DITL' (145, "Open Location") {
+	{
+		/* 1: Open button (default) */
+		{60, 290, 80, 360},
+		Button { enabled, "Open" };
+
+		/* 2: Cancel button */
+		{60, 200, 80, 270},
+		Button { enabled, "Cancel" };
+
+		/* 3: Label */
+		{15, 15, 31, 360},
+		StaticText { disabled, "Enter a Gopher URL" };
+
+		/* 4: URL field */
+		{35, 15, 51, 360},
+		EditText { enabled, "gopher://" };
+
+		/* 5: Default button outline (UserItem) */
+		{56, 286, 84, 364},
 		UserItem { disabled };
 	}
 };

@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] — 2026-04-07
+
+### Added
+- Directory menu with curated Gopher destinations (SDF, Floodgap, Circumlunar, Bitreich, HN Gopher, Veronica-2 search)
+- Open Location dialog (Cmd+L) — prompts for a gopher:// URL, works with or without a window open
+- 5 new color themes: Dracula, Nord, Monokai, Gruvbox, Amber CRT, System 7
+- App stays running after last window is closed — File > New Window or Open Location to reopen
+
+### Changed
+- File menu: "New" → "New Window", "Open..." → "Open Location...", "Close" → "Close Window"
+- Theme names and order match Flynn (TokyoNight Day/TokyoNight naming)
+- Removed Platinum and Compact Mac themes (System 7 replaces Platinum)
+- Address bar updates immediately when navigation starts, not after page loads
+- Favorites, Options, and Directory menus remain enabled with no windows open
+- README: "vibe coded" → "built agentically"
+
+### Fixed
+- DNS parser signed short overflow on crafted packets (ported from Flynn security audit)
+- DNS TCP resolver stack buffers made static (~1KB stack savings)
+- Crash (out of memory) when closing last window — NULL active_session guards
+- Window cascade position not resetting when opening a new window after closing all
+- Hover/cursor/status bar not updating after opening a dialog (pre-existing bug)
+- Improved contrast for TokyoNight Day and Green Screen themes
+
 ## [1.0.1] — 2026-03-31
 
 ### Changed

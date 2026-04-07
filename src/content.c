@@ -2928,15 +2928,10 @@ content_cursor_update(WindowPtr win, Point local_pt)
 
 	/* Suppress hover when keyboard nav is active — prevents
 	 * hover redraws from visually interfering with the
-	 * selection ring. Hover resumes when selection is cleared. */
+	 * selection ring. Clear keyboard selection when mouse
+	 * moves over content (hover resumes naturally). */
 	if (g_selected_row >= 0) {
-		if (g_hover_row >= 0) {
-			short old_hover = g_hover_row;
-
-			g_hover_row = -1;
-			content_draw_row(win, old_hover, &r, th);
-		}
-		return;
+		content_clear_kbd_selection(win);
 	}
 
 	/* Compute hit row once for hover and status bar */
