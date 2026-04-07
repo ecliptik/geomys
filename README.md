@@ -15,7 +15,7 @@ This project was 100% built agentically using [Claude Code](https://docs.anthrop
 | ![Geomys browsing SDF.org](docs/screenshots/geomys-sdf.png) | ![Geomys multi-window with search](docs/screenshots/geomys-multiwindow.png) |
 | **Directory Browsing** | **Multi-Window & Search** |
 | ![Geomys text page with Courier font](docs/screenshots/geomys-textpage-courier.png) | ![Geomys dark mode with favorites](docs/screenshots/geomys-darkmode-favorites.png) |
-| **Text Page & Edit Menu** | **Dark Mode & Favorites** |
+| **Text Page & Clipboard** | **Dark Mode** |
 
 ### System 7
 
@@ -100,7 +100,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 
 ## Themes
 
-Geomys ships with 14 built-in themes selectable from Options > Theme:
+Geomys ships with 14 built-in themes selectable from Options > Theme. Each window can have its own theme — changing the theme applies only to the active window, and new windows inherit the active window's theme.
 
 | Theme | Type | Description |
 |-------|------|-------------|

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Directory menu with curated Gopher destinations (SDF, Floodgap, Circumlunar, Bitreich, HN Gopher, Veronica-2 search)
 - Open Location dialog (Cmd+L) — prompts for a gopher:// URL, works with or without a window open
+- Per-window themes — each window can have its own theme, changed via Options > Theme on the active window; new windows inherit the active window's theme
 - 6 new color themes: Dracula, Nord, Monokai, Gruvbox, Amber CRT, System 7
 - External Link dialog: Copy URL button and silent browser launch on System 7
 - App stays running after last window is closed — File > New Window or Open Location to reopen

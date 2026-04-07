@@ -14,6 +14,9 @@
 #include "gopher.h"
 #include "connection.h"
 #include "drag.h"
+#ifdef GEOMYS_THEMES
+#include "theme.h"
+#endif
 
 #if GEOMYS_MAX_WINDOWS == 1
 
@@ -272,6 +275,9 @@ session_save_state(BrowserSession *s)
 {
 	if (!s)
 		return;
+#ifdef GEOMYS_THEMES
+	s->theme_id = theme_get();
+#endif
 	history_save_state(s);
 	browser_save_state(s);
 	content_save_state(s);
@@ -282,6 +288,14 @@ session_load_state(BrowserSession *s)
 {
 	if (!s)
 		return;
+#ifdef GEOMYS_THEMES
+	if (s->theme_id != theme_get()) {
+		theme_set(s->theme_id);
+		theme_reset_cache();
+		content_invalidate_shadow();
+		content_mark_all_dirty();
+	}
+#endif
 	history_load_state(s);
 	browser_load_state(s);
 	content_load_state(s);
@@ -312,6 +326,9 @@ session_save_gopher(BrowserSession *s)
 {
 	if (!s)
 		return;
+#ifdef GEOMYS_THEMES
+	s->theme_id = theme_get();
+#endif
 	browser_save_state(s);
 	content_save_state(s);
 }
@@ -321,6 +338,14 @@ session_load_gopher(BrowserSession *s)
 {
 	if (!s)
 		return;
+#ifdef GEOMYS_THEMES
+	if (s->theme_id != theme_get()) {
+		theme_set(s->theme_id);
+		theme_reset_cache();
+		content_invalidate_shadow();
+		content_mark_all_dirty();
+	}
+#endif
 	browser_load_state(s);
 	content_load_state(s);
 }

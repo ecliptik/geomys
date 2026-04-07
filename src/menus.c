@@ -267,21 +267,11 @@ init_menus(void)
 
 	/* Set initial theme checkmark */
 	if (theme_submenu) {
-		short t;
+		short t, check_item;
+
+		check_item = theme_id_to_menu_item(g_prefs.theme_id);
 		for (t = THEME_ITEM_LIGHT; t <= THEME_ITEM_LAST; t++)
-			CheckItem(theme_submenu, t, false);
-		/* Map theme_id to menu item (items are 1-indexed,
-		 * but separator at item 3 offsets color themes) */
-		{
-			short check_item;
-			if (g_prefs.theme_id <= THEME_DARK)
-				check_item = g_prefs.theme_id + 1;
-			else
-				check_item = g_prefs.theme_id + 2; /* +2 for separator */
-			if (check_item >= THEME_ITEM_LIGHT &&
-			    check_item <= THEME_ITEM_LAST)
-				CheckItem(theme_submenu, check_item, true);
-		}
+			CheckItem(theme_submenu, t, t == check_item);
 
 #ifdef GEOMYS_COLOR
 		/* Runtime: disable color themes on monochrome hw */
@@ -598,6 +588,18 @@ update_menus(void)
 		    "\pHide Clipboard" :
 		    "\pShow Clipboard");
 	}
+
+#ifdef GEOMYS_THEMES
+	/* Update theme checkmark to reflect active window's theme */
+	if (theme_submenu && active_session) {
+		short t, check_item;
+
+		check_item = theme_id_to_menu_item(
+		    active_session->theme_id);
+		for (t = THEME_ITEM_LIGHT; t <= THEME_ITEM_LAST; t++)
+			CheckItem(theme_submenu, t, t == check_item);
+	}
+#endif
 
 #if GEOMYS_MAX_WINDOWS > 1
 	update_window_menu();
@@ -981,6 +983,24 @@ WindowPtr
 clipboard_window_ptr(void)
 {
 	return g_clip_window;
+}
+
+/*
+ * clipboard_window_activate - Hilite or dim clipboard
+ * scrollbars on activate/deactivate (per HIG).
+ */
+void
+clipboard_window_activate(Boolean active)
+{
+	short state;
+
+	if (!g_clip_window)
+		return;
+	state = active ? 0 : 255;
+	if (g_clip_vscroll)
+		HiliteControl(g_clip_vscroll, state);
+	if (g_clip_hscroll)
+		HiliteControl(g_clip_hscroll, state);
 }
 
 /*
@@ -1641,8 +1661,9 @@ handle_menu(long menu_id)
 			new_theme = item - 2; /* -2 for separator */
 
 		if (new_theme >= 0 && new_theme < THEME_COUNT) {
-			g_prefs.theme_id = new_theme;
 			theme_set(new_theme);
+			active_session->theme_id = new_theme;
+			g_prefs.theme_id = new_theme;
 
 			/* Update checkmarks */
 			if (theme_submenu) {
@@ -1651,35 +1672,26 @@ handle_menu(long menu_id)
 					CheckItem(theme_submenu, t, t == item);
 			}
 
-			/* Save and redraw ALL windows.
-			 * Erase content to new bg color first so
-			 * the background flips in one frame, then
-			 * content renders on top. */
+			/* Redraw active window only */
 			prefs_save(&g_prefs);
 			{
-				short wi;
-				for (wi = 0; wi < GEOMYS_MAX_WINDOWS; wi++) {
-					BrowserSession *s = session_get(wi);
-					if (s && s->window) {
-						GrafPtr save;
-						Rect cr;
+				GrafPtr save;
+				Rect cr;
 
-						GetPort(&save);
-						SetPort(s->window);
+				GetPort(&save);
+				SetPort(g_window);
 
-						/* Instant bg flip */
-						content_get_rect(s->window, &cr);
-						theme_set_bg(&theme_current()->bg);
-						EraseRect(&cr);
+				content_get_rect(g_window, &cr);
+				theme_set_bg(&theme_current()->bg);
+				EraseRect(&cr);
 
-						content_mark_all_dirty();
-						content_recalc_width(s->window);
-						content_update_scroll(s->window);
-						content_draw(s->window);
-						browser_draw(s->window);
-						SetPort(save);
-					}
-				}
+				content_invalidate_shadow();
+				content_mark_all_dirty();
+				content_recalc_width(g_window);
+				content_update_scroll(g_window);
+				content_draw(g_window);
+				browser_draw(g_window);
+				SetPort(save);
 			}
 		}
 		break;

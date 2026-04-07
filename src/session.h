@@ -75,6 +75,9 @@ typedef struct BrowserSession {
 	short           app_state;
 	short           pending_scroll;
 	short           id;
+#ifdef GEOMYS_THEMES
+	short           theme_id;
+#endif
 } BrowserSession;
 
 /* Session lifecycle */

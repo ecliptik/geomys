@@ -495,6 +495,16 @@ init_session(BrowserSession *s)
 	content_set_page(&s->gopher);
 	history_init();
 
+	/* Initialize per-window theme from active session or prefs */
+#ifdef GEOMYS_THEMES
+#if GEOMYS_MAX_WINDOWS > 1
+	if (active_session)
+		s->theme_id = active_session->theme_id;
+	else
+#endif
+		s->theme_id = g_prefs.theme_id;
+#endif
+
 	/* Save module statics into this session */
 	browser_save_state(s);
 	content_save_state(s);
@@ -3308,6 +3318,13 @@ handle_activate(EventRecord *event)
 	BrowserSession *s;
 
 	win = (WindowPtr)event->message;
+#ifdef GEOMYS_CLIPBOARD
+	if (win == clipboard_window_ptr()) {
+		clipboard_window_activate(
+		    (event->modifiers & activeFlag) != 0);
+		return;
+	}
+#endif
 	s = session_from_window(win);
 	if (!s)
 		return;

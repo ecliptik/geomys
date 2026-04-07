@@ -19,6 +19,7 @@ void menu_set_item_sicn(MenuHandle menu, short item,
 /* Clipboard window (HIG p.112: document window, scrollable,
  * non-editable). Used by main event loop for update/close. */
 WindowPtr clipboard_window_ptr(void);
+void clipboard_window_activate(Boolean active);
 void clipboard_window_update(WindowPtr win);
 void clipboard_window_close(void);
 void clipboard_window_click(WindowPtr win, Point where);

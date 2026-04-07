@@ -94,6 +94,9 @@ short theme_is_color(void);
  * Must be called on every exit path that may have set theme colors. */
 void theme_restore_colors(void);
 
+/* Map theme index to menu item number (accounts for separator) */
+short theme_id_to_menu_item(short theme_id);
+
 #else /* !GEOMYS_THEMES */
 
 #define THEME_LIGHT  0
@@ -110,6 +113,7 @@ void theme_restore_colors(void);
 #define theme_is_dark()         0
 #define theme_is_color()        0
 #define theme_restore_colors()  ((void)0)
+#define theme_id_to_menu_item(id) 0
 
 #endif /* GEOMYS_THEMES */
 

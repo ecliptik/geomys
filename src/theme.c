@@ -240,4 +240,19 @@ theme_restore_colors(void)
 #endif
 }
 
+/*
+ * theme_id_to_menu_item - Map theme index to menu item number.
+ *
+ * Menu items are 1-indexed with a separator at item 3
+ * (between Dark and Solarized Light), so color themes
+ * are offset by +2 instead of +1.
+ */
+short
+theme_id_to_menu_item(short theme_id)
+{
+	if (theme_id <= THEME_DARK)
+		return theme_id + 1;
+	return theme_id + 2;   /* +2 for separator */
+}
+
 #endif /* GEOMYS_THEMES */
