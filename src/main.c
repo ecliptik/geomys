@@ -2326,7 +2326,8 @@ do_type_message(char type, const char *display,
 /*
  * Show a dialog with an external URL from a type h item.
  * The URL is placed in an editable text field so the user
- * can Cmd-C to copy it.
+ * can Cmd-C to copy it.  "Copy URL" puts it on the clipboard.
+ * On System 7, "Done" attempts to launch a web browser.
  */
 void
 do_html_url_dialog(const char *url, const char *display)
@@ -2351,19 +2352,76 @@ do_html_url_dialog(const char *url, const char *display)
 	center_dialog_on_screen(dlg);
 	SelectWindow((WindowPtr)dlg);
 
-	/* Set URL in the EditText field */
+	/* Item 2: hidden Cancel (for Escape/Cmd-.) */
+	HideDialogItem(dlg, 2);
+
+	/* Set URL in the EditText field (item 5) */
 	c2pstr(pstr, url);
-	GetDialogItem(dlg, 4, &item_type, &item_h, &item_rect);
+	GetDialogItem(dlg, 5, &item_type, &item_h, &item_rect);
 	SetDialogItemText(item_h, pstr);
 
-	setup_default_button_outline(dlg, 5);
-	SelectDialogItemText(dlg, 4, 0, 32767);
+#ifndef GEOMYS_CLIPBOARD
+	/* No clipboard — hide Copy URL button */
+	HideDialogItem(dlg, 3);
+#endif
+
+	setup_default_button_outline(dlg, 6);
+	SelectDialogItemText(dlg, 5, 0, 32767);
 
 	do {
 		ModalDialog((ModalFilterUPP)std_dlg_filter, &item);
+
+#ifdef GEOMYS_CLIPBOARD
+		if (item == 3) {
+			/* Copy URL to clipboard */
+			long len = strlen(url);
+			ZeroScrap();
+			PutScrap(len, 'TEXT', url);
+		}
+#endif
 	} while (item != 1 && item != 2);
 
 	dismiss_modal(dlg);
+
+	/* Modal dialog blocked network polling — drain any
+	 * pending data so loading completion is detected. */
+	if (g_app_state == APP_STATE_LOADING)
+		poll_active_session();
+
+	/* System 7: silently attempt to launch a web browser.
+	 * No error if not found — user can paste URL manually. */
+	if (item == 1) {
+		long sysver;
+		if (TrapAvailable(_GestaltDispatch) &&
+		    Gestalt(gestaltSystemVersion, &sysver) == noErr
+		    && sysver >= 0x0700) {
+			FSSpec app_spec;
+			LaunchParamBlockRec lpb;
+			OSErr err;
+
+			err = FSMakeFSSpec(0, 0,
+			    "\pNetscape Navigator\252",
+			    &app_spec);
+			if (err != noErr)
+				err = FSMakeFSSpec(0, 0,
+				    "\pNetscape", &app_spec);
+			if (err != noErr)
+				err = FSMakeFSSpec(0, 0,
+				    "\pMacWeb", &app_spec);
+
+			if (err == noErr) {
+				memset(&lpb, 0, sizeof(lpb));
+				lpb.launchBlockID = extendedBlock;
+				lpb.launchEPBLength =
+				    extendedBlockLen;
+				lpb.launchControlFlags =
+				    launchContinue | 0x0800;
+				lpb.launchAppSpec = &app_spec;
+				lpb.launchAppParameters = 0L;
+				LaunchApplication(&lpb);
+			}
+		}
+	}
 }
 
 #ifdef GEOMYS_TELNET

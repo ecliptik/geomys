@@ -351,23 +351,27 @@ resource 'DLOG' (138, "HTML URL") {
 
 resource 'DITL' (138, "HTML URL") {
 	{
-		/* 1: OK button */
+		/* 1: Done button (default) */
 		{80, 310, 100, 380},
-		Button { enabled, "OK" };
+		Button { enabled, "Done" };
 
-		/* 2: Cancel button */
-		{80, 220, 100, 290},
+		/* 2: Cancel button (hidden, for Escape/Cmd-.) */
+		{80, 310, 100, 380},
 		Button { enabled, "Cancel" };
 
-		/* 3: Description text */
+		/* 3: Copy URL button */
+		{80, 220, 100, 300},
+		Button { enabled, "Copy URL" };
+
+		/* 4: Description text */
 		{10, 15, 42, 385},
 		StaticText { disabled, "This link points to a web page outside of Gopher" };
 
-		/* 4: URL field (editable for Cmd-C copy) */
+		/* 5: URL field (editable for Cmd-C copy) */
 		{50, 15, 66, 385},
 		EditText { enabled, "" };
 
-		/* 5: Default button outline (UserItem) */
+		/* 6: Default button outline (UserItem) */
 		{76, 306, 104, 384},
 		UserItem { disabled };
 	}
