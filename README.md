@@ -36,7 +36,7 @@ Pre-built binaries are available on the [Releases](https://codeberg.org/ecliptik
 | **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.hqx) |
 | **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.hqx) |
 
-Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). No build toolchain required — just download and run. See [docs/BUILD.md](docs/BUILD.md) for custom builds.
+Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
 ## Requirements
 
@@ -68,7 +68,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 - MultiFinder and Apple Events (odoc/pdoc) support
 - Notification Manager alerts for background loads (System 7)
 - Optional AppleScript and Drag Manager via build flags
-- Aligned with [Apple Human Interface Guidelines](https://archive.org/details/apple-human-interface-guidelines-1992) (1992)
+- Aligned with [Apple Human Interface Guidelines](https://archive.org/details/apple-human-interface-guidelines-1992)
 
 ## Keyboard Shortcuts
 
