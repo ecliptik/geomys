@@ -87,6 +87,7 @@ static Rect g_btn_rects[NAV_BTN_COUNT];
 static Rect g_addr_rect;
 static Rect g_action_rect;           /* stop/go/refresh button */
 static short g_action_state = ACTION_REFRESH;
+static Boolean g_action_dim = true;       /* dim when no page loaded */
 static short g_focus = FOCUS_ADDR_BAR;  /* which UI element has focus */
 static RgnHandle g_addr_clip_rgn = 0L;  /* pre-allocated clip save/restore */
 
@@ -438,7 +439,7 @@ draw_sicn_icon(Rect *r, short sicn_id, Boolean dim)
 	}
 }
 
-/* Draw the action button (stop/go/refresh) */
+/* Draw the action button (stop/refresh) */
 static void
 draw_action_button(WindowPtr win, Boolean pressed)
 {
@@ -455,11 +456,9 @@ draw_action_button(WindowPtr win, Boolean pressed)
 	case ACTION_STOP:
 		draw_sicn_icon(&r, SICN_STOP, false);
 		break;
-	case ACTION_GO:
-		draw_sicn_icon(&r, SICN_GO, false);
-		break;
 	case ACTION_REFRESH:
-		draw_sicn_icon(&r, SICN_REFRESH, false);
+		draw_sicn_icon(&r, SICN_REFRESH,
+		    g_action_dim);
 		break;
 	}
 }
@@ -468,6 +467,14 @@ void
 browser_set_action_state(short state)
 {
 	g_action_state = state;
+	/* Stop is never dimmed; refresh dims when no page loaded */
+	g_action_dim = false;
+}
+
+void
+browser_set_action_dim(Boolean dim)
+{
+	g_action_dim = dim;
 }
 
 short

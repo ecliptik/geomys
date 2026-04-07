@@ -2528,12 +2528,15 @@ update_nav_buttons(void)
 	    history_can_forward() ? BTN_ENABLED : BTN_DISABLED);
 
 	/* Update action button: stop during loading,
-	 * refresh otherwise */
+	 * refresh otherwise (dimmed if no page loaded) */
 	if (g_app_state == APP_STATE_LOADING &&
-	    g_gopher.receiving)
+	    g_gopher.receiving) {
 		browser_set_action_state(ACTION_STOP);
-	else
+	} else {
 		browser_set_action_state(ACTION_REFRESH);
+		browser_set_action_dim(
+		    g_gopher.page_type == PAGE_NONE);
+	}
 
 	GetPort(&save);
 	SetPort(g_window);
@@ -2907,15 +2910,9 @@ handle_action_button(void)
 	case ACTION_STOP:
 		do_cancel_loading();
 		break;
-	case ACTION_GO: {
-		char url[300];
-		browser_get_url(url, sizeof(url));
-		if (url[0])
-			do_navigate_url(url);
-		break;
-	}
 	case ACTION_REFRESH:
-		do_refresh();
+		if (g_gopher.page_type != PAGE_NONE)
+			do_refresh();
 		break;
 	}
 }

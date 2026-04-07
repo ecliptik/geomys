@@ -40,8 +40,7 @@ void browser_set_focus(short focus);
 
 /* Dynamic action button states (right of address bar) */
 #define ACTION_STOP       0    /* loading — click cancels */
-#define ACTION_GO         1    /* idle, URL changed — click navigates */
-#define ACTION_REFRESH    2    /* idle, URL same — click reloads */
+#define ACTION_REFRESH    2    /* idle — click reloads */
 
 /* Button states */
 #define BTN_ENABLED       0
@@ -80,6 +79,7 @@ void browser_set_button_state(short btn_id, short state);
 
 /* Action button (stop/go/refresh) */
 void browser_set_action_state(short state);
+void browser_set_action_dim(Boolean dim);
 short browser_get_action_state(void);
 
 /* Handle click in nav bar area.
