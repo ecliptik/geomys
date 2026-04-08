@@ -26,6 +26,9 @@ All notable changes to this project will be documented in this file.
 - README: "vibe coded" → "built agentically"
 
 ### Fixed
+- Text selection highlight persisting across page navigation — stale inverted highlights no longer appear on newly loaded pages
+- Clipboard window scrollbar not dimming on deactivate
+- White rendering gap after theme change with multiple windows open
 - Dialog shift on open: dialogs no longer visibly jump from resource bounds to centered position
 - Background window corruption when movable modal dialog overlaps content on System 7
 - Menu bar flash when clicking movable modal dialog title bar on System 7

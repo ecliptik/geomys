@@ -236,9 +236,11 @@ selection.
     running. Use File > New Window or Open Location
     to reopen. Choose File > Quit to exit.
 
-Font and theme changes from the Options menu apply
-to all windows. The Window menu count
-header shows how many windows are open.
+Font changes from the Options menu apply to all
+windows. Theme changes apply only to the active
+window — each window can have its own theme, and
+new windows inherit the active window's theme. The
+Window menu shows how many windows are open.
 
 
 Gopher+

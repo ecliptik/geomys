@@ -32,9 +32,9 @@ Pre-built binaries are available on the [Releases](https://codeberg.org/ecliptik
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-1.0.1.hqx) |
-| **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Lite-1.0.1.hqx) |
-| **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.0.1/Geomys-Minimal-1.0.1.hqx) |
+| **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-1.1.0.hqx) |
+| **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Lite-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Lite-1.1.0.hqx) |
+| **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Minimal-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Minimal-1.1.0.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
