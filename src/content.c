@@ -2867,6 +2867,14 @@ content_erase(WindowPtr win)
 {
 	Rect cr;
 
+#ifdef GEOMYS_CLIPBOARD
+	/* Clear selection state so stale highlights don't appear
+	 * when new page content is drawn after navigation. */
+	g_sel.active = 0;
+	g_sel.selecting = 0;
+	g_sel.word_mode = 0;
+#endif
+
 	content_get_rect(win, &cr);
 #ifdef GEOMYS_THEMES
 	if (theme_is_dark() && !theme_is_color()) {
