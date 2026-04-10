@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] — 2026-04-07
+## [Unreleased]
+
+### Fixed
+- Cross-application clipboard broken under System 6 MultiFinder: the `app4Evt` handler ignored `convertClipboardFlag`, so Geomys never called `LoadScrap`/`UnloadScrap` on suspend/resume. Text copied in Geomys never reached other apps, and text copied elsewhere was invisible to Geomys.
+
+## [1.1.0] - 2026-04-07
 
 ### Added
 - Directory menu with curated Gopher destinations (SDF, Floodgap, Circumlunar, Bitreich, HN Gopher, Veronica-2 search)
@@ -42,7 +47,7 @@ All notable changes to this project will be documented in this file.
 - Hover/cursor/status bar not updating after opening a dialog (pre-existing bug)
 - Improved contrast for TokyoNight Day and Green Screen themes
 
-## [1.0.1] — 2026-03-31
+## [1.0.1] - 2026-03-31
 
 ### Changed
 - About dialog and documentation URLs now point to Codeberg instead of GitHub
@@ -51,7 +56,7 @@ All notable changes to this project will be documented in this file.
 - Renamed "Delete" to "Remove" in Favorites dialog
 - Added "Use Current Page" button to Home Page dialog
 
-## [1.0.0] — 2026-03-30
+## [1.0.0] - 2026-03-30
 
 Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser for classic Macintosh — from the 68000-based Mac Plus running System 6.0.8 to color Mac II systems on System 7.
 
@@ -75,7 +80,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Expanded v1.0 roadmap with acceptance criteria, QA checkpoints, and known limitations
 - Documented System 6 preferences icon as known Finder limitation
 
-## [0.15.5] — 2026-03-30: P2 Follow-up Fixes
+## [0.15.5] - 2026-03-30: P2 Follow-up Fixes
 
 ### Fixed
 - **Status bar hover restore**: link hover text no longer permanently overwrites status bar — mouse leaving content area restores the previous status message (loading, download progress, or idle)
@@ -96,7 +101,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Lite preset: enabled STYLES flag (was incorrectly OFF)
 - Updated BUILD.md to match current preset feature matrix
 
-## [0.15.4] — 2026-03-28: Network Performance
+## [0.15.4] - 2026-03-28: Network Performance
 
 ### Networking
 - **Connection leak fix**: close TCP connection after Gopher `.\r\n` terminator instead of leaving it idle until next navigation
@@ -110,7 +115,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 ### Debug
 - Directory parsing diagnostic counters (`L:P:E:C:A:R`) shown in status bar on debug builds for QA automation
 
-## [0.15.3] — 2026-03-26: Code Review Cleanup
+## [0.15.3] - 2026-03-26: Code Review Cleanup
 
 ### Security
 - Limit Gopher+ score parsing to 3 digits, preventing short overflow on malicious Veronica-2 responses
@@ -132,7 +137,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Add `content_restore_port_defaults()` helper for theme/font restoration
 - Merge `content_select_next`/`prev` into `content_select_step()` (~50 lines removed)
 
-## [0.15.2] — 2026-03-26: System 7 QA
+## [0.15.2] - 2026-03-26: System 7 QA
 
 ### Fixed
 - Dark theme blank page on System 7: `CopyBits` called without resetting destination port fg/bg to black/white, causing color distortion on indexed displays (Apple TN QD13). Fixed in `offscreen_end()` and moved `theme_restore_colors()` after `offscreen_end` so the window port is restored, not the GWorld
@@ -159,7 +164,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 ### Removed
 - Balloon Help: ~600 lines of `hmnu` resources removed — consumed memory on System 7 for minimal user benefit
 
-## [0.15.1] — 2026-03-26: Code Review Remediation
+## [0.15.1] - 2026-03-26: Code Review Remediation
 
 ### Security
 - Port number validation in `gopher_parse_line()`: clamp parsed port to 0–65535 range, preventing undefined behavior from `atoi` overflow on malformed directory entries
@@ -178,7 +183,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Deduplicated Apple Event document handler logic in `main.c` into shared helper
 - Consolidated `browser.c` color restore into helper, replacing repeated foreground/background save-restore patterns
 
-## [0.15.0] — Gopher+ Protocol Suite
+## [0.15.0] - Gopher+ Protocol Suite
 
 ### Added
 - +ABSTRACT attribute parsing: `gopherplus_parse_abstract()` joins multi-line abstract text from Gopher+ servers; displayed as 3-line field in expanded Get Info dialog (DITL 143)
@@ -203,7 +208,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Gopher+ type indicators (DIR+/TXT+) shown regardless of toggle state — parsed from directory listing at zero cost, indicates server capability to users
 - Content area redrawn on Gopher+ toggle to update type labels
 
-## [0.14.0] — System 7 Polish
+## [0.14.0] - System 7 Polish
 
 ### Added
 - Stationery Aware: SIZE resource `isStationeryAware` flag enables stationery pad support — users can create Gopher URL template files that open as new documents
@@ -217,7 +222,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - SIZE resource: `notStationeryAware` → `isStationeryAware`
 - Notification Manager: `nmIcon` and `nmStr` fields populated (were previously `0L`)
 
-## [0.13.0] — Gopher+ Get Info & Prefs Icon
+## [0.13.0] - Gopher+ Get Info & Prefs Icon
 
 ### Added
 - Gopher+ Get Info dialog (Cmd+I): fetches `selector\t!` attributes from Gopher+ servers, displays item name, type, server, selector, administrator, modification date, and content views in a movable modal dialog
@@ -232,7 +237,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - File menu item numbering: Get Info inserted at position 5, Save As moved to 7, Page Setup to 9, Print to 10, Quit to 12
 - Gopher+ parsing functions (`gopherplus_parse_admin`, `gopherplus_parse_views`) now called via `gopherplus_parse_response()` during attribute fetch
 
-## [0.12.0] — Icons, Menus & Async Networking
+## [0.12.0] - Icons, Menus & Async Networking
 
 ### Added
 - CSO/ph phonebook queries (type 2): query dialog with "Look Up" button, ph/qi protocol handling, formatted response display
@@ -294,7 +299,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Extracted `restore_title_bar()` helper, deduplicating 7 title-restore-from-history call sites
 - Fixed C89 declaration ordering in `do_search_dialog` and `do_cso_dialog`
 
-## [0.11.2] — Internal: Code Review Improvements
+## [0.11.2] - Internal: Code Review Improvements
 
 ### Performance
 - Address bar clip region pre-allocated once at init instead of `NewRgn()`/`DisposeRgn()` per draw cycle
@@ -315,7 +320,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Extracted `handle_download_completed()` and `handle_image_completed()` from `handle_page_loaded()`, splitting a large function into focused handlers
 - Extracted theme row-erase helper, deduplicating background setup across draw paths
 
-## [0.11.1] — Internal: Performance, Memory & Security Hardening
+## [0.11.1] - Internal: Performance, Memory & Security Hardening
 
 ### Performance
 - Row formatting: extracted `format_row_text()` using `memcpy` for fixed prefixes instead of `snprintf`, avoiding format-string overhead on 68000
@@ -342,7 +347,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Extract `browser_begin_addr_clip()`/`browser_end_addr_clip()` helpers, deduplicating address bar text-width clipping pattern
 - Net reduction of ~63 lines through helper extraction and deduplication
 
-## [0.11.0] — Performance & Polish
+## [0.11.0] - Performance & Polish
 
 ### Added
 - `'vers'` resource for System 7 Finder Get Info display
@@ -362,7 +367,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 ### Fixed
 - Shadow buffer invalidated after selection drag to prevent stale state on next `content_draw()`
 
-## [0.10.0] — HTML Renderer & Telnet Handoff
+## [0.10.0] - HTML Renderer & Telnet Handoff
 
 ### Added
 - HTML tag-stripping renderer: single-pass streaming parser strips tags and renders as plain text (PAGE_HTML)
@@ -381,7 +386,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Type 8/T (Telnet/TN3270) replaced NoteAlert with enhanced connection info dialog
 - Status bar hover for telnet items shows "Telnet: host:port" instead of "Telnet session (not supported)"
 
-## [0.9.0] — Type Handlers & Downloads
+## [0.9.0] - Type Handlers & Downloads
 
 ### Added
 - Binary file downloads: save types 4 (BinHex), 5 (DOS binary), 6 (UUEncoded), 9 (binary), d (document) to disk via SFPutFile
@@ -426,7 +431,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Address bar I-beam cursor no longer flickers during typing
 - Lite build: download types correctly non-navigable when GEOMYS_DOWNLOAD is OFF
 
-## [0.8.0] — HIG Improvements
+## [0.8.0] - HIG Improvements
 
 ### Added
 - Watch cursor during page loads: watch cursor shown while connecting, resolving, and receiving data
@@ -451,7 +456,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Save file error messages include probable cause ("The disk may be full or locked")
 - DNS and connection errors include the hostname and suggest checking the address or network
 
-## [0.7.0] — Find in Page & Keyboard Shortcuts
+## [0.7.0] - Find in Page & Keyboard Shortcuts
 
 ### Added
 - Find in Page (Cmd-F): case-insensitive text search across directory listings and text pages
@@ -461,7 +466,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Cmd-L: focus address bar and select all text (classic Netscape "Open Location")
 - Cmd-R: refresh/reload current page
 
-## [0.6.1] — Loading Regression Fixes
+## [0.6.1] - Loading Regression Fixes
 
 ### Fixed
 - Window title bar stuck on "Loading..." after navigation failure — title now properly restored to previous page
@@ -470,7 +475,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - TCP send selector failure now properly detected and reported instead of silently hanging
 - Increased SIZE resource for multi-window color builds to prevent memory exhaustion after several navigations
 
-## [0.6.0] — System 7 Enhancements
+## [0.6.0] - System 7 Enhancements
 
 ### Added
 - NewCWindow for color systems: proper CGrafPort on Mac II+ (NewWindow fallback on B&W)
@@ -501,7 +506,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Platinum theme: lightened chrome background to match content area
 - Key repeat settings restored to system defaults on quit
 
-## [0.5.1] — System 7 Performance
+## [0.5.1] - System 7 Performance
 
 ### Added
 - DNS hostname caching for faster repeated navigation to the same server
@@ -516,7 +521,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - MultiFinder cooperation: tuned WaitNextEvent sleep times and CPU yielding during connections
 - Memory Manager initialization: MaxApplZone before Toolbox init, pre-allocated master pointers
 
-## [0.5.0] — 256-Color Themes
+## [0.5.0] - 256-Color Themes
 
 ### Added
 - 256-color support with runtime Color QuickDraw detection
@@ -536,7 +541,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Selection rendering: themed colors on Color QuickDraw systems
 - Preferences version bumped to 4 (adds theme_id field)
 
-## [0.4.0] — Horizontal Scrolling
+## [0.4.0] - Horizontal Scrolling
 
 ### Added
 - Horizontal scrollbar for content wider than the window
@@ -552,7 +557,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Width measurement parity with drawing code for Gopher+ indicators
 - CP437 character translation applied during text page width measurement
 
-## [0.3.0] — Multi-Window Browsing
+## [0.3.0] - Multi-Window Browsing
 
 ### Added
 - Multi-window browsing: open up to 4 simultaneous Gopher windows
@@ -573,7 +578,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Offscreen buffer adapts bounds per-window and resizes on window grow
 - Single-window builds (GEOMYS_MAX_WINDOWS=1) have zero multi-window overhead
 
-## [0.2.1] — Performance & Polish
+## [0.2.1] - Performance & Polish
 
 ### Changed
 - Scroll performance: line scroll uses ScrollRect to shift pixels, redraws only 1-2 rows (~15x faster)
@@ -587,7 +592,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 ### Fixed
 - Preferences document icon: corrected FREF local icon ID byte order (was `0100`, now `0001`)
 
-## [0.2.0] — Polish Pass
+## [0.2.0] - Polish Pass
 
 ### Added
 - Offscreen double buffering for flicker-free rendering (feature-flagged)
@@ -609,7 +614,7 @@ Geomys 1.0 marks the feature-complete, polished release of a full Gopher browser
 - Dynamic SIZE resource computed from enabled features
 - Cosmetic fixes: grow box drawing, text clipping, navigation button icons
 
-## [0.1.0] — MVP
+## [0.1.0] - MVP
 
 ### Added
 - Project scaffolding: directory structure (`src/`, `include/`, `resources/`, `scripts/`, `docs/`)
