@@ -9,7 +9,7 @@
 
 ## Building the Retro68 Toolchain
 
-Clone and build Retro68 (68k target only — no PowerPC or Carbon):
+Clone and build Retro68 (68k target only - no PowerPC or Carbon):
 
 ```bash
 git clone https://github.com/autc04/Retro68.git
@@ -28,8 +28,9 @@ The toolchain is expected at `Retro68-build/toolchain/` relative to the reposito
 
 This produces:
 
-- `build/Geomys.dsk` — 800K floppy disk image
-- `build/Geomys.bin` — BinHex encoded binary
+- `build/Geomys.dsk` - 800K floppy disk image
+- `build/Geomys.bin` - MacBinary encoded binary
+- `build/Geomys.hqx` - BinHex archive
 
 The full path of created disk images is printed on completion.
 
@@ -41,7 +42,7 @@ Geomys supports build presets for different configurations. The default preset i
 |--------|---------|--------|-------------|
 | `full` | 3 | 2560 KB | All features enabled (default) |
 | `lite` | 2 | 1024 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
-| `minimal` | 1 | 512 KB | Bare-bones — smallest possible binary, single window |
+| `minimal` | 1 | 512 KB | Bare-bones - smallest possible binary, single window |
 
 Select a preset:
 
@@ -63,7 +64,7 @@ The build system uses CMake feature flags to enable or disable components at com
 | `GEOMYS_STATUS_BAR` | Status bar | ON | ON | ON | ON |
 | `GEOMYS_FAVORITES` | Favorites system | ON | OFF | ON | ON |
 | `GEOMYS_COLOR` | 256-color support | ON | OFF | OFF | ON |
-| `GEOMYS_THEMES` | Theme system (9 themes) | ON | ON | ON | ON |
+| `GEOMYS_THEMES` | Theme system (14 themes) | ON | ON | ON | ON |
 | `GEOMYS_DOWNLOAD` | File downloads and image save | ON | OFF | OFF | ON |
 | `GEOMYS_GOPHER_PLUS` | Gopher+ protocol support | ON | OFF | OFF | ON |
 | `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | ON | ON |
@@ -78,8 +79,8 @@ The build system uses CMake feature flags to enable or disable components at com
 
 ### Dependencies
 
-- **CP437 requires GLYPHS** — enabling `--cp437` automatically enables `--glyphs` if it is not already on.
-- **THEMES requires OFFSCREEN** — enabling `--themes` automatically enables `--offscreen` for flicker-free redraw.
+- **CP437 requires GLYPHS** - enabling `--cp437` automatically enables `--glyphs` if it is not already on.
+- **THEMES requires OFFSCREEN** - enabling `--themes` automatically enables `--offscreen` for flicker-free redraw.
 
 ## Command-Line Flags
 
@@ -131,9 +132,9 @@ The build targets Motorola 68000 with size optimization:
 -m68000 -Os -ffunction-sections -fdata-sections -Wl,-gc-sections
 ```
 
-- `-m68000` — Target 68000 CPU (Mac Plus compatible, no 68020+ instructions)
-- `-Os` — Optimize for size
-- `-ffunction-sections -fdata-sections -Wl,-gc-sections` — Dead code elimination
+- `-m68000` - Target 68000 CPU (Mac Plus compatible, no 68020+ instructions)
+- `-Os` - Optimize for size
+- `-ffunction-sections -fdata-sections -Wl,-gc-sections` - Dead code elimination
 
 ## Clean Build
 

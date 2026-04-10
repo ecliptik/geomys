@@ -281,9 +281,9 @@ do_release() {
 
 | Edition | Description | Memory |
 |---------|-------------|--------|
-| **Geomys** | Full build — 3 windows, all features including 256-color | ~2560KB |
-| **Geomys Lite** | Recommended for Mac Plus — 2 windows, core features | ~1024KB |
-| **Geomys Minimal** | Bare-bones — 1 window, smallest binary | ~512KB |
+| **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB |
+| **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB |
+| **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB |
 
 See [BUILD.md](https://codeberg.org/$CODEBERG_REPO/src/branch/main/docs/BUILD.md) for custom build options."
 

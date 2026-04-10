@@ -1,11 +1,11 @@
 # Geomys Roadmap
 
-## v0.1.0 — MVP
+## v0.1.0 - MVP
 
 ### Phase 1: Project Scaffolding & Build System
 **Status: Complete**
 
-Directory structure, build system, and minimal running app — empty window with menu bar and About dialog.
+Directory structure, build system, and minimal running app - empty window with menu bar and About dialog.
 
 - Directory structure and CMakeLists.txt with feature flags
 - `scripts/build.sh` with preset support
@@ -31,7 +31,7 @@ TCP connectivity and RFC 1436 Gopher protocol parser. Connect to a server, parse
 ### Phase 3: Browser Chrome & Window Layout
 **Status: Complete**
 
-Full browser UI — address bar, navigation buttons, status bar, menus wired.
+Full browser UI - address bar, navigation buttons, status bar, menus wired.
 
 - Nav bar: Back/Forward/Refresh/Home buttons + address bar (TextEdit)
 - Content area with scroll bar
@@ -40,7 +40,7 @@ Full browser UI — address bar, navigation buttons, status bar, menus wired.
 - Keyboard/mouse event routing
 - Full menu enable/disable based on state
 
-### Phase 4: Content Display — Directories & Text
+### Phase 4: Content Display - Directories & Text
 **Status: Complete**
 
 Scrollable content area with clickable directory listings and plain text files.
@@ -87,7 +87,7 @@ User preferences, favorites, release packaging.
 
 ---
 
-## v0.2.0 — Polish Pass
+## v0.2.0 - Polish Pass
 
 ### Phase 8: Feature Flags & Cosmetic Fixes
 **Status: Complete**
@@ -165,7 +165,7 @@ Visual presentation options and new application icon.
 
 ---
 
-## v0.2.1 — Performance & Polish
+## v0.2.1 - Performance & Polish
 
 ### Phase 1: Scroll + Hover Performance
 **Status: Complete**
@@ -222,14 +222,14 @@ Fixed FREF local icon ID byte order for preferences document icon.
 
 ---
 
-## v0.5.0 — 256-Color Themes
+## v0.5.0 - 256-Color Themes
 
 ### Phase 1: Color Infrastructure
 **Status: Complete**
 
 Color QuickDraw detection and theme data structures.
 
-- `color_detect()` via SysEnvirons — runtime Color QD check
+- `color_detect()` via SysEnvirons - runtime Color QD check
 - `GEOMYS_COLOR` and `GEOMYS_THEMES` feature flags
 - `ThemeColors` struct with 15 color properties per theme
 
@@ -238,8 +238,8 @@ Color QuickDraw detection and theme data structures.
 
 9 built-in themes with monochrome/color awareness.
 
-- Light, Dark (monochrome — all systems including Mac Plus)
-- Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum (color — Mac II+)
+- Light, Dark (monochrome - all systems including Mac Plus)
+- Solarized Light/Dark, Tokyo Night Light/Dark, Green Screen, Classic, Platinum (color - Mac II+)
 - Theme headers compiled as const data, zero heap cost (~459 bytes)
 - Color caching to minimize RGBForeColor/RGBBackColor trap calls
 
@@ -253,7 +253,7 @@ Theme colors applied to content rendering pipeline.
 - Monochrome dark mode via srcBic/PaintRect (flicker-free white-on-black)
 - Color rendering via RGBForeColor/RGBBackColor on Color QuickDraw systems
 - Selection rendering: themed sel_bg/sel_fg on color, InvertRect on mono
-- Offscreen buffer skipped on color systems (Phase 1 — direct drawing)
+- Offscreen buffer skipped on color systems (Phase 1 - direct drawing)
 
 ### Phase 4: UI Integration
 **Status: Complete**
@@ -307,7 +307,7 @@ Clipboard support for content area and address bar. Edit menu wired to focus con
 
 ---
 
-## v0.9.0 — Type Handlers
+## v0.9.0 - Type Handlers
 
 ### Phase 1: Binary File Downloads
 **Status: Complete**
@@ -376,7 +376,7 @@ Download progress dialog, visual metadata, navigation improvements.
 
 ---
 
-## v0.10.0 — HTML Renderer & Telnet Handoff
+## v0.10.0 - HTML Renderer & Telnet Handoff
 
 ### Phase 1: HTML Tag-Stripping Renderer
 **Status: Complete**
@@ -409,7 +409,7 @@ Enhanced telnet connection dialog replacing NoteAlert for type 8/T items, with S
 
 ---
 
-## v0.11.0 — Performance & Polish
+## v0.11.0 - Performance & Polish
 
 ### Phase 1: Selection Drag Flash Optimization
 **Status: Complete**
@@ -454,7 +454,7 @@ System 7-specific improvements for better Finder integration and Apple Events su
 
 ---
 
-## v0.12.0 — Icons, Menus & Async Networking
+## v0.12.0 - Icons, Menus & Async Networking
 
 ### Phase 1: CSO Phonebook Support
 **Status: Complete**
@@ -530,7 +530,7 @@ Non-blocking TCP connections keep the UI responsive during handshakes. Multi-ent
 
 ---
 
-## v0.13.0 — Gopher+ Get Info & Prefs Icon
+## v0.13.0 - Gopher+ Get Info & Prefs Icon
 
 ### Phase 1: Preferences Document Color Icons
 **Status: Complete**
@@ -560,7 +560,7 @@ Full Gopher+ attribute fetch and display for items on Gopher+ servers.
 
 ---
 
-## v0.14.0 — System 7 Polish
+## v0.14.0 - System 7 Polish
 
 ### Phase 1: Stationery & Notifications
 **Status: Complete**
@@ -585,8 +585,8 @@ Scriptable vocabulary for automation on System 7+.
 
 URL drag-and-drop via Drag Manager on System 7.5+.
 
-- Drag OUT: drag a link from content area to Desktop or other apps — creates text clipping with `TEXT` flavor
-- Drag IN: drop a text clipping or URL into any Geomys window — navigates if `gopher://` prefix detected
+- Drag OUT: drag a link from content area to Desktop or other apps - creates text clipping with `TEXT` flavor
+- Drag IN: drop a text clipping or URL into any Geomys window - navigates if `gopher://` prefix detected
 - Gestalt-gated via `gestaltDragMgrAttr`; no-op on System 6/7.0–7.1
 - New files: `src/drag.c`, `src/drag.h`
 - Feature flag: `GEOMYS_DRAG` with conditional compilation
@@ -595,7 +595,7 @@ URL drag-and-drop via Drag Manager on System 7.5+.
 
 ---
 
-## v0.15.0 — Gopher+ Protocol Suite
+## v0.15.0 - Gopher+ Protocol Suite
 
 ### Phase 1: +ABSTRACT Attribute
 **Status: Complete**
@@ -653,12 +653,12 @@ Interactive Gopher+ forms with programmatic dialog generation.
 - Password field masking for AskP items
 - Form response submission as tab-delimited POST body
 - Maximum 8 fields per form
-- Heap-allocated form struct (never stack — 68000 stack budget)
+- Heap-allocated form struct (never stack - 68000 stack budget)
 - Guarded by `GEOMYS_GOPHER_PLUS` feature flag
 
 ---
 
-## v0.15.1 — Code Review Remediation
+## v0.15.1 - Code Review Remediation
 **Status: Complete**
 
 Security, performance, memory, and code quality improvements from code review.
@@ -673,7 +673,7 @@ Security, performance, memory, and code quality improvements from code review.
 
 ---
 
-## v0.15.2 — System 7 QA & Network Performance
+## v0.15.2 - System 7 QA & Network Performance
 **Status: Complete**
 
 System 7 QA with 256-color testing, network performance fixes, and multi-window reliability.
@@ -689,7 +689,7 @@ System 7 QA with 256-color testing, network performance fixes, and multi-window 
 - Bracket glyph clipping fix
 - SIZE resource raised for non-color builds
 
-## v0.15.5 — P2 Follow-up Fixes
+## v0.15.5 - P2 Follow-up Fixes
 **Status: Complete**
 
 P2 bug fixes from QA smoke testing.
@@ -707,7 +707,7 @@ P2 bug fixes from QA smoke testing.
 
 ---
 
-## v1.0.0 — Release
+## v1.0.0 - Release
 **Status: Complete**
 
 Polish pass, QA, and final release.
@@ -722,11 +722,11 @@ Polish pass, QA, and final release.
 
 All phases completed with P0=0, P1=0:
 
-- [x] Phase 1: Minimal on System 6 — core browsing, navigation, themes
-- [x] Phase 2: Lite on System 6 — multi-window, favorites, CP437, HTML
-- [x] Phase 3: Full on System 6 — cache, Gopher+, downloads, print
-- [x] Phase 4: Full on System 7 — 256-color, GWorld, multi-window
-- [x] Phase 5: Lite on System 7 — monochrome on color display
+- [x] Phase 1: Minimal on System 6 - core browsing, navigation, themes
+- [x] Phase 2: Lite on System 6 - multi-window, favorites, CP437, HTML
+- [x] Phase 3: Full on System 6 - cache, Gopher+, downloads, print
+- [x] Phase 4: Full on System 7 - 256-color, GWorld, multi-window
+- [x] Phase 5: Lite on System 7 - monochrome on color display
 - [x] Final smoke test: Full on System 7 (Basilisk II)
 
 ### Known Limitations (Deferred to v2.0)

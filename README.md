@@ -32,9 +32,9 @@ Pre-built binaries are available on the [Releases](https://codeberg.org/ecliptik
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-1.1.0.hqx) |
-| **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Lite-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Lite-1.1.0.hqx) |
-| **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Minimal-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Minimal-1.1.0.hqx) |
+| **Geomys** | All features - 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-1.1.0.hqx) |
+| **Geomys Lite** | Core browsing - 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Lite-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Lite-1.1.0.hqx) |
+| **Geomys Minimal** | Only essentials - 1 window, smallest footprint | ~512KB | [.dsk](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Minimal-1.1.0.dsk) · [.hqx](https://codeberg.org/ecliptik/geomys/releases/download/v1.1.0/Geomys-Minimal-1.1.0.hqx) |
 
 Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archive). See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
@@ -47,7 +47,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 ## Features
 
 **Protocol**
-- [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) / [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) — all 19 Gopher item types with [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) support
+- [RFC 1436](https://datatracker.ietf.org/doc/html/rfc1436) / [RFC 4266](https://datatracker.ietf.org/doc/html/rfc4266) - all 19 Gopher item types with [Gopher+](https://en.wikipedia.org/wiki/Gopher%2B) support
 - Binary file downloads with progress dialog
 - HTML rendering, CSO/ph queries, search dialogs, telnet handoff
 - Content negotiation, interactive forms, search scoring (Gopher+)
@@ -100,7 +100,7 @@ Each edition is available as `.dsk` (800K floppy image) and `.hqx` (BinHex archi
 
 ## Themes
 
-Geomys ships with 14 built-in themes selectable from Options > Theme. Each window can have its own theme — changing the theme applies only to the active window, and new windows inherit the active window's theme.
+Geomys ships with 14 built-in themes selectable from Options > Theme. Each window can have its own theme - changing the theme applies only to the active window, and new windows inherit the active window's theme.
 
 | Theme | Type | Description |
 |-------|------|-------------|
@@ -186,10 +186,10 @@ Large Gopher directories (1000+ items) use significant memory (~300KB per direct
 - **[Claude Code](https://claude.ai/code)** by [Anthropic](https://www.anthropic.com/)
 - **[Retro68](https://github.com/autc04/Retro68)** by Wolfgang Thaller
 - **[Snow](https://snowemu.com/)** emulator
-- **[wallops](https://github.com/jcs/wallops)** by joshua stein — MacTCP wrapper (`tcp.c`/`tcp.h`), DNS resolution (`dns.c`/`dns.h`), and utility functions. ISC license.
-- **[subtext](https://github.com/jcs/subtext)** by joshua stein — Additional utility and networking code. ISC license.
-- **[Flynn](https://codeberg.org/ecliptik/flynn)** — Sibling Telnet client project and architectural reference. ISC license.
-- **University of Illinois Board of Trustees** — TCP networking code (`tcp.c`, 1990-1992)
+- **[wallops](https://github.com/jcs/wallops)** by joshua stein - MacTCP wrapper (`tcp.c`/`tcp.h`), DNS resolution (`dns.c`/`dns.h`), and utility functions. ISC license.
+- **[subtext](https://github.com/jcs/subtext)** by joshua stein - Additional utility and networking code. ISC license.
+- **[Flynn](https://codeberg.org/ecliptik/flynn)** - Sibling Telnet client project and architectural reference. ISC license.
+- **University of Illinois Board of Trustees** - TCP networking code (`tcp.c`, 1990-1992)
 
 ## License
 

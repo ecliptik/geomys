@@ -4,12 +4,12 @@ This guide covers the Geomys theme system: how themes work, how to create custom
 
 ## Overview
 
-Geomys uses a compile-time theme system. Each theme is a static `ThemeColors` struct defined in a header file under `src/themes/`. Themes are compiled into the binary — there is no runtime theme loading. This keeps memory usage minimal and avoids heap allocation for theme data.
+Geomys uses a compile-time theme system. Each theme is a static `ThemeColors` struct defined in a header file under `src/themes/`. Themes are compiled into the binary - there is no runtime theme loading. This keeps memory usage minimal and avoids heap allocation for theme data.
 
 Two categories of themes exist:
 
-- **Mono themes** (Light, Dark) — work on all systems, including the Mac Plus. These use only black and white values; color fields are present but ignored on monochrome hardware.
-- **Color themes** (Solarized, Tokyo Night, Amber CRT, System 7, Dracula, Nord, Green Screen, Classic, Monokai, Gruvbox) — require a Mac II or later with Color QuickDraw. Detected at runtime via `SysEnvirons()`. Color themes are only compiled when `GEOMYS_COLOR=ON`.
+- **Mono themes** (Light, Dark) - work on all systems, including the Mac Plus. These use only black and white values; color fields are present but ignored on monochrome hardware.
+- **Color themes** (Solarized, Tokyo Night, Amber CRT, System 7, Dracula, Nord, Green Screen, Classic, Monokai, Gruvbox) - require a Mac II or later with Color QuickDraw. Detected at runtime via `SysEnvirons()`. Color themes are only compiled when `GEOMYS_COLOR=ON`.
 
 ## Built-in Themes
 
@@ -26,7 +26,7 @@ Two categories of themes exist:
 | Dracula | Color | Dark purple-accented palette. |
 | Nord | Color | Arctic blue-tinted palette. |
 | Green Screen | Color | Phosphor green on black, classic CRT terminal aesthetic. |
-| Classic | Color | 1990s web browser colors — blue links, purple visited, gray background. |
+| Classic | Color | 1990s web browser colors - blue links, purple visited, gray background. |
 | Monokai | Color | Dark warm palette with vivid accents. |
 | Gruvbox | Color | Retro earthy palette with warm accents. |
 
@@ -81,7 +81,7 @@ typedef struct {
 | `is_color` | Set to `1` for themes that need Color QuickDraw. Set to `0` for mono-safe themes. |
 | `is_dark` | Set to `1` for dark backgrounds. Controls mono fallback rendering mode (`srcBic`). |
 
-**Content area** — these colors appear in the page content region:
+**Content area** - these colors appear in the page content region:
 | Field | Used for |
 |-------|----------|
 | `bg` | Background fill for the content area |
@@ -147,7 +147,7 @@ static const ThemeColors theme_my_theme = {
 
 Three files need changes to register a new theme.
 
-**`src/theme.h`** — add a theme index constant and update the count:
+**`src/theme.h`** - add a theme index constant and update the count:
 
 ```c
 /* Add after the last existing theme index */
@@ -159,7 +159,7 @@ Three files need changes to register a new theme.
 
 Theme indices must be sequential starting from 0. Mono themes occupy indices 0-1; color themes follow.
 
-**`src/theme.c`** — include the header and add to the theme table:
+**`src/theme.c`** - include the header and add to the theme table:
 
 ```c
 /* Add with the other color theme includes */
@@ -182,7 +182,7 @@ static const ThemeColors *theme_table[] = {
 
 The order in `theme_table[]` must match the `#define` indices.
 
-**`resources/geomys.r`** — add the menu item to the Theme menu (MENU 137):
+**`resources/geomys.r`** - add the menu item to the Theme menu (MENU 137):
 
 ```rez
 resource 'MENU' (137, "Theme") {
@@ -220,7 +220,7 @@ The theme will appear in Options > Theme. On monochrome systems, color themes ar
 
 ### Color Contrast
 
-Ensure sufficient contrast between text/link colors and the background. Gopher content is text-heavy — readability is the primary concern. Test with both directory listings and long text pages.
+Ensure sufficient contrast between text/link colors and the background. Gopher content is text-heavy - readability is the primary concern. Test with both directory listings and long text pages.
 
 ### Dark Themes
 
@@ -230,17 +230,17 @@ Set `is_dark = 1` for dark-background themes. This flag controls:
 
 ### Hover and Selection
 
-- `hover_bg` should be subtle — a slight shift from `bg`, not a bold color. Users hover constantly while browsing.
+- `hover_bg` should be subtle - a slight shift from `bg`, not a bold color. Users hover constantly while browsing.
 - `sel_bg` and `sel_fg` should have high contrast with each other. The selection is temporary but must be clearly visible.
 
 ### Link Differentiation
 
 Gopher has distinct item types that benefit from color differentiation:
-- **`link`** (directories, text) — the most common navigable type; make it prominent.
-- **`link_search`** — search items should stand out since they trigger a query dialog.
-- **`link_error`** — use a warm/red tone to signal errors visually.
-- **`link_download`** — downloads and images; a distinct color helps users identify binary content.
-- **`link_external`** — telnet/HTML items that leave the Gopher browser; consider a muted or secondary color.
+- **`link`** (directories, text) - the most common navigable type; make it prominent.
+- **`link_search`** - search items should stand out since they trigger a query dialog.
+- **`link_error`** - use a warm/red tone to signal errors visually.
+- **`link_download`** - downloads and images; a distinct color helps users identify binary content.
+- **`link_external`** - telnet/HTML items that leave the Gopher browser; consider a muted or secondary color.
 
 ### 256-Color Palette
 
