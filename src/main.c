@@ -1266,15 +1266,28 @@ main_event_loop(void)
 			break;
 		case app4Evt:
 			if (HiWord(event.message) & (1 << 8)) {
+				/* MultiFinder suspend/resume.
+				 * Bit 1 (convertClipboardFlag) tells us
+				 * to sync the desk scrap with the on-disk
+				 * scrap file so clipboard data passes
+				 * between apps. */
+				Boolean convert_clip =
+				    (event.message & (1 << 1)) != 0;
 				if (event.message & 1) {
 					/* Resume */
 					g_suspended = false;
+					if (convert_clip) {
+						LoadScrap();
+					}
 					if (g_nm_posted) {
 						NMRemove(&g_nm_rec);
 						g_nm_posted = false;
 					}
 				} else {
 					g_suspended = true;
+					if (convert_clip) {
+						UnloadScrap();
+					}
 				}
 			}
 			break;
