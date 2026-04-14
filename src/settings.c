@@ -47,7 +47,7 @@ prefs_defaults(GeomysPrefs *prefs)
 	prefs->font_id = 4;    /* Monaco */
 	prefs->font_size = 9;
 	prefs->favorite_count = 0;
-	prefs->page_style = STYLE_TEXT;
+	prefs->page_style = STYLE_TURBOGOPHER;
 	prefs->show_details = 1;
 	prefs->theme_id = 0;  /* THEME_LIGHT */
 	prefs->show_status_bar = 1;  /* visible by default */
@@ -112,18 +112,35 @@ prefs_load(GeomysPrefs *prefs)
 	if (prefs->version != PREFS_VERSION) {
 		/* v5 -> v6: page styles changed from 3 to 2 */
 		if (prefs->version == 5) {
-			if (prefs->page_style > STYLE_ICONS)
-				prefs->page_style = STYLE_TEXT;
+			if (prefs->page_style > 1)
+				prefs->page_style = 0;
 			prefs->version = 6;
 		}
 		/* v6 -> v7: added gopher_plus toggle */
 		if (prefs->version == 6) {
 			prefs->gopher_plus = 0;
+			prefs->version = 7;
+		}
+		/* v7 -> v8: page_style renumbered for 5 historical-client
+		 * styles. Old 0 (text labels) maps to PC Gopher II (closest
+		 * label-style peer); old 1 (icons) maps to TurboGopher. */
+		if (prefs->version == 7) {
+			if (prefs->page_style == 0)
+				prefs->page_style = STYLE_PCGOPHER;
+			else if (prefs->page_style == 1)
+				prefs->page_style = STYLE_TURBOGOPHER;
+			else
+				prefs->page_style = STYLE_TURBOGOPHER;
 			prefs->version = PREFS_VERSION;
 		}
 		if (prefs->version != PREFS_VERSION)
 			prefs_defaults(prefs);
 	}
+
+	/* Defensive clamp on anything out of range after migrations. */
+	if (prefs->page_style < STYLE_TURBOGOPHER ||
+	    prefs->page_style > STYLE_RFC1436)
+		prefs->page_style = STYLE_TURBOGOPHER;
 }
 
 void

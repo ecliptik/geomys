@@ -5,12 +5,15 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define PREFS_VERSION    7
+#define PREFS_VERSION    8
 #define MAX_FAVORITES    20
 
-/* Page display styles */
-#define STYLE_TEXT   0  /* Text labels: DIR, TXT, ?, etc. */
-#define STYLE_ICONS  1  /* Bitmap icons per Gopher type */
+/* Page display styles — each mimics a classic Gopher client convention. */
+#define STYLE_TURBOGOPHER  1  /* Mac icons (folder, doc, ?, computer, etc.) */
+#define STYLE_UMN_CURSES   2  /* UMN curses: "name/" dirs, trailing <Bin>/<TEL>/etc. */
+#define STYLE_XGOPHER      3  /* xgopher 1.3: "»" dirs, lowercase <bin>/<cso> prefixes */
+#define STYLE_PCGOPHER     4  /* PC Gopher II: <F>/<D>/<S>/<P>/<T> brackets */
+#define STYLE_RFC1436      5  /* Raw RFC 1436 type character: <0>, <1>, <9> */
 
 typedef struct {
 	char    name[64];
@@ -26,7 +29,7 @@ typedef struct {
 	short           favorite_count;
 	GopherFavorite  favorites[MAX_FAVORITES];
 	/* --- v2 fields below --- */
-	short           page_style;     /* STYLE_TEXT/STYLE_ICONS */
+	short           page_style;     /* STYLE_TURBOGOPHER..STYLE_RFC1436 */
 	short           show_details;   /* 1 = show metadata columns, 0 = names only */
 	/* --- v4 field: theme index (0=Light) --- */
 	short           theme_id;

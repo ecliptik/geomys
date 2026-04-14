@@ -90,12 +90,15 @@ deploy_basilisk() {
 
 # Launch Snow
 launch_snow() {
-    if [ -z "$DISPLAY" ]; then
-        export DISPLAY=:0
-    fi
+    # Force the local X server. An inherited DISPLAY like "localhost:10.0"
+    # from SSH forwarding will fail Snow's X client lookup.
+    export DISPLAY=:0
     echo "Launching Snow..."
-    "$SNOW_BIN" "$SNOW_CFG" &
-    echo "Snow running (PID $!)."
+    # Redirect Snow's stdio so the backgrounded process doesn't keep
+    # caller pipes open (e.g. `deploy.sh ... | tail`). Without this,
+    # tail/cat-like readers hang forever waiting for EOF.
+    "$SNOW_BIN" "$SNOW_CFG" > /tmp/snow.log 2>&1 &
+    echo "Snow running (PID $!). Output: /tmp/snow.log"
 }
 
 # Main

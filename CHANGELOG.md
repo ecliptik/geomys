@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Options > Page Style expanded from two modes (Text, Icons) to five historical-client presentations: TurboGopher (Mac icons, default), UMN Curses (emulates the Debian `gopher` reference client: `[N]` row-number prefix, directories end with `/`, verbose bracket tags `<Bin>`/`<HQX>`/`<Picture>`/`<TEL>`/`<HTML>`/`<)`/`<?>` appended after the name, text and info render bare with aligned indent), Xgopher (emulates Allan Tuchman's xgopher 1.3 for X11: `»` directory prefix, lowercase bracket tags `<bin>`/`<cso>`/`<tel>`/`<tn3>`/`<idx>`/`<img>`/`<snd>` etc. in a fixed 6-char column, text bare), PC Gopher II (fixed-width `<F>`/`<D>`/`<S>`/`<P>`/`<T>` brackets extended to cover modern types with `<B>`/`<I>`/`<H>`/`<M>`), and RFC 1436 (raw protocol type character in `<X>` for every row — useful for debugging and protocol inspection). Existing users upgrading from v1.1.0 migrate to PC Gopher II (closest to the old "Text" style) or TurboGopher (for the old "Icons" style).
+
 ### Fixed
 - Cross-application clipboard broken under System 6 MultiFinder: the `app4Evt` handler ignored `convertClipboardFlag`, so Geomys never called `LoadScrap`/`UnloadScrap` on suspend/resume. Text copied in Geomys never reached other apps, and text copied elsewhere was invisible to Geomys.
 

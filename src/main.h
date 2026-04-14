@@ -121,9 +121,14 @@
 #define SIZE_12             3
 #define SIZE_14             4
 
-/* Page Style submenu items */
-#define STYLE_ITEM_TEXT   1
-#define STYLE_ITEM_ICONS  2
+/* Page Style submenu items (1-based; must match MENU 136 in geomys.r
+ * and the STYLE_* values in settings.h) */
+#define STYLE_ITEM_TURBOGOPHER  1
+#define STYLE_ITEM_UMN_CURSES   2
+#define STYLE_ITEM_XGOPHER      3
+#define STYLE_ITEM_PCGOPHER     4
+#define STYLE_ITEM_RFC1436      5
+#define STYLE_ITEM_COUNT        5
 
 /* Theme submenu items */
 #define THEME_ITEM_LIGHT           1

@@ -135,8 +135,11 @@ resource 'MENU' (138, "Size") {
 resource 'MENU' (136, "Page Style") {
 	136, textMenuProc, allEnabled, enabled, "Page Style",
 	{
-		"Text", noIcon, noKey, noMark, plain;
-		"Icons", noIcon, noKey, noMark, plain
+		"TurboGopher", noIcon, noKey, noMark, plain;
+		"UMN Curses", noIcon, noKey, noMark, plain;
+		"Xgopher", noIcon, noKey, noMark, plain;
+		"PC Gopher II", noIcon, noKey, noMark, plain;
+		"RFC 1436", noIcon, noKey, noMark, plain
 	}
 };
 

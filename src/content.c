@@ -539,27 +539,132 @@ draw_selection_rect(Rect *inv_r, short row_index,
 #endif /* GEOMYS_CLIPBOARD */
 
 /*
+ * Style tag lookups. Each returns a string suitable for insertion as the
+ * row's type prefix/suffix, modeled after a historical Gopher client.
+ */
+
+/* UMN curses client tag dictionary — verbatim from the gopher(1)
+ * manpage. Tags are appended AFTER the display name in the authentic
+ * style (directories use a trailing "/" instead of a bracket). Text
+ * and info render bare — classic Unix "plain files need no tag". */
+static const char *
+umn_tag(char type)
+{
+	switch (type) {
+	case GOPHER_CSO:       return "<CSO>";
+	case GOPHER_BINHEX:    return "<HQX>";
+	case GOPHER_DOS:       return "<PC Bin>";
+	case GOPHER_UUENCODE:  return "<UU>";
+	case GOPHER_SEARCH:    return "<?>";
+	case GOPHER_TELNET:    return "<TEL>";
+	case GOPHER_BINARY:    return "<Bin>";
+	case GOPHER_TN3270:    return "<3270>";
+	case GOPHER_GIF:
+	case GOPHER_IMAGE:
+	case GOPHER_PNG:       return "<Picture>";
+	case GOPHER_DOC:
+	case GOPHER_RTF:       return "<MIME>";
+	case GOPHER_HTML:      return "<HTML>";
+	case GOPHER_SOUND:     return "<)";
+	default:               return 0L;
+	}
+}
+
+/* Xgopher 1.3 prefix dictionary — from xgopher.1.3/conf.h (Allan
+ * Tuchman, UIUC). All prefixes are exactly 6 chars so the name column
+ * stays aligned. Built-in types use xgopher's own tags; extended
+ * types (BinHex, DOS, UU, HTML, DOC, RTF, PNG, MIME) use the same
+ * 3-char lowercase pattern. */
+static const char *
+xgopher_prefix(char type)
+{
+	switch (type) {
+	case GOPHER_TEXT:      return "      ";  /* 6 spaces, bare */
+	case GOPHER_DIRECTORY: return "\xC8     ";  /* » + 5 spaces */
+	case GOPHER_CSO:       return "<cso> ";
+	case GOPHER_SEARCH:    return "<idx> ";
+	case GOPHER_TELNET:    return "<tel> ";
+	case GOPHER_TN3270:    return "<tn3> ";
+	case GOPHER_BINARY:    return "<bin> ";
+	case GOPHER_IMAGE:
+	case GOPHER_GIF:
+	case GOPHER_PNG:       return "<img> ";
+	case GOPHER_SOUND:     return "<snd> ";
+	/* Extended types — follow the same 3-char lowercase pattern. */
+	case GOPHER_BINHEX:    return "<hqx> ";
+	case GOPHER_DOS:       return "<dos> ";
+	case GOPHER_UUENCODE:  return "<uue> ";
+	case GOPHER_HTML:      return "<htm> ";
+	case GOPHER_DOC:       return "<doc> ";
+	case GOPHER_RTF:       return "<rtf> ";
+	case GOPHER_ERROR:
+	default:               return "< ? > ";
+	}
+}
+
+/* PC Gopher II v1.05 single-char brackets. v1.05 only defined
+ * <F> <D> <S> <P> <T>; the rest are extrapolated in the same style
+ * so modern Gopherspace is legible (<B> bin, <I> image, etc.). */
+static char
+pcgopher_tag_char(char type)
+{
+	switch (type) {
+	case GOPHER_TEXT:       return 'F';
+	case GOPHER_DIRECTORY:  return 'D';
+	case GOPHER_CSO:        return 'P';
+	case GOPHER_ERROR:      return '!';
+	case GOPHER_BINHEX:
+	case GOPHER_DOS:
+	case GOPHER_UUENCODE:
+	case GOPHER_BINARY:     return 'B';
+	case GOPHER_SEARCH:     return 'S';
+	case GOPHER_TELNET:
+	case GOPHER_TN3270:     return 'T';
+	case GOPHER_GIF:
+	case GOPHER_IMAGE:
+	case GOPHER_PNG:        return 'I';
+	case GOPHER_HTML:       return 'H';
+	case GOPHER_SOUND:      return 'M';
+	case GOPHER_DOC:
+	case GOPHER_RTF:        return 'F';
+	default:                return '?';
+	}
+}
+
+/*
  * format_row_text - Build formatted row string for a directory item.
- * Produces the same output as the old snprintf patterns:
- *   "      %.*s"  (icons style or info items)
- *   " DIR  %.*s"  (text style, normal)
- *   " DIR+ %.*s"  (text style, Gopher+)
- *   " <DL> %.*s"  (text style, download)
- *   " <DL+> %.*s" (text style, download with Gopher+)
- * Uses memcpy for the fixed prefixes — avoids snprintf overhead on 68000.
- * Returns length of text placed in buf.
- * If out_split is non-NULL, stores the split position in display text
- * (first double-space separator), or -1 if none found.
+ *
+ * Produces a style-appropriate prefix, the item's display name, and a
+ * style-appropriate suffix. Five styles are supported, each mimicking a
+ * classic Gopher client convention:
+ *
+ *   TurboGopher  — 3-space indent; icon drawn separately by caller
+ *   UMN Curses   — "[N]  name" line-numbered rows, dirs get "/",
+ *                  other types get trailing " <Tag>"
+ *   Xgopher      — xgopher 1.3 emulation: "» " dirs, lowercase
+ *                  <bin>/<cso>/<tel>/<img>/<snd> bracket prefixes
+ *   PC Gopher II — fixed "<X> " prefix (single-char bracket)
+ *   RFC 1436     — raw RFC 1436 type char in "<X> " prefix
+ *
+ * out_split: if non-NULL, receives the name/metadata split position.
+ * out_label_len: if non-NULL, receives the byte count at the start of
+ *   the output that should be rendered in label color (the type tag
+ *   itself, excluding padding). 0 means no label-colored portion.
+ * row_num: 1-based row number for UMN Curses "[N]" prefix. 0 means
+ *   no number; used by callers that don't have row context.
+ * Uses memcpy for prefixes — avoids snprintf overhead on 68000.
  */
 static short
 format_row_text(GopherItem *item, short page_style, char *buf,
-    short bufsiz, short *out_split)
+    short bufsiz, short *out_split, short *out_label_len,
+    short row_num)
 {
 	const char *disp = item->display;
 	short dlen = strlen(disp);
 	short split_pos = -1;
-	short name_len, li, pos, lbl_len, avail;
-	const char *label;
+	short name_len, li, pos, avail;
+	short label_len = 0;
+	Boolean is_info = (item->type == GOPHER_INFO);
 #ifdef GEOMYS_GOPHER_PLUS
 	extern GeomysPrefs g_prefs;
 #endif
@@ -567,7 +672,7 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 	/* Find split point: first run of 2+ spaces separates
 	 * name from metadata (skip info lines — plain text may
 	 * have natural double spaces e.g. after periods) */
-	if (item->type != GOPHER_INFO) {
+	if (!is_info) {
 		for (li = 1; li < dlen - 1; li++) {
 			if (disp[li] == ' ' &&
 			    disp[li + 1] == ' ') {
@@ -582,30 +687,47 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 
 	name_len = (split_pos > 0) ? split_pos : dlen;
 
-	if (bufsiz <= 0)
+	if (bufsiz <= 0) {
+		if (out_label_len)
+			*out_label_len = 0;
 		return 0;
+	}
 
 	pos = 0;
 
-	if (page_style == STYLE_ICONS ||
-	    item->type == GOPHER_INFO) {
-		/* "      %.*s" — 6 spaces + name */
-		if (pos + 6 < bufsiz) {
-			memcpy(buf + pos, "      ", 6);
-			pos += 6;
+	/* Info lines render bare in most styles. RFC 1436 wraps the
+	 * "i" character for every row (protocol inspection) and UMN
+	 * Curses needs to indent info rows to align with the numbered
+	 * rows' name column, so both fall through to the switch. */
+	if (is_info && page_style != STYLE_UMN_CURSES &&
+	    page_style != STYLE_RFC1436) {
+		short indent;
+
+		if (page_style == STYLE_TURBOGOPHER)
+			indent = 3;
+		else
+			indent = 4;
+
+		if (pos + indent < bufsiz) {
+			memcpy(buf + pos, "      ", indent);
+			pos += indent;
 		}
 	} else {
 #ifdef GEOMYS_GOPHER_PLUS
-		/* Score prefix for search results: [NNN] */
+		/* Score prefix for search results: "[NNN] ".
+		 * Skip in TurboGopher (the icon is drawn at column 0 and
+		 * would overlap) and Xgopher (fixed 6-char prefix column
+		 * has no room). */
 		if (g_prefs.gopher_plus && g_page &&
 		    g_page->cur_type == GOPHER_SEARCH &&
 		    item->score >= 0 &&
+		    page_style != STYLE_TURBOGOPHER &&
+		    page_style != STYLE_XGOPHER &&
+		    page_style != STYLE_UMN_CURSES &&
 		    pos + 6 < bufsiz) {
 			short sv = item->score;
 
 			if (sv > 100) sv = 100;
-			/* Right-align in 3-char bracket:
-			 * [  3], [ 85], [100] */
 			buf[pos++] = '[';
 			if (sv >= 100)
 				buf[pos++] = '0' + sv / 100;
@@ -620,88 +742,119 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 			buf[pos++] = ']';
 		}
 #endif
-		label = gopher_type_label(item->type);
-		lbl_len = strlen(label);
 
-		if (gopher_type_is_download(item->type)) {
-#ifdef GEOMYS_GOPHER_PLUS
-			if (item->has_plus) {
-				/* " <%s+> %.*s" */
-				if (pos + 2 < bufsiz) {
-					buf[pos++] = ' ';
-					buf[pos++] = '<';
-				}
-				avail = bufsiz - pos - 4;
-				if (lbl_len > avail)
-					lbl_len = avail;
-				if (lbl_len > 0) {
-					memcpy(buf + pos, label,
-					    lbl_len);
-					pos += lbl_len;
-				}
-				if (pos + 3 < bufsiz) {
-					buf[pos++] = '+';
-					buf[pos++] = '>';
-					buf[pos++] = ' ';
-				}
-			} else
-#endif
-			{
-				/* " <%s> %.*s" */
-				if (pos + 2 < bufsiz) {
-					buf[pos++] = ' ';
-					buf[pos++] = '<';
-				}
-				avail = bufsiz - pos - 3;
-				if (lbl_len > avail)
-					lbl_len = avail;
-				if (lbl_len > 0) {
-					memcpy(buf + pos, label,
-					    lbl_len);
-					pos += lbl_len;
-				}
-				if (pos + 2 < bufsiz) {
-					buf[pos++] = '>';
-					buf[pos++] = ' ';
-				}
+		switch (page_style) {
+		case STYLE_TURBOGOPHER:
+			/* 3-space text indent; icon drawn by caller.
+			 * Fits the 11-px small-font and 16-px large-font
+			 * icons with one pixel-column of space before
+			 * the name — matches TurboGopher's tight pairing. */
+			if (pos + 3 < bufsiz) {
+				memcpy(buf + pos, "   ", 3);
+				pos += 3;
 			}
-		} else {
-#ifdef GEOMYS_GOPHER_PLUS
-			if (item->has_plus) {
-				/* " %s+ %.*s" */
-				if (pos + 1 < bufsiz)
+			break;
+
+		case STYLE_UMN_CURSES:
+			/* UMN curses emulation: "[N]" bracket prefix using
+			 * the row's absolute 1-based position in the menu,
+			 * then the name, then "/" or " <Tag>" suffix below.
+			 * 1- and 2-digit numbers share a 5-char field for
+			 * alignment; 3+ digit numbers expand the field by 1
+			 * each (always ≥1 trailing space). Info rows get a
+			 * 5-space indent so their text aligns with names. */
+			if (row_num > 0 && pos + 7 < bufsiz) {
+				short n = row_num;
+				short nd;
+				short field_w;
+				short tail;
+
+				if (n >= 1000) nd = 4;
+				else if (n >= 100) nd = 3;
+				else if (n >= 10) nd = 2;
+				else nd = 1;
+
+				buf[pos++] = '[';
+				if (nd >= 4)
+					buf[pos++] = '0' + (n / 1000);
+				if (nd >= 3)
+					buf[pos++] = '0' + ((n / 100) % 10);
+				if (nd >= 2)
+					buf[pos++] = '0' + ((n / 10) % 10);
+				buf[pos++] = '0' + (n % 10);
+				buf[pos++] = ']';
+				label_len = nd + 2;  /* "[N..N]" */
+
+				/* Field width: 5 for 1-2 digits, then
+				 * nd+2+1 for 3+ digits (min 1 trailing). */
+				field_w = (nd <= 2) ? 5 : (nd + 3);
+				tail = field_w - (nd + 2);
+				while (tail-- > 0 &&
+				    pos + 1 < bufsiz)
 					buf[pos++] = ' ';
-				avail = bufsiz - pos - 3;
-				if (lbl_len > avail)
-					lbl_len = avail;
-				if (lbl_len > 0) {
-					memcpy(buf + pos, label,
-					    lbl_len);
-					pos += lbl_len;
-				}
-				if (pos + 2 < bufsiz) {
-					buf[pos++] = '+';
-					buf[pos++] = ' ';
-				}
-			} else
-#endif
-			{
-				/* " %s  %.*s" */
-				if (pos + 1 < bufsiz)
-					buf[pos++] = ' ';
-				avail = bufsiz - pos - 3;
-				if (lbl_len > avail)
-					lbl_len = avail;
-				if (lbl_len > 0) {
-					memcpy(buf + pos, label,
-					    lbl_len);
-					pos += lbl_len;
-				}
-				if (pos + 2 < bufsiz) {
-					buf[pos++] = ' ';
-					buf[pos++] = ' ';
-				}
+			} else if (pos + 5 < bufsiz) {
+				/* Info row or no number: 5-space indent. */
+				memcpy(buf + pos, "     ", 5);
+				pos += 5;
 			}
+			break;
+
+		case STYLE_XGOPHER: {
+			/* xgopher 1.3 emulation: 6-char fixed prefix for
+			 * every type — "»     " for directories, "<xxx> "
+			 * lowercase brackets for everything else. Plain
+			 * text renders bare (6 spaces). */
+			const char *p = xgopher_prefix(item->type);
+
+			if (p && pos + 6 < bufsiz) {
+				memcpy(buf + pos, p, 6);
+				pos += 6;
+				/* Label color portion: the tag only. */
+				if (item->type == GOPHER_TEXT)
+					label_len = 0;
+				else if (item->type == GOPHER_DIRECTORY)
+					label_len = 1;  /* "»" */
+				else
+					label_len = 5;  /* "<xxx>" */
+			}
+			break;
+		}
+
+		case STYLE_PCGOPHER: {
+			/* "<X> " — single-char bracket + 1-space padding.
+			 * Fixed 4-char prefix keeps the name column aligned. */
+			char tag = pcgopher_tag_char(item->type);
+
+			if (pos + 4 < bufsiz) {
+				buf[pos++] = '<';
+				buf[pos++] = tag;
+				buf[pos++] = '>';
+				buf[pos++] = ' ';
+				label_len = 3;
+			}
+			break;
+		}
+
+		case STYLE_RFC1436:
+			/* "<X> " — raw RFC 1436 type character wrapped
+			 * uniformly in angle brackets for every row. */
+			if (pos + 4 < bufsiz) {
+				buf[pos++] = '<';
+				buf[pos++] = item->type ?
+				    item->type : '?';
+				buf[pos++] = '>';
+				buf[pos++] = ' ';
+				label_len = 3;
+			}
+			break;
+
+		default:
+			/* Unknown style (shouldn't happen). Render bare. */
+			if (pos + 4 < bufsiz) {
+				memcpy(buf + pos, "    ", 4);
+				pos += 4;
+			}
+			break;
 		}
 	}
 
@@ -714,7 +867,36 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 		pos += name_len;
 	}
 
+	/* Style-specific suffix after the name */
+	if (!is_info) {
+		if (page_style == STYLE_UMN_CURSES) {
+			if (item->type == GOPHER_DIRECTORY) {
+				if (pos + 1 < bufsiz)
+					buf[pos++] = '/';
+			} else {
+				const char *tag = umn_tag(item->type);
+
+				if (tag) {
+					short tlen = strlen(tag);
+
+					avail = bufsiz - pos - 2;
+					if (tlen > avail)
+						tlen = avail;
+					if (pos + 1 < bufsiz)
+						buf[pos++] = ' ';
+					if (tlen > 0) {
+						memcpy(buf + pos,
+						    tag, tlen);
+						pos += tlen;
+					}
+				}
+			}
+		}
+	}
+
 	buf[pos] = '\0';
+	if (out_label_len)
+		*out_label_len = label_len;
 	return pos;
 }
 
@@ -841,7 +1023,7 @@ content_draw_row(WindowPtr win, short row_index,
 	short y, content_width;
 	GopherItem *item;
 	char line[256];
-	short len, text_width, split_pos;
+	short len, text_width, split_pos, label_len;
 	Str255 ps;
 	extern GeomysPrefs g_prefs;
 #ifdef GEOMYS_THEMES
@@ -896,8 +1078,20 @@ content_draw_row(WindowPtr win, short row_index,
 	item = &g_page->items[row_index];
 
 	/* Format line with style prefix (memcpy-based) */
-	len = format_row_text(item, g_prefs.page_style, line,
-	    sizeof(line), &split_pos);
+	label_len = 0;
+	{
+		/* UMN Curses numbers non-info rows by their absolute
+		 * position in the menu (info lines count in the index
+		 * but don't display their own bracket — the gap is how
+		 * you can tell the real UMN client has skipped them). */
+		short rn = 0;
+
+		if (g_prefs.page_style == STYLE_UMN_CURSES &&
+		    item->type != GOPHER_INFO)
+			rn = row_index + 1;
+		len = format_row_text(item, g_prefs.page_style, line,
+		    sizeof(line), &split_pos, &label_len, rn);
+	}
 	if (len > 255) len = 255;
 
 	/* Measure name width */
@@ -905,47 +1099,41 @@ content_draw_row(WindowPtr win, short row_index,
 
 	/* Draw with horizontal offset —
 	 * ClipRect handles clipping automatically.
-	 * Traditional style: draw label prefix in
-	 * label color, then name in link color. */
+	 * Styles with a label-colored type tag (UMN Curses/Xgopher/
+	 * PC Gopher II/RFC 1436) draw the tag in label color,
+	 * then the name in link color. TurboGopher reports label_len
+	 * of 0 because the icon carries the type cue instead. */
 #if defined(GEOMYS_THEMES) && defined(GEOMYS_COLOR)
 	if (offscreen_is_color() &&
 	    item->type != GOPHER_INFO) {
-		if (t && g_prefs.page_style ==
-		    STYLE_TEXT) {
-			/* Text style: label prefix in
-			 * label color, name in link
-			 * color */
-			short lbl_len = 5;
+		if (t && label_len > 0) {
 			Str255 lps;
+			short name_start = label_len;
 
-#ifdef GEOMYS_GOPHER_PLUS
-			if (item->has_plus)
-				lbl_len = 5;
-#endif
-			if (lbl_len > len)
-				lbl_len = len;
+			if (name_start > len)
+				name_start = len;
 
 			/* Draw label in label color */
 			theme_set_fg(&t->label);
-			lps[0] = lbl_len;
-			memcpy(lps + 1, line,
-			    lbl_len);
+			lps[0] = name_start;
+			memcpy(lps + 1, line, name_start);
 			MoveTo(r.left + CONTENT_LEFT_MARGIN -
 			    g_hscroll_pos, y - g_baseline_off);
 			DrawString(lps);
 
-			/* Draw name in link color */
+			/* Draw remainder (padding + name + suffix)
+			 * in link color */
 			set_item_fg_color(t, item->type);
-			if (len > lbl_len) {
-				ps[0] = len - lbl_len;
+			if (len > name_start) {
+				ps[0] = len - name_start;
 				memcpy(ps + 1,
-				    line + lbl_len,
-				    len - lbl_len);
+				    line + name_start,
+				    len - name_start);
 				DrawString(ps);
 			}
 		} else if (t) {
-			/* Icons style: all text in
-			 * link color */
+			/* No label portion (TurboGopher or bare row):
+			 * whole text in link color */
 			set_item_fg_color(t, item->type);
 			ps[0] = len;
 			memcpy(ps + 1, line, len);
@@ -969,8 +1157,8 @@ content_draw_row(WindowPtr win, short row_index,
 		DrawString(ps);
 	}
 
-	/* Draw icon for Icons style */
-	if (g_prefs.page_style == STYLE_ICONS &&
+	/* Draw icon for TurboGopher style */
+	if (g_prefs.page_style == STYLE_TURBOGOPHER &&
 	    item->type != GOPHER_INFO) {
 		short ix, iy, inv;
 
@@ -1777,9 +1965,16 @@ content_row_text(short row, char *buf, short bufsiz)
 			return 0;
 
 		item = &g_page->items[row];
-		return format_row_text(item,
-		    g_prefs.page_style, buf, bufsiz,
-		    0L);
+		{
+			short rn = 0;
+
+			if (g_prefs.page_style == STYLE_UMN_CURSES &&
+			    item->type != GOPHER_INFO)
+				rn = row + 1;
+			return format_row_text(item,
+			    g_prefs.page_style, buf, bufsiz,
+			    0L, 0L, rn);
+		}
 
 	} else if (g_page->page_type == PAGE_TEXT
 #ifdef GEOMYS_HTML
@@ -3371,14 +3566,18 @@ content_measure_new_rows(WindowPtr win, short total)
 	if (g_page->page_type == PAGE_DIRECTORY) {
 		char line[256];
 		extern GeomysPrefs g_prefs;
+		Boolean umn = (g_prefs.page_style == STYLE_UMN_CURSES);
 
 		for (i = from; i < total; i++) {
 			GopherItem *item = &g_page->items[i];
 			short len;
+			short rn = 0;
 
+			if (umn && item->type != GOPHER_INFO)
+				rn = i + 1;
 			len = format_row_text(item,
 			    g_prefs.page_style, line,
-			    sizeof(line), 0L);
+			    sizeof(line), 0L, 0L, rn);
 			if (len > 255) len = 255;
 			w = TextWidth(line, 0, len) + 5;
 			if (w > g_content_max_width)
@@ -3461,14 +3660,18 @@ content_calc_max_width(WindowPtr win)
 	if (g_page->page_type == PAGE_DIRECTORY) {
 		char line[256];
 		extern GeomysPrefs g_prefs;
+		Boolean umn = (g_prefs.page_style == STYLE_UMN_CURSES);
 
 		for (i = 0; i < total; i++) {
 			GopherItem *item = &g_page->items[i];
 			short len;
+			short rn = 0;
 
+			if (umn && item->type != GOPHER_INFO)
+				rn = i + 1;
 			len = format_row_text(item,
 			    g_prefs.page_style, line,
-			    sizeof(line), 0L);
+			    sizeof(line), 0L, 0L, rn);
 			if (len > 255) len = 255;
 			w = TextWidth(line, 0, len) + 5;
 			if (w > g_content_max_width)

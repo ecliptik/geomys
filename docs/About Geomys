@@ -86,8 +86,12 @@ Features
     showing item attributes, +ABSTRACT display, +SCORE
     search result scoring, +VIEWS content negotiation,
     +ASK interactive forms, bulk attribute fetch
-  - Page styles: Text and Icons display modes
-    (Options > Page Style)
+  - Page styles emulating classic Gopher clients:
+    TurboGopher (Mac icons), UMN Curses (numbered rows,
+    name/ dirs, trailing <Bin>/<HTML>/<TEL> tags),
+    Xgopher (» dirs, lowercase <bin>/<cso>/<tel> prefixes),
+    PC Gopher II (<D>/<F>/<S> brackets), and RFC 1436
+    (raw protocol type chars) (Options > Page Style)
   - Multi-window browsing with up to 3 simultaneous
     Gopher windows and background loading
   - Binary file downloads to disk via standard save
@@ -279,8 +283,8 @@ Options menu (default: off).
 
   Search Scoring:
   Gopher+ search results may include relevance scores.
-  Scores are displayed as a right-aligned column in
-  Traditional page style.
+  Scores are displayed as a right-aligned [NNN] column
+  in the PC Gopher II and RFC 1436 page styles.
 
 
 Favorites

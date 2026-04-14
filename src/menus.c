@@ -205,10 +205,11 @@ init_menus(void)
 	/* Set initial style checkmark based on prefs */
 #ifdef GEOMYS_STYLES
 	if (style_submenu) {
-		CheckItem(style_submenu, STYLE_ITEM_TEXT,
-		    g_prefs.page_style == STYLE_TEXT);
-		CheckItem(style_submenu, STYLE_ITEM_ICONS,
-		    g_prefs.page_style == STYLE_ICONS);
+		short si;
+
+		for (si = 1; si <= STYLE_ITEM_COUNT; si++)
+			CheckItem(style_submenu, si,
+			    g_prefs.page_style == si);
 	}
 #endif
 
@@ -1622,20 +1623,17 @@ handle_menu(long menu_id)
 		}
 		break;
 	case STYLE_MENU_ID:
-		switch (item) {
-		case STYLE_ITEM_TEXT:
-			g_prefs.page_style = STYLE_TEXT;
-			break;
-		case STYLE_ITEM_ICONS:
-			g_prefs.page_style = STYLE_ICONS;
-			break;
-		}
+		/* Menu item values 1..5 are identical to STYLE_* values. */
+		if (item >= STYLE_ITEM_TURBOGOPHER &&
+		    item <= STYLE_ITEM_RFC1436)
+			g_prefs.page_style = item;
 		/* Update checkmarks */
 		if (style_submenu) {
-			CheckItem(style_submenu, STYLE_ITEM_TEXT,
-			    item == STYLE_ITEM_TEXT);
-			CheckItem(style_submenu, STYLE_ITEM_ICONS,
-			    item == STYLE_ITEM_ICONS);
+			short si;
+
+			for (si = 1; si <= STYLE_ITEM_COUNT; si++)
+				CheckItem(style_submenu, si,
+				    item == si);
 		}
 		/* Save and redraw */
 		prefs_save(&g_prefs);
