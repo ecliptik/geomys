@@ -35,9 +35,9 @@ collect_artifacts() {
     local build_dir="$SCRIPT_DIR/build"
     RELEASE_FILES=()
     for artifact in \
-        "Geomys-${ver}.dsk" "Geomys-${ver}.hqx" \
-        "Geomys-Lite-${ver}.dsk" "Geomys-Lite-${ver}.hqx" \
-        "Geomys-Minimal-${ver}.dsk" "Geomys-Minimal-${ver}.hqx"; do
+        "Geomys-${ver}.dsk" "Geomys-${ver}.hqx" "Geomys-${ver}.sit" \
+        "Geomys-Lite-${ver}.dsk" "Geomys-Lite-${ver}.hqx" "Geomys-Lite-${ver}.sit" \
+        "Geomys-Minimal-${ver}.dsk" "Geomys-Minimal-${ver}.hqx" "Geomys-Minimal-${ver}.sit"; do
         [ -f "$build_dir/$artifact" ] && RELEASE_FILES+=("$build_dir/$artifact")
     done
 }
@@ -266,7 +266,7 @@ do_release() {
 
     if [ ${#RELEASE_FILES[@]} -eq 0 ]; then
         echo "Warning: No artifacts found for $ver"
-        echo "  Expected: Geomys-${ver}.dsk/.hqx, Geomys-Lite-${ver}.dsk/.hqx, Geomys-Minimal-${ver}.dsk/.hqx"
+        echo "  Expected: Geomys-${ver}.dsk/.hqx/.sit, Geomys-Lite-${ver}.dsk/.hqx/.sit, Geomys-Minimal-${ver}.dsk/.hqx/.sit"
     else
         echo "  Artifacts: ${#RELEASE_FILES[@]} files"
         for f in "${RELEASE_FILES[@]}"; do echo "    $(basename "$f")"; done

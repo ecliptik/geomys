@@ -6,6 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLCHAIN="$SCRIPT_DIR/Retro68-build/toolchain/m68k-apple-macos/cmake/retro68.toolchain.cmake"
 BUILD_DIR="$SCRIPT_DIR/build"
 
+# Creator code — 4-char Mac OSType identifying this app. Change when
+# porting this script to another project.
+CREATOR_CODE="GEOM"
+
+# Shared Mac tooling (sit archiver, macbinary_split.py) lives outside
+# the repo so it can be reused across Flynn, Geomys, etc.
+EMULATORS_DIR="${EMULATORS_DIR:-$HOME/emulators}"
+SIT_BIN="$EMULATORS_DIR/tools/sit/sit"
+MACBIN_SPLIT="$EMULATORS_DIR/scripts/macbinary_split.py"
+
 # --- Feature flag defaults (= full preset, all ON) ---
 GEOMYS_OFFSCREEN=ON
 GEOMYS_STATUS_BAR=ON
@@ -303,20 +313,29 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS"
 make "${MAKE_ARGS[@]}"
 
-# Fix creator code in MacBinary header (Retro68 sets '????' instead of 'GEOM')
-# Then recalculate MacBinary II CRC-16 (XMODEM) over header bytes 0-123
-printf 'GEOM' | dd of="$BUILD_DIR/Geomys.bin" bs=1 seek=69 count=4 conv=notrunc 2>/dev/null
+# Fix MacBinary header: Retro68 writes '????' as creator and leaves ctime/mtime
+# zero (epoch 1904 in Finder). Patch creator to $CREATOR_CODE, stamp both dates
+# with current build time (expressed as Mac local time, the format HFS expects),
+# then recalculate the MacBinary II CRC-16 (XMODEM) over header bytes 0-123.
+printf '%s' "$CREATOR_CODE" | dd of="$BUILD_DIR/Geomys.bin" bs=1 seek=69 count=4 conv=notrunc 2>/dev/null
 python3 -c "
-import struct
+import struct, time, calendar
+MAC_EPOCH = 2082844800  # seconds between 1904-01-01 and 1970-01-01
+# Mac dates are stored as 'seconds since 1904-01-01 local time'. Convert
+# current wall clock by treating the local struct_time as if it were UTC.
+now_mac = calendar.timegm(time.localtime()) + MAC_EPOCH
 with open('$BUILD_DIR/Geomys.bin', 'r+b') as f:
     hdr = bytearray(f.read(128))
+    hdr[91:95] = struct.pack('>I', now_mac)   # creation date
+    hdr[95:99] = struct.pack('>I', now_mac)   # modification date
     crc = 0
     for b in hdr[:124]:
         crc ^= b << 8
         for _ in range(8):
             crc = ((crc << 1) ^ 0x1021 if crc & 0x8000 else crc << 1) & 0xFFFF
-    f.seek(124)
-    f.write(struct.pack('>H', crc))
+    hdr[124:126] = struct.pack('>H', crc)
+    f.seek(0)
+    f.write(bytes(hdr))
 "
 
 # Generate BinHex (.hqx) archive if macutils is available
@@ -337,12 +356,37 @@ fi
 # Post-process 800K floppy image: set creator code and add About Geomys
 if [ -f "$BUILD_DIR/Geomys.dsk" ]; then
     hmount "$BUILD_DIR/Geomys.dsk"
-    hattrib -t APPL -c GEOM :Geomys
+    hattrib -t APPL -c "$CREATOR_CODE" :Geomys
     if [ -f "$ABOUT_OUT" ]; then
         hcopy -r "$ABOUT_OUT" ":About Geomys"
         hattrib -t ttro -c ttxt ":About Geomys"
     fi
     humount
+fi
+
+# Generate Stuffit 1.5 archive (.sit) containing Geomys + About Geomys.
+# Requires shared tooling at ~/emulators/tools/sit and ~/emulators/scripts/.
+# Run `$EMULATORS_DIR/scripts/setup-sit.sh` once to bootstrap.
+if [ -x "$SIT_BIN" ] && [ -f "$MACBIN_SPLIT" ]; then
+    STAGE="$BUILD_DIR/.sit-staging"
+    rm -rf "$STAGE" && mkdir -p "$STAGE"
+    python3 "$MACBIN_SPLIT" split "$BUILD_DIR/Geomys.bin" "$STAGE/Geomys"
+    if [ -f "$ABOUT_OUT" ]; then
+        cp "$ABOUT_OUT" "$STAGE/About Geomys"
+        python3 "$MACBIN_SPLIT" make-info "$STAGE/About Geomys" ttro ttxt
+    fi
+    rm -f "$BUILD_DIR/Geomys.sit"
+    if (cd "$STAGE" && "$SIT_BIN" -o "$BUILD_DIR/Geomys.sit" Geomys "About Geomys" >/dev/null); then
+        echo "Stuffit archive created: Geomys.sit"
+    else
+        echo "Warning: sit failed, skipping .sit artifact"
+        rm -f "$BUILD_DIR/Geomys.sit"
+    fi
+    rm -rf "$STAGE"
+else
+    if [ ! -x "$SIT_BIN" ]; then
+        echo "Note: run $EMULATORS_DIR/scripts/setup-sit.sh once to enable .sit output"
+    fi
 fi
 
 # --- Determine file prefix from preset ---
@@ -359,6 +403,7 @@ esac
 cp "$BUILD_DIR/Geomys.bin" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.bin"
 cp "$BUILD_DIR/Geomys.dsk" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.dsk"
 [ -f "$BUILD_DIR/Geomys.hqx" ] && cp "$BUILD_DIR/Geomys.hqx" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.hqx"
+[ -f "$BUILD_DIR/Geomys.sit" ] && cp "$BUILD_DIR/Geomys.sit" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.sit"
 
 # --- Build summary ---
 ENABLED=""
@@ -410,7 +455,7 @@ echo "To deploy to HFS image:"
 echo "  hmount diskimages/snow-sys608.img"
 echo "  hmkdir :Geomys"
 echo "  hcopy -m build/Geomys.bin ':Geomys:Geomys'"
-echo "  hattrib -t APPL -c GEOM ':Geomys:Geomys'"
+echo "  hattrib -t APPL -c ${CREATOR_CODE} ':Geomys:Geomys'"
 echo "  hcopy -r 'build/About Geomys' ':Geomys:About Geomys'"
 echo "  hattrib -t ttro -c ttxt ':Geomys:About Geomys'"
 echo "  humount"
