@@ -285,6 +285,11 @@ do_release() {
 | **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB |
 | **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB |
 
+Each edition ships in three formats — pick whichever suits your transfer path:
+- **.dsk** — 800K floppy disk image; mount in an emulator or write to a real floppy
+- **.hqx** — BinHex archive; safe for email, BBS, and text-only channels
+- **.sit** — StuffIt 1.5.1 archive; expand with StuffIt Expander on the Mac
+
 See [BUILD.md](https://codeberg.org/$CODEBERG_REPO/src/branch/main/docs/BUILD.md) for custom build options."
 
     local name="Geomys $tag"

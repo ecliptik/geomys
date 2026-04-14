@@ -31,6 +31,10 @@ This produces:
 - `build/Geomys.dsk` - 800K floppy disk image
 - `build/Geomys.bin` - MacBinary encoded binary
 - `build/Geomys.hqx` - BinHex archive
+- `build/Geomys.sit` - StuffIt 1.5.1 archive containing Geomys and About Geomys
+  (requires the shared `sit` tool at `~/emulators/tools/sit` — run
+  `~/emulators/scripts/setup-sit.sh` once to bootstrap; skipped with a note if
+  the tooling isn't installed)
 
 The full path of created disk images is printed on completion.
 
@@ -74,6 +78,7 @@ The build system uses CMake feature flags to enable or disable components at com
 | `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | ON | ON | ON |
 | `GEOMYS_HTML` | HTML content stripping | ON | ON | ON | ON |
 | `GEOMYS_TELNET` | Telnet session info dialog | ON | ON | ON | ON |
+| `GEOMYS_IC` | Internet Config URL handoff and file-type mapping (System 7) | ON | OFF | ON | ON |
 
 \* Minimal sets `OFFSCREEN=OFF` but it is auto-enabled because `THEMES` requires it.
 
@@ -102,6 +107,7 @@ Individual feature flags can be toggled on or off after a preset is applied. Use
 | `--clipboard` | `--no-clipboard` | Text selection and clipboard |
 | `--html` | `--no-html` | HTML content stripping |
 | `--telnet` | `--no-telnet` | Telnet session info dialog |
+| `--ic` | `--no-ic` | Internet Config URL handoff and file-type mapping |
 
 ### Window Count
 
@@ -145,4 +151,4 @@ rm -rf build/
 
 ## Disk Image Output
 
-The build produces an 800K `.dsk` floppy image suitable for use with emulators (Snow, Mini vMac) or writing to physical floppy disks. The `.bin` (BinHex) format can be transferred via serial or network to a real Macintosh.
+The build produces an 800K `.dsk` floppy image suitable for use with emulators (Snow, Mini vMac) or writing to physical floppy disks. The `.bin` (MacBinary), `.hqx` (BinHex), and `.sit` (StuffIt 1.5.1) formats can be transferred via serial or network to a real Macintosh or through text-only channels.
