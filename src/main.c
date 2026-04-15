@@ -982,7 +982,7 @@ handle_image_completed(void)
 
 		c2pstr(pmsg, msg);
 		ParamText(pmsg, "\p", "\p", "\p");
-		NoteAlert(128, 0L);
+		browser_note_alert();
 
 		snprintf(stat, sizeof(stat),
 		    "Image saved \xD0 %ld bytes",
@@ -1937,6 +1937,31 @@ dismiss_modal(DialogPtr dlg)
 }
 
 /*
+ * browser_note_alert - Show ALRT 128 over the browser window and
+ * re-invalidate the window afterward so the alert's former rect
+ * gets redrawn.  The updateEvt that dismiss_modal (or any prior
+ * InvalRect) queued can be consumed by the alert's own draw cycle,
+ * leaving no pending update to cover the alert's footprint; a
+ * fresh InvalRect here guarantees one.  Callers set ParamText
+ * before calling.
+ */
+void
+browser_note_alert(void)
+{
+	GrafPtr save;
+
+	NoteAlert(128, 0L);
+
+	if (!g_window)
+		return;
+
+	GetPort(&save);
+	SetPort(g_window);
+	InvalRect(&g_window->portRect);
+	SetPort(save);
+}
+
+/*
  * Search dialog — shown when clicking a Type 7 item
  */
 void
@@ -2342,7 +2367,7 @@ do_type_message(char type, const char *display,
 
 	c2pstr(pmsg, msg);
 	ParamText(pmsg, "\p", "\p", "\p");
-	NoteAlert(128, 0L);
+	browser_note_alert();
 }
 
 /*
@@ -2591,7 +2616,7 @@ do_telnet_dialog(char type, const char *display,
 			    "To connect, install a telnet "
 			    "application such as Flynn.");
 			ParamText(emsg, "\p", "\p", "\p");
-			NoteAlert(128, 0L);
+			browser_note_alert();
 		}
 	}
 }

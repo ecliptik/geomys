@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Cross-application clipboard broken under System 6 MultiFinder: the `app4Evt` handler ignored `convertClipboardFlag`, so Geomys never called `LoadScrap`/`UnloadScrap` on suspend/resume. Text copied in Geomys never reached other apps, and text copied elsewhere was invisible to Geomys.
+- White rectangular gap in the content area after dismissing a `NoteAlert` (unsupported-type message, telnet-not-found, image-saved confirmation, favorites-list-full, favorites-missing-fields). When an alert fired after a `dismiss_modal` or on its own, the alert's draw cycle consumed the pending updateEvt, so no second update arrived to cover the alert's former rect. New `browser_note_alert` helper re-invalidates the browser window after the alert returns so its footprint is redrawn.
 
 ## [1.1.0] - 2026-04-07
 

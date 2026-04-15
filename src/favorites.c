@@ -120,7 +120,7 @@ favorites_add(GeomysPrefs *prefs, const char *name,
 		ParamText(
 		    "\pFavorites list is full (maximum 20).",
 		    "\p", "\p", "\p");
-		NoteAlert(128, 0L);
+		browser_note_alert();
 		return;
 	}
 
@@ -176,7 +176,7 @@ favorites_add(GeomysPrefs *prefs, const char *name,
 			ParamText(
 			    "\pName and URL are required.",
 			    "\p", "\p", "\p");
-			NoteAlert(128, 0L);
+			browser_note_alert();
 			return;
 		}
 

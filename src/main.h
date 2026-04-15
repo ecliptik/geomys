@@ -203,6 +203,10 @@ void do_getinfo_dialog(void);
 void do_cancel_loading(void);
 void navigate_history_to(short index);
 
+/* Show ALRT 128 with current ParamText and re-invalidate the
+ * browser window so the alert's former rect is redrawn. */
+void browser_note_alert(void);
+
 /* Globals (defined in main.c) */
 extern Boolean g_running;
 extern Boolean g_suspended;
