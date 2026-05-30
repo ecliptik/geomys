@@ -59,6 +59,10 @@ Users can also adjust memory after building via Finder's "Get Info" on the Geomy
 
 `--debug` enables `GEOMYS_DEBUG` which adds diagnostic info to the status bar (item counts, timing). Example: `./scripts/build.sh --preset minimal --debug`
 
+### Feature Flags
+
+Per-feature CMake options are defined in `CMakeLists.txt` and surfaced via `--flag`/`--no-flag` in `scripts/build.sh`. See `docs/BUILD.md` for the full table. `GEOMYS_UTF8` (auto-detected UTF-8 decoding for directory titles and text content, transcoding to Mac Roman with a CP437 fallback) is ON in full and lite presets, OFF in minimal (mirrors `GEOMYS_CP437`).
+
 ## Testing
 
 Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for full details:
@@ -132,6 +136,7 @@ When creating a team, always include:
 - Align with Apple Human Interface Guidelines (see references)
 - Create About Geomys as TeachText document in docs/ (resource type `ttro`, reference Flynn's `docs/About Flynn`)
 - When building the MVP, keep future features in mind to make them easier to implement later (keyboard nav, favorites, 256 color, themes, multi-window, System 7)
+- All code is reviewed by Codex
 
 ## UI Design
 

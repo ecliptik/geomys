@@ -62,7 +62,7 @@ Each edition is available as `.dsk` (800K floppy image), `.hqx` (BinHex archive)
 - 14 built-in [themes](#themes) with 256-color support on System 7 ([create your own](docs/THEMES.md))
 - 8 fonts with size selection (9, 10, 12, 14)
 - Double-buffered rendering with SICN/cicn icons
-- CP437 and Unicode glyph support
+- Auto-detected UTF-8 and CP437 decoding to Mac Roman, with Unicode glyph fallbacks
 
 **System Integration**
 - MultiFinder and Apple Events (odoc/pdoc) support
@@ -186,8 +186,8 @@ Large Gopher directories (1000+ items) use significant memory (~300KB per direct
 - **[Claude Code](https://claude.ai/code)** by [Anthropic](https://www.anthropic.com/)
 - **[Retro68](https://github.com/autc04/Retro68)** by Wolfgang Thaller
 - **[Snow](https://snowemu.com/)** emulator
-- **[wallops](https://github.com/jcs/wallops)** by joshua stein - MacTCP wrapper (`tcp.c`/`tcp.h`), DNS resolution (`dns.c`/`dns.h`), and utility functions. ISC license.
-- **[subtext](https://github.com/jcs/subtext)** by joshua stein - Additional utility and networking code. ISC license.
+- **[wallops](https://jcs.org/wallops)** by joshua stein - MacTCP wrapper (`tcp.c`/`tcp.h`), DNS resolution (`dns.c`/`dns.h`), and utility functions. ISC license.
+- **[subtext](https://jcs.org/subtext)** by joshua stein - Additional utility and networking code. ISC license.
 - **[Flynn](https://codeberg.org/ecliptik/flynn)** - Sibling Telnet client project and architectural reference. ISC license.
 - **University of Illinois Board of Trustees** - TCP networking code (`tcp.c`, 1990-1992)
 

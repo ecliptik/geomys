@@ -30,6 +30,7 @@
 #include "cp437.h"
 #include "glyphs.h"
 #endif
+#include "utf8.h"
 #ifdef GEOMYS_DRAG
 #include "drag.h"
 #endif
@@ -456,6 +457,38 @@ cp437_translate_if_needed(char *dst, const char *src, short len)
 #endif /* GEOMYS_CP437 */
 
 /*
+ * text_transcode_if_needed - unified draw-time transcode hook.
+ * Tries UTF-8 first (modern Gopher servers); if the line is valid
+ * multi-byte UTF-8 it is transcoded to Mac Roman + ASCII into dst and
+ * the output length (>= 0) is returned.  Otherwise falls back to the
+ * CP437 translator.  Returns 0 when there is nothing to do (pure ASCII
+ * or no transcoder compiled) and the caller should draw the raw bytes.
+ * dst must hold at least min(len, dstcap) bytes.
+ *
+ * Only compiled when at least one transcoder is enabled; in the minimal
+ * preset (UTF8 and CP437 both off) the call sites are likewise compiled
+ * out, so this would otherwise be an unused static function.
+ */
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
+static short
+text_transcode_if_needed(char *dst, short dstcap, const char *src, short len)
+{
+#ifdef GEOMYS_UTF8
+	short n = utf8_transcode_line(dst, dstcap, src, len);
+	if (n >= 0)
+		return n;
+#endif
+#ifdef GEOMYS_CP437
+	(void)dstcap;
+	return cp437_translate_if_needed(dst, src, len);
+#else
+	(void)dst; (void)dstcap; (void)src; (void)len;
+	return 0;
+#endif
+}
+#endif /* GEOMYS_UTF8 || GEOMYS_CP437 */
+
+/*
  * draw_selection_rect - highlight a selection region using
  * theme sel_bg/sel_fg on color systems, or InvertRect on mono.
  * Fills the rect with sel_bg, then redraws the row text clipped
@@ -857,6 +890,24 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 			break;
 		}
 	}
+
+	/* Transcode the display NAME (only) before truncation/copy so
+	 * directory titles with umlauts/accents render as Mac Roman
+	 * instead of UTF-8 (or CP437) mojibake.  Style prefixes/suffixes
+	 * are ASCII and are never touched.  Info rows ('i') flow through
+	 * here too.  Pure-ASCII names return 0 and keep the original disp. */
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
+	{
+		char xname[256];
+		short xn = text_transcode_if_needed(xname, sizeof(xname),
+		    disp, name_len);
+
+		if (xn > 0) {
+			disp = xname;
+			name_len = xn;
+		}
+	}
+#endif
 
 	/* Append name portion */
 	avail = bufsiz - pos - 1;  /* leave room for NUL */
@@ -1425,13 +1476,14 @@ content_draw_text_row(WindowPtr win, short line_index,
 	if (line_len < 0)
 		line_len = 0;
 
-#ifdef GEOMYS_CP437
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
 	{
 		char xlated[256];
 		short xlen = line_len;
 
 		if (xlen > 255) xlen = 255;
-		xlen = cp437_translate_if_needed(xlated,
+		/* Try UTF-8, then CP437; 0 means draw raw bytes. */
+		xlen = text_transcode_if_needed(xlated, sizeof(xlated),
 		    line_start, xlen);
 		if (xlen > 0) {
 			MoveTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos, y - g_baseline_off);
@@ -1442,7 +1494,7 @@ content_draw_text_row(WindowPtr win, short line_index,
 			MoveTo(r.left + CONTENT_LEFT_MARGIN - g_hscroll_pos, y - g_baseline_off);
 			DrawText((Ptr)line_start, 0, line_len);
 		}
-#ifdef GEOMYS_CP437
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
 	}
 #endif
 
@@ -2007,6 +2059,26 @@ content_row_text(short row, char *buf, short bufsiz)
 		if (line_len < 0) line_len = 0;
 		if (line_len >= bufsiz)
 			line_len = bufsiz - 1;
+
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
+		/* Transcode so copied/searched text matches what the
+		 * text-file draw path renders (UTF-8 then CP437).  0 means
+		 * use the raw bytes.  Output never grows past the input. */
+		{
+			char xlated[256];
+			short xn;
+
+			xn = text_transcode_if_needed(xlated, sizeof(xlated),
+			    line_start, line_len);
+			if (xn > 0) {
+				if (xn >= bufsiz)
+					xn = bufsiz - 1;
+				memcpy(buf, xlated, xn);
+				buf[xn] = '\0';
+				return xn;
+			}
+		}
+#endif
 
 		memcpy(buf, line_start, line_len);
 		buf[line_len] = '\0';
@@ -3611,14 +3683,14 @@ content_measure_new_rows(WindowPtr win, short total)
 			}
 			if (ll < 0) ll = 0;
 
-#ifdef GEOMYS_CP437
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
 			{
 				char xlated[256];
 				short xlen = ll;
 
 				if (xlen > 255) xlen = 255;
-				xlen = cp437_translate_if_needed(
-				    xlated, ls, xlen);
+				xlen = text_transcode_if_needed(
+				    xlated, sizeof(xlated), ls, xlen);
 				if (xlen > 0)
 					w = TextWidth(xlated, 0, xlen) + 5;
 				else
@@ -3701,14 +3773,14 @@ content_calc_max_width(WindowPtr win)
 			}
 			if (ll < 0) ll = 0;
 
-#ifdef GEOMYS_CP437
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
 			{
 				char xlated[256];
 				short xlen = ll;
 
 				if (xlen > 255) xlen = 255;
-				xlen = cp437_translate_if_needed(
-				    xlated, ls, xlen);
+				xlen = text_transcode_if_needed(
+				    xlated, sizeof(xlated), ls, xlen);
 				if (xlen > 0)
 					w = TextWidth(xlated, 0, xlen) + 5;
 				else

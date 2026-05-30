@@ -73,6 +73,7 @@ The build system uses CMake feature flags to enable or disable components at com
 | `GEOMYS_GOPHER_PLUS` | Gopher+ protocol support | ON | OFF | OFF | ON |
 | `GEOMYS_GLYPHS` | Unicode glyph rendering | ON | OFF | ON | ON |
 | `GEOMYS_CP437` | CP437 character set | ON | OFF | ON | ON |
+| `GEOMYS_UTF8` | Auto-detected UTF-8 decoding | ON | OFF | ON | ON |
 | `GEOMYS_STYLES` | Page format styles (text/icons) | ON | ON | ON | ON |
 | `GEOMYS_CACHE` | Local page caching | ON | OFF | OFF | ON |
 | `GEOMYS_CLIPBOARD` | Text selection and clipboard | ON | ON | ON | ON |
@@ -85,6 +86,11 @@ The build system uses CMake feature flags to enable or disable components at com
 
 - **CP437 requires GLYPHS** - enabling `--cp437` automatically enables `--glyphs` if it is not already on.
 - **THEMES requires OFFSCREEN** - enabling `--themes` automatically enables `--offscreen` for flicker-free redraw.
+- **UTF-8 shares the glyph table** - when `GEOMYS_GLYPHS` is on, `GEOMYS_UTF8` uses the curated glyph table's ASCII character as a fallback for code points outside Mac Roman.
+
+### UTF-8 Decoding
+
+`GEOMYS_UTF8` auto-detects UTF-8 per line on both Gopher directory item titles and text-file content. A line that is valid multi-byte UTF-8 is transcoded to Mac Roman; otherwise it falls through to the existing CP437/Mac Roman path (so legacy CP437 ASCII art still renders). Detection is automatic with no UI. Umlauts and Western European accents map directly into Mac Roman; code points outside Mac Roman fall back to a curated glyph character, then accent-stripping transliteration, then `?` (CJK and emoji show `?`). ON in `full` and `lite`, OFF in `minimal` (mirrors `GEOMYS_CP437`).
 
 ## Command-Line Flags
 
@@ -101,6 +107,7 @@ Individual feature flags can be toggled on or off after a preset is applied. Use
 | `--gopher-plus` | `--no-gopher-plus` | Gopher+ protocol |
 | `--glyphs` | `--no-glyphs` | Unicode glyph rendering |
 | `--cp437` | `--no-cp437` | CP437 character set |
+| `--utf8` | `--no-utf8` | UTF-8 decoding |
 | `--styles` | `--no-styles` | Page format styles |
 | `--cache` | `--no-cache` | Local page caching |
 | `--clipboard` | `--no-clipboard` | Text selection and clipboard |

@@ -115,7 +115,10 @@ Features
   - Text selection and copy to clipboard (Cmd-C)
   - Keyboard link navigation with Up/Down arrows
   - Save Page As (Cmd-S) for text and directory pages
-  - CP437 character set and Unicode glyph rendering
+  - Automatic UTF-8 decoding for directory titles
+    and text files (umlauts and accented Latin
+    render correctly), plus CP437 character set and
+    Unicode glyph rendering
   - External link dialog with Copy URL button and
     silent browser launch on System 7
   - Telnet connection dialog with Copy Host and
@@ -408,8 +411,11 @@ Troubleshooting
   address bar.
 
   Text appears garbled
-  Geomys translates CP437 characters to Mac Roman
-  equivalents. If a server uses a different encoding,
+  Geomys auto-detects UTF-8 and translates CP437
+  characters to Mac Roman equivalents. Umlauts and
+  accented Latin display correctly; characters
+  outside Mac Roman (such as CJK or emoji) appear
+  as "?". If a server uses a different encoding,
   some characters may not display correctly.
 
   Color themes not available

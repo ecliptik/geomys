@@ -11,6 +11,7 @@ option(GEOMYS_DOWNLOAD     "Enable file downloads"              ON)
 option(GEOMYS_GOPHER_PLUS  "Enable Gopher+ protocol"           ON)
 option(GEOMYS_GLYPHS       "Enable Unicode glyph rendering"    ON)
 option(GEOMYS_CP437        "Enable CP437 character set"         ON)
+option(GEOMYS_UTF8         "Enable UTF-8 decoding"              ON)
 option(GEOMYS_STYLES       "Enable page format styles"          ON)
 option(GEOMYS_CACHE        "Enable local page caching"          ON)
 option(GEOMYS_CLIPBOARD    "Enable clipboard and text selection" ON)
@@ -70,6 +71,9 @@ endif()
 if(GEOMYS_CP437)
     list(APPEND GEOMYS_SOURCES src/cp437.c)
 endif()
+if(GEOMYS_UTF8)
+    list(APPEND GEOMYS_SOURCES src/utf8.c)
+endif()
 if(GEOMYS_CACHE)
     list(APPEND GEOMYS_SOURCES src/cache.c)
 endif()
@@ -116,6 +120,7 @@ target_compile_definitions(Geomys PRIVATE
     $<$<BOOL:${GEOMYS_GOPHER_PLUS}>:GEOMYS_GOPHER_PLUS>
     $<$<BOOL:${GEOMYS_GLYPHS}>:GEOMYS_GLYPHS>
     $<$<BOOL:${GEOMYS_CP437}>:GEOMYS_CP437>
+    $<$<BOOL:${GEOMYS_UTF8}>:GEOMYS_UTF8>
     $<$<BOOL:${GEOMYS_STYLES}>:GEOMYS_STYLES>
     $<$<BOOL:${GEOMYS_CACHE}>:GEOMYS_CACHE>
     $<$<BOOL:${GEOMYS_CLIPBOARD}>:GEOMYS_CLIPBOARD>

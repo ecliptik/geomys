@@ -26,6 +26,7 @@ GEOMYS_DOWNLOAD=ON
 GEOMYS_GOPHER_PLUS=ON
 GEOMYS_GLYPHS=ON
 GEOMYS_CP437=ON
+GEOMYS_UTF8=ON
 GEOMYS_STYLES=ON
 GEOMYS_CACHE=ON
 GEOMYS_CLIPBOARD=ON
@@ -51,6 +52,7 @@ apply_preset() {
             GEOMYS_GOPHER_PLUS=OFF
             GEOMYS_GLYPHS=OFF
             GEOMYS_CP437=OFF
+            GEOMYS_UTF8=OFF
             GEOMYS_STYLES=ON
             GEOMYS_CACHE=OFF
             GEOMYS_CLIPBOARD=ON
@@ -70,6 +72,7 @@ apply_preset() {
             GEOMYS_GOPHER_PLUS=OFF
             GEOMYS_GLYPHS=OFF
             GEOMYS_CP437=ON
+            GEOMYS_UTF8=ON
             GEOMYS_STYLES=ON
             GEOMYS_CACHE=OFF
             GEOMYS_CLIPBOARD=ON
@@ -89,6 +92,7 @@ apply_preset() {
             GEOMYS_GOPHER_PLUS=ON
             GEOMYS_GLYPHS=ON
             GEOMYS_CP437=ON
+            GEOMYS_UTF8=ON
             GEOMYS_STYLES=ON
             GEOMYS_CACHE=ON
             GEOMYS_CLIPBOARD=ON
@@ -150,6 +154,8 @@ while [[ $# -gt 0 ]]; do
         --no-glyphs)     GEOMYS_GLYPHS=OFF;         shift ;;
         --cp437)         GEOMYS_CP437=ON;            shift ;;
         --no-cp437)      GEOMYS_CP437=OFF;           shift ;;
+        --utf8)          GEOMYS_UTF8=ON;             shift ;;
+        --no-utf8)       GEOMYS_UTF8=OFF;            shift ;;
         --styles)        GEOMYS_STYLES=ON;           shift ;;
         --no-styles)     GEOMYS_STYLES=OFF;          shift ;;
         --cache)         GEOMYS_CACHE=ON;            shift ;;
@@ -301,6 +307,7 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_GOPHER_PLUS="$GEOMYS_GOPHER_PLUS" \
     -DGEOMYS_GLYPHS="$GEOMYS_GLYPHS" \
     -DGEOMYS_CP437="$GEOMYS_CP437" \
+    -DGEOMYS_UTF8="$GEOMYS_UTF8" \
     -DGEOMYS_STYLES="$GEOMYS_STYLES" \
     -DGEOMYS_CACHE="$GEOMYS_CACHE" \
     -DGEOMYS_CLIPBOARD="$GEOMYS_CLIPBOARD" \
@@ -408,7 +415,7 @@ cp "$BUILD_DIR/Geomys.dsk" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.dsk"
 # --- Build summary ---
 ENABLED=""
 DISABLED=""
-for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache clipboard color themes download html telnet drag applescript; do
+for feat in offscreen statusbar favorites gopher-plus glyphs cp437 utf8 styles cache clipboard color themes download html telnet drag applescript; do
     case $feat in
         offscreen)    val=$GEOMYS_OFFSCREEN ;;
         statusbar)    val=$GEOMYS_STATUS_BAR ;;
@@ -416,6 +423,7 @@ for feat in offscreen statusbar favorites gopher-plus glyphs cp437 styles cache 
         gopher-plus)  val=$GEOMYS_GOPHER_PLUS ;;
         glyphs)       val=$GEOMYS_GLYPHS ;;
         cp437)        val=$GEOMYS_CP437 ;;
+        utf8)         val=$GEOMYS_UTF8 ;;
         styles)       val=$GEOMYS_STYLES ;;
         cache)        val=$GEOMYS_CACHE ;;
         clipboard)    val=$GEOMYS_CLIPBOARD ;;
