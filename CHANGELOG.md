@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-30
+
 ### Added
 - Stuffit 1.5.1 archives (`.sit`) now generated as a distribution artifact alongside `.dsk` and `.hqx`, containing Geomys and About Geomys. Expand with StuffIt Expander on the Mac.
 - UTF-8 decoding for Gopher directory titles and text-file content: lines that are valid multi-byte UTF-8 are auto-detected and transcoded to Mac Roman, so umlauts and accented Latin (e.g. "Völkermord") render correctly instead of as mojibake. Code points outside Mac Roman fall back to a curated glyph character, then accent-stripping transliteration, then `?` (CJK/emoji still show `?`). Non-UTF-8 lines fall through to the existing CP437/Mac Roman handling. New `GEOMYS_UTF8` flag, ON in full/lite presets, OFF in minimal; decoder ported from Flynn.
