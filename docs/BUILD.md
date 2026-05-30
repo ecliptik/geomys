@@ -31,6 +31,10 @@ This produces:
 - `build/Geomys.dsk` - 800K floppy disk image
 - `build/Geomys.bin` - MacBinary encoded binary
 - `build/Geomys.hqx` - BinHex archive
+- `build/Geomys.sit` - StuffIt 1.5.1 archive containing Geomys and About Geomys
+  (requires the shared `sit` tool at `~/emulators/tools/sit` — run
+  `~/emulators/scripts/setup-sit.sh` once to bootstrap; skipped with a note if
+  the tooling isn't installed)
 
 The full path of created disk images is printed on completion.
 
@@ -145,4 +149,4 @@ rm -rf build/
 
 ## Disk Image Output
 
-The build produces an 800K `.dsk` floppy image suitable for use with emulators (Snow, Mini vMac) or writing to physical floppy disks. The `.bin` (BinHex) format can be transferred via serial or network to a real Macintosh.
+The build produces an 800K `.dsk` floppy image suitable for use with emulators (Snow, Mini vMac) or writing to physical floppy disks. The `.bin` (MacBinary), `.hqx` (BinHex), and `.sit` (StuffIt 1.5.1) formats can be transferred via serial or network to a real Macintosh or through text-only channels.

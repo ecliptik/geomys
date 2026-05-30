@@ -4,12 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Stuffit 1.5.1 archives (`.sit`) now generated as a distribution artifact alongside `.dsk` and `.hqx`, containing Geomys and About Geomys. Expand with StuffIt Expander on the Mac.
+
 ### Changed
 - Options > Page Style expanded from two modes (Text, Icons) to five historical-client presentations: TurboGopher (Mac icons, default), UMN Curses (emulates the Debian `gopher` reference client: `[N]` row-number prefix, directories end with `/`, verbose bracket tags `<Bin>`/`<HQX>`/`<Picture>`/`<TEL>`/`<HTML>`/`<)`/`<?>` appended after the name, text and info render bare with aligned indent), Xgopher (emulates Allan Tuchman's xgopher 1.3 for X11: `»` directory prefix, lowercase bracket tags `<bin>`/`<cso>`/`<tel>`/`<tn3>`/`<idx>`/`<img>`/`<snd>` etc. in a fixed 6-char column, text bare), PC Gopher II (fixed-width `<F>`/`<D>`/`<S>`/`<P>`/`<T>` brackets extended to cover modern types with `<B>`/`<I>`/`<H>`/`<M>`), and RFC 1436 (raw protocol type character in `<X>` for every row — useful for debugging and protocol inspection). Existing users upgrading from v1.1.0 migrate to PC Gopher II (closest to the old "Text" style) or TurboGopher (for the old "Icons" style).
 
 ### Fixed
 - Cross-application clipboard broken under System 6 MultiFinder: the `app4Evt` handler ignored `convertClipboardFlag`, so Geomys never called `LoadScrap`/`UnloadScrap` on suspend/resume. Text copied in Geomys never reached other apps, and text copied elsewhere was invisible to Geomys.
 - White rectangular gap in the content area after dismissing a `NoteAlert` (unsupported-type message, telnet-not-found, image-saved confirmation, favorites-list-full, favorites-missing-fields). When an alert fired after a `dismiss_modal` or on its own, the alert's draw cycle consumed the pending updateEvt, so no second update arrived to cover the alert's former rect. New `browser_note_alert` helper re-invalidates the browser window after the alert returns so its footprint is redrawn.
+- MacBinary headers for `Geomys.bin` now carry the build's creation/modification date instead of the epoch, so Finder no longer shows deployed copies as "Fri Jan 1 1904".
 
 ## [1.1.0] - 2026-04-07
 

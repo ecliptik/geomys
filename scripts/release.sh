@@ -35,9 +35,9 @@ collect_artifacts() {
     local build_dir="$SCRIPT_DIR/build"
     RELEASE_FILES=()
     for artifact in \
-        "Geomys-${ver}.dsk" "Geomys-${ver}.hqx" \
-        "Geomys-Lite-${ver}.dsk" "Geomys-Lite-${ver}.hqx" \
-        "Geomys-Minimal-${ver}.dsk" "Geomys-Minimal-${ver}.hqx"; do
+        "Geomys-${ver}.dsk" "Geomys-${ver}.hqx" "Geomys-${ver}.sit" \
+        "Geomys-Lite-${ver}.dsk" "Geomys-Lite-${ver}.hqx" "Geomys-Lite-${ver}.sit" \
+        "Geomys-Minimal-${ver}.dsk" "Geomys-Minimal-${ver}.hqx" "Geomys-Minimal-${ver}.sit"; do
         [ -f "$build_dir/$artifact" ] && RELEASE_FILES+=("$build_dir/$artifact")
     done
 }
@@ -225,10 +225,14 @@ update_readme_downloads() {
         return 0
     fi
 
-    # Replace version in Codeberg release download URLs
-    # Matches: /releases/download/vX.Y.Z/Geomys...-X.Y.Z.ext
     if grep -q "releases/download/v" "$readme"; then
+        # Rewrite version in existing Codeberg download URLs.
+        # Matches: /releases/download/vX.Y.Z/Geomys...-X.Y.Z.ext
         sed -i -E "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/([A-Za-z-]*)-[0-9]+\.[0-9]+\.[0-9]+\.|releases/download/${tag}/\1-${ver}.|g" "$readme"
+        # For each row carrying an .hqx link but no .sit link, append a .sit
+        # link pointing at the same versioned URL with a swapped extension.
+        # The /[.sit]/! address makes this idempotent on re-run.
+        sed -i -E '/\[\.sit\]/! s|\[\.hqx\]\(([^)]+)\.hqx\)|[.hqx](\1.hqx) \xc2\xb7 [.sit](\1.sit)|g' "$readme"
         echo "  Updated README.md download links to $tag"
     else
         echo "  Warning: No download links found in README.md"
@@ -266,7 +270,7 @@ do_release() {
 
     if [ ${#RELEASE_FILES[@]} -eq 0 ]; then
         echo "Warning: No artifacts found for $ver"
-        echo "  Expected: Geomys-${ver}.dsk/.hqx, Geomys-Lite-${ver}.dsk/.hqx, Geomys-Minimal-${ver}.dsk/.hqx"
+        echo "  Expected: Geomys-${ver}.dsk/.hqx/.sit, Geomys-Lite-${ver}.dsk/.hqx/.sit, Geomys-Minimal-${ver}.dsk/.hqx/.sit"
     else
         echo "  Artifacts: ${#RELEASE_FILES[@]} files"
         for f in "${RELEASE_FILES[@]}"; do echo "    $(basename "$f")"; done
@@ -284,6 +288,11 @@ do_release() {
 | **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB |
 | **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB |
 | **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB |
+
+Each edition ships in three formats — pick whichever suits your transfer path:
+- **.dsk** — 800K floppy disk image; mount in an emulator or write to a real floppy
+- **.hqx** — BinHex archive; safe for email, BBS, and text-only channels
+- **.sit** — StuffIt 1.5.1 archive; expand with StuffIt Expander on the Mac
 
 See [BUILD.md](https://codeberg.org/$CODEBERG_REPO/src/branch/main/docs/BUILD.md) for custom build options."
 
