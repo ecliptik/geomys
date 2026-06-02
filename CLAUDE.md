@@ -63,6 +63,12 @@ Users can also adjust memory after building via Finder's "Get Info" on the Geomy
 
 Per-feature CMake options are defined in `CMakeLists.txt` and surfaced via `--flag`/`--no-flag` in `scripts/build.sh`. See `docs/BUILD.md` for the full table. `GEOMYS_UTF8` (auto-detected UTF-8 decoding for directory titles and text content, transcoding to Mac Roman with a CP437 fallback) is ON in full and lite presets, OFF in minimal (mirrors `GEOMYS_CP437`).
 
+### Releases & Artifact Verification
+
+`scripts/release.sh vX.Y.Z` builds all 3 presets (`build.sh --clean --preset {full,lite,minimal}` → 9 artifacts: `.dsk`/`.hqx`/`.sit`) then tries to publish to Forgejo/Codeberg/GitHub; with no `FORGEJO_TOKEN`/`CODEBERG_TOKEN`/`gh auth` it skips publishing and leaves the artifacts in `build/` (ready for Macintosh Garden upload). The build stamps the version only if tag `vX.Y.Z` is at **HEAD** — bump `CMakeLists.txt`, the resource file (`geomys.r` + its `'vers'` resources), and `docs/About Geomys`, finalize CHANGELOG, then commit + tag before building.
+
+Verify artifacts host-side (no Mac): `.dsk` via `hmount` (valid HFS + app); `.hqx` via `hexbin` (decoded `.bin` differs only in MacBinary header dates — resource fork is byte-identical); `.sit` via `macunpack -f` (resource fork byte-identical). To confirm a `.sit` opens in real StuffIt, test in **Basilisk/System 7** (System 6 has no Expander). Details in the `reference_release_and_artifact_verification` and `reference_sit_stuffit_basilisk_test` memories.
+
 ## Testing
 
 Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for full details:
@@ -86,7 +92,7 @@ Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for ful
 
 ### Emulator Rules (Critical - Violations Cause Data Corruption)
 
-- **Never update a disk image while Snow is running** - the image is memory-mapped; corruption will result. Always `pkill -f snowemu; sleep 1` first.
+- **Never update a disk image while Snow is running** - the image is memory-mapped; corruption will result. Stop Snow by **explicit PID and verify** first — `pkill -f snowemu` matches the calling shell's own command line (self-kill, spurious exit 144) and `pkill -x` is unreliable: `P=$(pgrep -x snowemu); [ -n "$P" ] && kill -9 $P; sleep 2; pgrep -x snowemu` (must be empty). A stale instance left running while you deploy yields two Snows + a disk modified under one → "?" boot floppy (HFS usually survives; verify with `hmount`/`hls`).
 - **Never run multiple Snow instances** or Snow and Basilisk II simultaneously - they share the X11 display.
 - **Never hard-kill Basilisk II repeatedly** - corrupts the disk image and `sheep_net` kernel module. Quit from inside the emulator (Special > Shut Down) when possible. If you must kill externally, do it once and reset before relaunching:
   ```bash
