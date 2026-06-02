@@ -117,7 +117,7 @@ Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for ful
 - Never push directly to Codeberg or GitHub - only push to Forgejo. Releases are created on all three via `release.sh`.
 - Use feature branches for new features, squash commits when merging to main
 - Never use git worktrees when working with agent teams
-- Always include `Co-Authored-By: Claude Code` in commits (enforced by prepare-commit-msg hook)
+- Commits carry Claude Code's default attribution trailer (`Co-Authored-By: Claude <noreply@anthropic.com>`); no custom commit hook
 - Always create a plan for implementing a feature and break into multiple phases
 - Include short SHA in About Geomys for build identification
 - Do NOT commit: disk images, GEOMYS.md, or other non-source artifacts
