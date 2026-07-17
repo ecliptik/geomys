@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+Bug-and-performance review cleanup (branch `fix/review-cleanup-v3`). Findings
+came from a multi-agent review with adversarial verification; the full analysis
+is in `docs/IMPROVEMENT-PLAN.md`.
+
+Heap corruption / crashes (P0):
+- HTML pages larger than 8 KB corrupted the heap: `html_emit`/`html_emit_run`/`html_emit_newline` bounded writes against the 32 KB/3000-line compile-time maxima but the HTML path allocated only 8 KB/512 lines and never grew them. They now bound against the actual buffer capacity and grow on demand (`gopher_grow_text_buf`/`gopher_grow_text_lines`, now non-static).
+- Pressing Back to a large cached text page could overflow the line-index buffer: `cache_retrieve` restored the cached line index into an existing (possibly smaller) buffer without a capacity check, and its rebuild fallback was bounded by the 3000-line maximum rather than the allocation. Both paths now reallocate/bound by real capacity and never publish capacity before a successful `NewPtr`.
+- A Gopher+ `+--` error status on a directory/search/ASK/alternate-view request flipped the page to text with no text buffer allocated (zero-length `NewPtr`, `avail = -1`, wild `memchr`, block-header smash). The `+--` branch now ensures a text buffer exists before switching to text rendering.
+- `conn_close` reused a still-pending async TCP parameter block (zeroing a block queued in the Device Manager) when a connect was aborted by navigation, window close, or quit. It now tears the stream down through a separate parameter block while the open is pending.
+- Closing the only window (single-window builds) left `browser`'s `g_addr_te` pointing at a freed `TEHandle`; the next keypress was a use-after-free. `session_destroy` now calls `browser_cleanup` and clears stale navigation state. `autoKey` gained the NULL-session guard `keyDown` already had, and the no-session menu branch now disables Favorites/Options/Directory.
+
+Wrong behavior / broken features (P1):
+- History-full shift no longer serves the wrong page's cached content on Back (cache slots keyed by history index were not re-validated after the 10-entry stack shifted).
+- DNS resolution no longer freezes the UI: the resolver was fully synchronous (10–40 s on a slow/unreachable server). It now issues MacTCP operations asynchronously and yields via `WaitNextEvent` while polling (`-DDNS_ASYNC=0` restores the old synchronous path). **Needs Snow QA before release.**
+- Ports 32768–65535 no longer collapse to port 70 (signed-`short` cast); ports are carried unsigned end-to-end and URIs format them with `%u`.
+- Text pages are no longer capped at 32,767 bytes: `GOPHER_TEXT_BUFSIZ`/`GOPHER_MAX_TEXT_LINES` are preset-aware (64 KB/4000 lines minimal, 128 KB/8000 larger), and the status bar shows "(truncated)" if the (raised) cap is still hit.
+- Use-after-free of item host/selector pointers during navigation fixed (copied to locals before the items array is freed).
+- Back to a cached page mid-load no longer leaves the receive flag stuck true (which busy-polled the event loop at ~60 Hz forever).
+- `prefs_save` is now atomic (write temp, verify every step, then replace) instead of deleting the old file before writing — a failed write no longer wipes all preferences and favorites.
+- Failed downloads now delete the partial file from the folder actually chosen (System 7 `parID` was dropped, so cleanup targeted the volume's default directory).
+- A failed multi-step Go/Window history jump now restores the history position fully instead of undoing a single step.
+- Home/End keys now redraw the content area (previously only the scrollbar thumb moved).
+- `--no-themes` builds again: `content_draw_selection` is available whenever clipboard support is on, and `--color` now requires `--themes` (color rendering is theme-driven), so the flag matrix is consistent.
+- `content_draw`'s NULL-clip early return no longer leaves the offscreen buffer redirected (app-appears-frozen).
+- Selection drag on System 7 color no longer clobbers the shared clip region (missing chrome feedback afterward).
+- `drag.c` URL drag outline no longer aliases a region handle (empty outline + double-`DisposeRgn`).
+- `std_dlg_filter` no longer returns a dialog result through an uninitialized `item`, and it services background dialog updates (e.g. the download progress dialog) instead of blanking them.
+
+Correctness (P2):
+- RFC 1436 text: the lone-`.` terminator line is stripped and leading `..` is un-stuffed; a final directory line with no trailing newline is flushed on connection close.
+- Loading status now shows the item/byte count (a stray NUL truncated it).
+- Text selection/hit-testing aligned with the 2-pixel draw margin; astral-plane UTF-8 code points no longer mis-map to BMP symbols; a transcode buffer no longer used an out-of-scope stack pointer; the Show Clipboard window bounds the scrap it displays; a stale print-after-load flag no longer silently prints the next page; the partial-redraw dirty bound and per-window region allocation were corrected.
+
+### Performance
+- Async DNS (above) removes the largest UI freeze.
+- Page-load completion no longer re-measures every row from scratch (resumes from the already-measured count).
+- Show Details metadata truncation replaced an O(n²) per-row `TextWidth` shrink with a binary search and an early bail.
+- Arrow-key line scrolling uses the `ScrollRect` fast path instead of a full-page redraw.
+- Per-row `TextWidth` is computed only when actually needed (hover underline / metadata).
+- The menu bar is redrawn and the Go-history list rebuilt only on state changes, not on every Cmd-key.
+- The "Connecting to…" status is drawn once per connect instead of ~60×/second.
+- Selection-drag skips recomputation when the mouse hasn't moved; `SICN` icons are cached instead of re-fetched from the resource map per row per repaint.
+
 ## [1.2.0] - 2026-05-30
 
 ### Added

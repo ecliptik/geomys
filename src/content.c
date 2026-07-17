@@ -307,9 +307,13 @@ content_init(WindowPtr win)
 #endif
 
 	/* Pre-allocate reusable clip save/restore region.
-	 * Avoids per-row NewRgn/DisposeRgn overhead. */
-	g_clip_rgn = NewRgn();
-	g_scroll_rgn = NewRgn();
+	 * Avoids per-row NewRgn/DisposeRgn overhead.
+	 * Guard against re-alloc — content_init runs again on window
+	 * reopen and the regions are module-shared (P2-10 leak). */
+	if (!g_clip_rgn)
+		g_clip_rgn = NewRgn();
+	if (!g_scroll_rgn)
+		g_scroll_rgn = NewRgn();
 
 	/* Initialize font from prefs */
 	{
@@ -701,6 +705,11 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 #ifdef GEOMYS_GOPHER_PLUS
 	extern GeomysPrefs g_prefs;
 #endif
+#if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
+	/* Function scope so a transcoded name survives past the
+	 * transcode block into the memcpy below (P2-6). */
+	char xname[256];
+#endif
 
 	/* Find split point: first run of 2+ spaces separates
 	 * name from metadata (skip info lines — plain text may
@@ -898,7 +907,6 @@ format_row_text(GopherItem *item, short page_style, char *buf,
 	 * here too.  Pure-ASCII names return 0 and keep the original disp. */
 #if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
 	{
-		char xname[256];
 		short xn = text_transcode_if_needed(xname, sizeof(xname),
 		    disp, name_len);
 
@@ -1008,6 +1016,8 @@ theme_erase_row(const Rect *erase_r, short is_hover,
 		EraseRect(erase_r);
 }
 
+#endif /* GEOMYS_THEMES */
+
 #ifdef GEOMYS_CLIPBOARD
 /*
  * content_draw_selection - Draw selection highlighting for a row.
@@ -1016,6 +1026,12 @@ theme_erase_row(const Rect *erase_r, short is_hover,
  * y: baseline y position for the row.
  * r: the content rect for clipping bounds.
  * text/text_len: pre-formatted row text (0L/0 for text rows).
+ *
+ * Guarded by GEOMYS_CLIPBOARD only (not GEOMYS_THEMES): it is called
+ * from the row draw paths whenever clipboard/selection is compiled in,
+ * and uses no theme-only helpers (draw_selection_rect handles the
+ * mono/color split internally). Keeping it under THEMES broke the
+ * --no-themes link (P1-11).
  */
 static void
 content_draw_selection(WindowPtr win, short row_index,
@@ -1059,7 +1075,6 @@ content_draw_selection(WindowPtr win, short row_index,
 	}
 }
 #endif /* GEOMYS_CLIPBOARD */
-#endif /* GEOMYS_THEMES */
 
 /* Draw a single directory row.
  * Self-contained — sets clip, font, erases, draws.
@@ -1145,8 +1160,14 @@ content_draw_row(WindowPtr win, short row_index,
 	}
 	if (len > 255) len = 255;
 
-	/* Measure name width */
-	text_width = TextWidth(line, 0, len);
+	/* Measure name width — only the hover underline (one row) and
+	 * the Show Details metadata layout consume it, so skip the
+	 * TextWidth trap for every other drawn row (PERF-4). */
+	if (row_index == g_hover_row ||
+	    (split_pos > 0 && g_prefs.show_details))
+		text_width = TextWidth(line, 0, len);
+	else
+		text_width = 0;
 
 	/* Draw with horizontal offset —
 	 * ClipRect handles clipping automatically.
@@ -1288,34 +1309,52 @@ content_draw_row(WindowPtr win, short row_index,
 		if (right_len > 0 && right_len < 100) {
 			char right_buf[100];
 
-			right_w = TextWidth(rp, 0,
-			    right_len);
 			right_avail = content_width -
 			    text_width - 4;
 
-			/* Truncate metadata from right
-			 * with ellipsis if needed */
-			if (right_w > right_avail &&
-			    right_len > 1) {
-				short mw = right_avail
-				    - ellipsis_w;
-				memcpy(right_buf, rp,
-				    right_len);
-				while (right_len > 1 &&
-				    TextWidth(right_buf,
-				    0, right_len) > mw)
-					right_len--;
-				right_buf[right_len] =
-				    '\xC9';
-				right_len++;
-				right_w = TextWidth(
-				    right_buf, 0,
-				    right_len);
-				rp = right_buf;
-			}
-
-			/* Right-align metadata */
+			/* Bail before any measurement/truncation when
+			 * there is no room even for the ellipsis — the
+			 * metadata would be discarded anyway (PERF-2). */
 			if (right_avail > ellipsis_w) {
+				right_w = TextWidth(rp, 0,
+				    right_len);
+
+				/* Truncate metadata from right with
+				 * ellipsis if needed. Binary-search the
+				 * longest prefix that fits instead of
+				 * shrinking one char at a time (PERF-2). */
+				if (right_w > right_avail &&
+				    right_len > 1) {
+					short mw = right_avail
+					    - ellipsis_w;
+					short lo = 1;
+					short hi = right_len;
+					short fit = 1;
+
+					memcpy(right_buf, rp,
+					    right_len);
+					while (lo <= hi) {
+						short mid =
+						    (lo + hi) / 2;
+						if (TextWidth(right_buf,
+						    0, mid) <= mw) {
+							fit = mid;
+							lo = mid + 1;
+						} else {
+							hi = mid - 1;
+						}
+					}
+					right_len = fit;
+					right_buf[right_len] =
+					    '\xC9';
+					right_len++;
+					right_w = TextWidth(
+					    right_buf, 0,
+					    right_len);
+					rp = right_buf;
+				}
+
+				/* Right-align metadata */
 #ifdef GEOMYS_THEMES
 #ifdef GEOMYS_COLOR
 				if (t && offscreen_is_color())
@@ -1556,6 +1595,12 @@ content_draw(WindowPtr win)
 #endif
 	draw_theme = theme_current();
 
+	/* Bail before redirecting the port to the offscreen buffer —
+	 * an early return after offscreen_begin would leave the port
+	 * pointed at the invisible GWorld with g_active stuck (P1-12). */
+	if (!g_clip_rgn)
+		return;
+
 #ifdef GEOMYS_OFFSCREEN
 	use_offscreen = offscreen_is_ready();
 	if (use_offscreen) {
@@ -1565,8 +1610,6 @@ content_draw(WindowPtr win)
 #endif
 
 	/* Clip to content area (excluding scrollbar) */
-	if (!g_clip_rgn)
-		return;
 	GetClip(g_clip_rgn);
 	ClipRect(&r);
 
@@ -1809,7 +1852,8 @@ done:
 		g_dirty_all = 0;
 	} else {
 		short di;
-		for (di = start_row; di < end_row && di < 512; di++)
+		for (di = start_row;
+		    di < end_row && di < GOPHER_MAX_ITEMS; di++)
 			g_dirty[di] = 0;
 	}
 	g_dirty_count = 0;
@@ -1993,8 +2037,10 @@ navigate_gopher_item(WindowPtr win, GopherItem *item)
  * turns a click into a drag/selection */
 #define SEL_SLOP  3
 
-/* Text drawing offset from content rect left edge */
-#define TEXT_X_OFFSET  4
+/* Hit-test / selection origin from the content rect left edge.
+ * Must equal CONTENT_LEFT_MARGIN (the draw-path origin) so selection
+ * highlights and click->column mapping line up with the glyphs (P2-4). */
+#define TEXT_X_OFFSET  CONTENT_LEFT_MARGIN
 
 /*
  * content_row_text - get the display text for a given row.
@@ -2325,16 +2371,23 @@ static short
 track_content_drag(WindowPtr win, Point start_pt, short start_row)
 {
 	Point pt;
+	Point last_pt;
 	short row, col, prev_row, prev_col;
 	short total;
 	short dragged = 0;
 	short use_xor;
 	Rect r;
+	RgnHandle save_clip;
 
 	content_get_rect(win, &r);
 	total = count_rows();
 	prev_row = start_row;
 	prev_col = g_sel.anchor_col;
+
+	/* Impossible first sample so the initial GetMouse always
+	 * processes (PERF-7 stationary-mouse skip). */
+	last_pt.h = -32000;
+	last_pt.v = -32000;
 
 	/* Determine if we can use the fast XOR path.
 	 * XOR works on mono where InvertRect is used for
@@ -2349,10 +2402,14 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 	}
 #endif
 
-	/* Save/restore clip using pre-allocated region */
-	if (!g_clip_rgn)
+	/* Save/restore clip in a PRIVATE region. The nested row-draw
+	 * helpers reuse g_clip_rgn for their own save/restore, so
+	 * sharing it here would let them clobber the saved window clip
+	 * and leave the window clipped to the content rect (P1-14). */
+	save_clip = NewRgn();
+	if (!save_clip)
 		return 0;
-	GetClip(g_clip_rgn);
+	GetClip(save_clip);
 	ClipRect(&r);
 
 	TextFont(g_font_id);
@@ -2360,6 +2417,12 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 
 	while (StillDown()) {
 		GetMouse(&pt);
+
+		/* Skip the per-sample pixel_to_col recompute when the
+		 * mouse hasn't moved since the last sample (PERF-7). */
+		if (pt.h == last_pt.h && pt.v == last_pt.v)
+			continue;
+		last_pt = pt;
 
 		/* Check slop */
 		if (!dragged) {
@@ -2522,7 +2585,8 @@ track_content_drag(WindowPtr win, Point start_pt, short start_row)
 		prev_col = col;
 	}
 
-	SetClip(g_clip_rgn);
+	SetClip(save_clip);
+	DisposeRgn(save_clip);
 
 	/* Invalidate shadow so next content_draw() fully
 	 * resyncs with the current selection state */
@@ -2803,6 +2867,84 @@ content_scroll_click(WindowPtr win, Point local_pt, short part)
 	}
 }
 
+/*
+ * content_line_scroll - fast single-line vertical scroll via ScrollRect.
+ * Assumes g_scroll_pos already holds the NEW position, delta is +1
+ * (scrolled down) or -1 (scrolled up), g_page is a directory/text/html
+ * page, and the port is already set to win. Shifts the content rect and
+ * redraws only the newly exposed row(s). Shared by the scrollbar-arrow
+ * action proc and keyboard single-line scrolling (PERF-3).
+ */
+static void
+content_line_scroll(WindowPtr win, short delta)
+{
+	Rect cr;
+	short vis = visible_rows(win);
+	const void *st;
+#ifdef GEOMYS_OFFSCREEN
+	Rect partial;
+	short use_offscreen;
+#endif
+
+	content_get_rect(win, &cr);
+
+#ifdef GEOMYS_THEMES
+	/* Set background to black before ScrollRect so
+	 * exposed area fills dark, not white */
+	if (theme_is_dark() && !theme_is_color())
+		BackPat(&qd.black);
+#endif
+
+	ScrollRect(&cr, 0, -delta * g_row_height, g_scroll_rgn);
+
+#ifdef GEOMYS_THEMES
+	if (theme_is_dark() && !theme_is_color())
+		BackPat(&qd.white);
+#endif
+
+	/* Draw exposed rows through offscreen buffer
+	 * to prevent flicker on real 68000 hardware */
+	st = theme_current();
+#ifdef GEOMYS_OFFSCREEN
+	use_offscreen = offscreen_is_ready();
+	if (use_offscreen) {
+		/* Blit rect covers only exposed rows */
+		partial = cr;
+		if (delta > 0) {
+			partial.top = cr.top +
+			    (vis - 1) * g_row_height;
+		} else {
+			partial.bottom = cr.top + g_row_height;
+		}
+		offscreen_begin(win);
+	}
+#endif
+	if (g_page->page_type == PAGE_DIRECTORY) {
+		if (delta > 0) {
+			content_draw_row(win,
+			    g_scroll_pos + vis - 1, &cr, st);
+			content_draw_row(win,
+			    g_scroll_pos + vis, &cr, st);
+		} else {
+			content_draw_row(win, g_scroll_pos, &cr, st);
+		}
+	} else {
+		if (delta > 0) {
+			content_draw_text_row(win,
+			    g_scroll_pos + vis - 1, &cr, st);
+			content_draw_text_row(win,
+			    g_scroll_pos + vis, &cr, st);
+		} else {
+			content_draw_text_row(win,
+			    g_scroll_pos, &cr, st);
+		}
+	}
+#ifdef GEOMYS_OFFSCREEN
+	if (use_offscreen)
+		offscreen_end(win, &partial);
+#endif
+}
+
 static pascal void
 scroll_action(ControlHandle ctl, short part)
 {
@@ -2854,78 +2996,8 @@ scroll_action(ControlHandle ctl, short part)
 	    || g_page->page_type == PAGE_HTML
 #endif
 	    )) {
-		/* Line scroll — use ScrollRect for speed */
-		Rect cr;
-		short vis = visible_rows(win);
-
-		content_get_rect(win, &cr);
-
-#ifdef GEOMYS_THEMES
-		/* Set background to black before ScrollRect so
-		 * exposed area fills dark, not white */
-		if (theme_is_dark() && !theme_is_color())
-			BackPat(&qd.black);
-#endif
-
-		ScrollRect(&cr, 0, -delta * g_row_height,
-		    g_scroll_rgn);
-
-#ifdef GEOMYS_THEMES
-		if (theme_is_dark() && !theme_is_color())
-			BackPat(&qd.white);
-#endif
-
-		/* Draw exposed rows through offscreen buffer
-		 * to prevent flicker on real 68000 hardware */
-		{
-			const void *st = theme_current();
-#ifdef GEOMYS_OFFSCREEN
-			Rect partial;
-			short use_offscreen = offscreen_is_ready();
-
-			if (use_offscreen) {
-				/* Blit rect covers only exposed rows */
-				partial = cr;
-				if (delta > 0) {
-					partial.top = cr.top +
-					    (vis - 1) * g_row_height;
-				} else {
-					partial.bottom = cr.top +
-					    g_row_height;
-				}
-				offscreen_begin(win);
-			}
-#endif
-			if (g_page->page_type == PAGE_DIRECTORY) {
-				if (delta > 0) {
-					content_draw_row(win,
-					    g_scroll_pos + vis - 1,
-					    &cr, st);
-					content_draw_row(win,
-					    g_scroll_pos + vis,
-					    &cr, st);
-				} else {
-					content_draw_row(win,
-					    g_scroll_pos, &cr, st);
-				}
-			} else {
-				if (delta > 0) {
-					content_draw_text_row(win,
-					    g_scroll_pos + vis - 1,
-					    &cr, st);
-					content_draw_text_row(win,
-					    g_scroll_pos + vis,
-					    &cr, st);
-				} else {
-					content_draw_text_row(win,
-					    g_scroll_pos, &cr, st);
-				}
-			}
-#ifdef GEOMYS_OFFSCREEN
-			if (use_offscreen)
-				offscreen_end(win, &partial);
-#endif
-		}
+		/* Line scroll — reuse the ScrollRect fast path */
+		content_line_scroll(win, delta);
 	} else {
 		/* Page/thumb scroll — full redraw with
 		 * offscreen buffering for flicker-free
@@ -3035,7 +3107,7 @@ content_set_scroll_pos(short pos)
 void
 content_vscroll_by(short delta)
 {
-	short new_pos, max_val;
+	short new_pos, max_val, eff_delta;
 	WindowPtr win;
 	GrafPtr save;
 
@@ -3053,13 +3125,33 @@ content_vscroll_by(short delta)
 	if (new_pos == g_scroll_pos)
 		return;
 
+	/* Effective delta may differ from the request after clamping. */
+	eff_delta = new_pos - g_scroll_pos;
 	g_scroll_pos = new_pos;
-	SetControlValue(g_scrollbar, new_pos);
+	g_hover_row = -1;  /* clear hover on scroll */
+	/* Mark all dirty (also invalidates the shadow) so the next full
+	 * content_draw resyncs after the ScrollRect shift — mirrors the
+	 * scrollbar-arrow path's bookkeeping. */
 	content_mark_all_dirty();
+	SetControlValue(g_scrollbar, new_pos);
 
 	win = (*g_scrollbar)->contrlOwner;
 	save = port_save_set(win);
-	content_draw(win);
+
+	/* Single-line scroll (held arrow key) — use the ScrollRect fast
+	 * path instead of a full-page redraw (PERF-3). */
+	if ((eff_delta == 1 || eff_delta == -1) && g_page &&
+	    (g_page->page_type == PAGE_DIRECTORY ||
+	    g_page->page_type == PAGE_TEXT
+#ifdef GEOMYS_HTML
+	    || g_page->page_type == PAGE_HTML
+#endif
+	    )) {
+		content_line_scroll(win, eff_delta);
+	} else {
+		content_draw(win);
+	}
+
 	SetPort(save);
 }
 
@@ -3094,6 +3186,14 @@ content_update_font(void)
 	g_hscroll_pos = 0;
 	if (g_hscrollbar)
 		SetControlValue(g_hscrollbar, 0);
+
+	/* Font/size/style change invalidates every measured width, so
+	 * drop the incremental watermark and accumulated max — the
+	 * caller always follows with content_recalc_width, which now
+	 * resumes from g_measured_rows and would otherwise skip rows
+	 * that must be re-measured at the new metrics (PERF-1). */
+	g_measured_rows = 0;
+	g_content_max_width = 0;
 
 	content_mark_all_dirty();
 
@@ -3715,26 +3815,44 @@ content_measure_new_rows(WindowPtr win, short total)
 static void
 content_calc_max_width(WindowPtr win)
 {
-	short i, total, w;
+	short i, total, w, from;
 	GrafPtr save;
-
-	g_content_max_width = 0;
 
 	if (!g_page)
 		return;
 
+	total = count_rows();
+
+	/* Resume from the incremental watermark rather than re-measuring
+	 * every row from 0 (PERF-1). content_measure_new_rows has already
+	 * folded rows [0, g_measured_rows) into g_content_max_width during
+	 * progressive load; a font/style change resets both so this still
+	 * re-measures the whole page at the new metrics. */
+	from = g_measured_rows;
+	if (from < 0)
+		from = 0;
+	if (from > total)
+		from = total;
+	/* Text pages: the last measured line may have been partial
+	 * mid-load, so step back one row and re-measure it. */
+	if (g_page->page_type != PAGE_DIRECTORY && from > 0)
+		from--;
+
+	if (from >= total) {
+		g_measured_rows = total;
+		return;
+	}
+
 	save = port_save_set(win);
 	TextFont(g_font_id);
 	TextSize(g_font_size);
-
-	total = count_rows();
 
 	if (g_page->page_type == PAGE_DIRECTORY) {
 		char line[256];
 		extern GeomysPrefs g_prefs;
 		Boolean umn = (g_prefs.page_style == STYLE_UMN_CURSES);
 
-		for (i = 0; i < total; i++) {
+		for (i = from; i < total; i++) {
 			GopherItem *item = &g_page->items[i];
 			short len;
 			short rn = 0;
@@ -3754,7 +3872,7 @@ content_calc_max_width(WindowPtr win)
 	    || g_page->page_type == PAGE_HTML
 #endif
 	    ) && g_page->text_buf && g_page->text_lines) {
-		for (i = 0; i < total; i++) {
+		for (i = from; i < total; i++) {
 			const char *ls;
 			short ll;
 
@@ -3793,6 +3911,9 @@ content_calc_max_width(WindowPtr win)
 				g_content_max_width = w;
 		}
 	}
+
+	/* Advance the watermark so a repeat call is a no-op (PERF-1). */
+	g_measured_rows = total;
 
 	SetPort(save);
 }

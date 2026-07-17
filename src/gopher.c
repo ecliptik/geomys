@@ -33,6 +33,8 @@
 static void gopher_parse_line(GopherState *gs, const char *line, short len);
 static void gopher_process_data(GopherState *gs);
 static void cso_process_data(GopherState *gs, char *buf, short len);
+static Boolean gopher_ensure_text_buf(GopherState *gs);
+static void gopher_flush_partial_dir_line(GopherState *gs);
 
 #ifdef GEOMYS_DEBUG
 /* Diagnostic counters for directory parsing */
@@ -146,7 +148,7 @@ gopher_clear_page(GopherState *gs)
 }
 
 Boolean
-gopher_navigate(GopherState *gs, const char *host, short port,
+gopher_navigate(GopherState *gs, const char *host, unsigned short port,
     char type, const char *selector)
 {
 	Boolean ok;
@@ -154,6 +156,17 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	char *new_text = 0L;
 	long *new_lines = 0L;
 	short new_page_type;
+	char host_copy[64];
+	char sel_copy[256];
+
+	/* host and selector may point into the current page's items
+	 * array, which gopher_clear_page frees below. Copy them into
+	 * locals up front so later reads can't dereference freed
+	 * memory (use-after-free). */
+	strncpy(host_copy, host, sizeof(host_copy) - 1);
+	host_copy[sizeof(host_copy) - 1] = '\0';
+	strncpy(sel_copy, selector, sizeof(sel_copy) - 1);
+	sel_copy[sizeof(sel_copy) - 1] = '\0';
 
 	/* Close any existing connection */
 	if (gs->conn.state != CONN_STATE_IDLE)
@@ -237,7 +250,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	}
 
 	/* Start async connect — returns true when handshake begins */
-	ok = conn_connect(&gs->conn, host, port, 0L);
+	ok = conn_connect(&gs->conn, host_copy, port, 0L);
 	if (!ok) {
 		/* Connection failed — free new buffers, keep old page */
 		if (new_items)
@@ -290,6 +303,8 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 		gs->text_lines_capacity = new_lines ?
 		    GOPHER_INIT_TEXT_LINES : 0;
 		gs->text_line_count = new_lines ? 1 : 0;
+		gs->text_truncated = false;
+		gs->text_line_start = true;
 	}
 
 #ifdef GEOMYS_DOWNLOAD
@@ -303,7 +318,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	/* Save selector for deferred send (async connect).
 	 * Always saved into cur_selector so we don't need a
 	 * separate send_selector buffer. */
-	strncpy(gs->cur_selector, selector,
+	strncpy(gs->cur_selector, sel_copy,
 	    sizeof(gs->cur_selector) - 1);
 	gs->cur_selector[sizeof(gs->cur_selector) - 1] = '\0';
 
@@ -315,7 +330,7 @@ gopher_navigate(GopherState *gs, const char *host, short port,
 	if (new_page_type != PAGE_DOWNLOAD &&
 	    new_page_type != PAGE_IMAGE) {
 #endif
-		strncpy(gs->cur_host, host,
+		strncpy(gs->cur_host, host_copy,
 		    sizeof(gs->cur_host) - 1);
 		gs->cur_host[sizeof(gs->cur_host) - 1] = '\0';
 		gs->cur_port = port;
@@ -455,6 +470,8 @@ gopher_idle(GopherState *gs)
 
 	if (gs->conn.state == CONN_STATE_DONE ||
 	    gs->conn.state == CONN_STATE_ERROR) {
+		if (gs->conn.state == CONN_STATE_DONE)
+			gopher_flush_partial_dir_line(gs);
 		gs->receiving = false;
 		return true;  /* final update */
 	}
@@ -476,6 +493,8 @@ gopher_idle(GopherState *gs)
 	/* Check if connection closed after idle */
 	if (gs->conn.state == CONN_STATE_DONE ||
 	    gs->conn.state == CONN_STATE_ERROR) {
+		if (gs->conn.state == CONN_STATE_DONE)
+			gopher_flush_partial_dir_line(gs);
 		gs->receiving = false;
 		return true;
 	}
@@ -486,8 +505,9 @@ gopher_idle(GopherState *gs)
 /*
  * Double the text_buf capacity up to GOPHER_TEXT_BUFSIZ.
  * Returns true on success, false if allocation fails.
+ * Non-static: shared with the HTML renderer (html.c).
  */
-static Boolean
+Boolean
 gopher_grow_text_buf(GopherState *gs)
 {
 	long new_cap = gs->text_buf_capacity * 2;
@@ -509,8 +529,9 @@ gopher_grow_text_buf(GopherState *gs)
 /*
  * Double the text_lines capacity up to GOPHER_MAX_TEXT_LINES.
  * Returns true on success, false if allocation fails.
+ * Non-static: shared with the HTML renderer (html.c).
  */
-static Boolean
+Boolean
 gopher_grow_text_lines(GopherState *gs)
 {
 	short new_lc = gs->text_lines_capacity * 2;
@@ -531,12 +552,79 @@ gopher_grow_text_lines(GopherState *gs)
 }
 
 /*
+ * Ensure a text buffer exists before switching a page to PAGE_TEXT.
+ * Directory / search / Gopher+ ASK requests allocate only `items`,
+ * leaving text_buf NULL and text_buf_capacity 0; writing text into
+ * that state computes a zero/negative capacity and corrupts the heap.
+ * Allocates text_buf (and the line index) on demand. Returns true if
+ * a usable text buffer is present, false if allocation failed (in
+ * which case the caller must NOT switch to PAGE_TEXT).
+ */
+static Boolean
+gopher_ensure_text_buf(GopherState *gs)
+{
+	if (gs->text_buf && gs->text_buf_capacity > 0)
+		return true;
+
+	gs->text_buf = NewPtr(GOPHER_TEXT_INIT_SIZE);
+	if (!gs->text_buf) {
+		gs->text_buf_capacity = 0;
+		return false;
+	}
+	gs->text_buf_capacity = GOPHER_TEXT_INIT_SIZE;
+	gs->text_len = 0;
+	gs->text_buf[0] = '\0';
+	gs->text_truncated = false;
+	gs->text_line_start = true;
+
+	if (!gs->text_lines) {
+		gs->text_lines = (long *)NewPtr(
+		    (long)GOPHER_INIT_TEXT_LINES * sizeof(long));
+		if (gs->text_lines) {
+			gs->text_lines_capacity = GOPHER_INIT_TEXT_LINES;
+			gs->text_lines[0] = 0;
+			gs->text_line_count = 1;
+		} else {
+			gs->text_lines_capacity = 0;
+			gs->text_line_count = 0;
+		}
+	}
+	return true;
+}
+
+/*
+ * Flush a directory line left buffered in line_buf when the server
+ * closes the connection without a trailing newline (or omits the
+ * ".\r\n" terminator). Strips a trailing CR and skips a lone "."
+ * terminator. No-op unless we are parsing a directory with a pending
+ * partial line.
+ */
+static void
+gopher_flush_partial_dir_line(GopherState *gs)
+{
+	if (gs->page_type != PAGE_DIRECTORY || gs->line_len <= 0)
+		return;
+
+	if (gs->line_buf[gs->line_len - 1] == '\r')
+		gs->line_len--;
+	gs->line_buf[gs->line_len] = '\0';
+
+	if (gs->line_len == 1 && gs->line_buf[0] == '.') {
+		gs->line_len = 0;
+		return;
+	}
+
+	if (gs->line_len > 0)
+		gopher_parse_line(gs, gs->line_buf, gs->line_len);
+	gs->line_len = 0;
+}
+
+/*
  * Process received data incrementally, buffering partial lines.
  */
 static void
 gopher_process_data(GopherState *gs)
 {
-	short i;
 	char *buf = gs->conn.read_buf;
 	short len = gs->conn.read_len;
 
@@ -556,13 +644,21 @@ gopher_process_data(GopherState *gs)
 					gs->line_len--;
 				gs->line_buf[gs->line_len] = '\0';
 
-				/* +-- error: show as text */
+				/* +-- error: show as text. A directory /
+				 * search / ASK request allocated only
+				 * `items`, so text_buf may be NULL — only
+				 * switch to PAGE_TEXT once a text buffer
+				 * exists, otherwise the text path would
+				 * compute a zero/negative capacity and
+				 * smash the heap. */
 				if (gs->line_len >= 3 &&
 				    gs->line_buf[0] == '+' &&
 				    gs->line_buf[1] == '-' &&
 				    gs->line_buf[2] == '-') {
-					gs->gplus_active = false;
-					gs->page_type = PAGE_TEXT;
+					if (gopher_ensure_text_buf(gs)) {
+						gs->gplus_active = false;
+						gs->page_type = PAGE_TEXT;
+					}
 				}
 
 				gs->gplus_status_parsed = true;
@@ -667,6 +763,25 @@ gopher_process_data(GopherState *gs)
 			    p[copy_len - 1] == '\r')
 				copy_len--;
 
+			/* RFC 1436: at the start of a text line, a lone
+			 * "." terminates the stream and a leading ".."
+			 * is byte-stuffing for a real ".". */
+			if (gs->text_line_start) {
+				if (nl && copy_len == 1 && p[0] == '.') {
+					gs->receiving = false;
+					conn_close(&gs->conn);
+					gs->conn.state = CONN_STATE_DONE;
+					gs->text_buf[gs->text_len] = '\0';
+					return;
+				}
+				if (copy_len >= 2 && p[0] == '.' &&
+				    p[1] == '.') {
+					p++;
+					copy_len--;
+				}
+			}
+			gs->text_line_start = false;
+
 			cap = gs->text_buf_capacity;
 
 			/* Grow text_buf if needed */
@@ -680,8 +795,10 @@ gopher_process_data(GopherState *gs)
 			if (copy_len > 0) {
 				avail = cap - 1 -
 				    gs->text_len;
-				if (copy_len > avail)
+				if (copy_len > avail) {
 					copy_len = (short)avail;
+					gs->text_truncated = true;
+				}
 
 				/* Fast path: no interior \r — use
 				 * memcpy (common case for normal
@@ -729,6 +846,8 @@ gopher_process_data(GopherState *gs)
 						gs->text_line_count++;
 					}
 				}
+				/* Next chunk begins a new line. */
+				gs->text_line_start = true;
 				p = nl + 1;
 			} else {
 				break;
@@ -1088,12 +1207,13 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 		item->host[copy_len] = '\0';
 	}
 
-	/* Parse port — validate range to prevent overflow on short */
+	/* Parse port — validate 1..65535 and store unsigned so high
+	 * ports (>=32768) are preserved instead of collapsing. */
 	if (field >= 3) {
 		int p = atoi(fields[3]);
 		if (p <= 0 || p > 65535)
 			p = GOPHER_DEFAULT_PORT;
-		item->port = (short)p;
+		item->port = (unsigned short)p;
 	}
 	if (item->port == 0)
 		item->port = GOPHER_DEFAULT_PORT;
@@ -1186,13 +1306,20 @@ gopher_parse_uri(const char *uri, char *host, short host_size,
 	memcpy(host, host_start, len);
 	host[len] = '\0';
 
-	/* Parse optional port */
+	/* Parse optional port. Range-check as an int (1..65535)
+	 * before narrowing so a high port is not seen as a negative
+	 * short and rewritten to the default. The stored bit pattern
+	 * round-trips correctly through the unsigned-short navigate
+	 * and build_uri paths. */
 	*port = GOPHER_DEFAULT_PORT;
 	if (*p == ':') {
+		int pnum;
+
 		p++;
-		*port = (short)atoi(p);
-		if (*port <= 0)
-			*port = GOPHER_DEFAULT_PORT;
+		pnum = atoi(p);
+		if (pnum < 1 || pnum > 65535)
+			pnum = GOPHER_DEFAULT_PORT;
+		*port = (short)(unsigned short)pnum;
 		while (*p && *p != '/')
 			p++;
 	}
@@ -1220,11 +1347,11 @@ gopher_parse_uri(const char *uri, char *host, short host_size,
 
 void
 gopher_build_uri(char *uri, short uri_size, const char *host,
-    short port, char type, const char *selector)
+    unsigned short port, char type, const char *selector)
 {
 	if (port != GOPHER_DEFAULT_PORT)
-		snprintf(uri, uri_size, "gopher://%s:%d/%c%s",
-		    host, port, type, selector);
+		snprintf(uri, uri_size, "gopher://%s:%u/%c%s",
+		    host, (unsigned int)port, type, selector);
 	else if (selector[0] || type != GOPHER_DIRECTORY)
 		snprintf(uri, uri_size, "gopher://%s/%c%s",
 		    host, type, selector);

@@ -250,7 +250,29 @@ std_dlg_filter(DialogPtr dlg, EventRecord *evt, short *item)
 		WindowPtr win = (WindowPtr)evt->message;
 
 		if (win != (WindowPtr)dlg) {
-			handle_update(evt);
+			/* A background dialog window (e.g. the download
+			 * progress dialog) must be serviced through the
+			 * Dialog Manager.  Routing it to handle_update
+			 * would EraseRect it — blanking the dialog
+			 * permanently (P2-11).  Other windows (the
+			 * browser window, clipboard) still go through
+			 * handle_update. */
+			if (((WindowPeek)win)->windowKind == dialogKind) {
+				GrafPtr save;
+
+				GetPort(&save);
+				SetPort(win);
+				BeginUpdate(win);
+				UpdateDialog((DialogPtr)win, win->visRgn);
+				EndUpdate(win);
+				SetPort(save);
+			} else {
+				handle_update(evt);
+			}
+			/* P1-13: set a non-item so the caller's
+			 * do-while(item != …) loop keeps going instead
+			 * of reading uninitialized stack. */
+			*item = 0;
 			return true;
 		}
 	}

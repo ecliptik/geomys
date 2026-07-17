@@ -364,6 +364,12 @@ init_menus(void)
 
 static void update_go_menu_history(void);
 
+/* Tracks whether the menu bar is currently in the no-session
+ * "disabled" state.  DrawMenuBar (a visible flash plus latency
+ * on every Cmd-key) is only issued on the transition into or
+ * out of that state, not on every update_menus call (PERF-5). */
+static Boolean g_menus_bar_disabled = false;
+
 void
 update_menus(void)
 {
@@ -371,42 +377,61 @@ update_menus(void)
 	Boolean da_active;
 
 	/* No active session — disable everything except
-	 * File > New Window and File > Quit */
+	 * File > New Window and File > Quit.  Only touch the
+	 * menu bar on the transition into this state. */
 	if (!active_session) {
-		if (file_menu) {
-			short i, n;
+		if (!g_menus_bar_disabled) {
+			if (file_menu) {
+				short i, n;
 
-			n = CountMItems(file_menu);
-			for (i = 1; i <= n; i++)
-				DisableItem(file_menu, i);
-			EnableItem(file_menu, FILE_MENU_NEW);
-			EnableItem(file_menu, FILE_MENU_OPEN);
-			EnableItem(file_menu, FILE_MENU_QUIT);
+				n = CountMItems(file_menu);
+				for (i = 1; i <= n; i++)
+					DisableItem(file_menu, i);
+				EnableItem(file_menu, FILE_MENU_NEW);
+				EnableItem(file_menu, FILE_MENU_OPEN);
+				EnableItem(file_menu, FILE_MENU_QUIT);
+			}
+			if (edit_menu)
+				DisableItem(edit_menu, 0);
+			if (go_menu)
+				DisableItem(go_menu, 0);
+			/* P0-7: also disable Favorites/Options (and
+			 * Directory for consistency) so Favorites > Add
+			 * and Options > Home Page can't run through a
+			 * NULL session or the freed g_addr_te. */
+			if (favorites_menu)
+				DisableItem(favorites_menu, 0);
+			if (options_menu)
+				DisableItem(options_menu, 0);
+			if (directory_menu)
+				DisableItem(directory_menu, 0);
+			if (window_menu)
+				DisableItem(window_menu, 0);
+			DrawMenuBar();
+			g_menus_bar_disabled = true;
 		}
-		if (edit_menu)
-			DisableItem(edit_menu, 0);
-		if (go_menu)
-			DisableItem(go_menu, 0);
-		if (window_menu)
-			DisableItem(window_menu, 0);
-		DrawMenuBar();
 		return;
 	}
 
-	/* Re-enable menus that may have been disabled */
-	if (edit_menu)
-		EnableItem(edit_menu, 0);
-	if (go_menu)
-		EnableItem(go_menu, 0);
-	if (favorites_menu)
-		EnableItem(favorites_menu, 0);
-	if (options_menu)
-		EnableItem(options_menu, 0);
-	if (directory_menu)
-		EnableItem(directory_menu, 0);
-	if (window_menu)
-		EnableItem(window_menu, 0);
-	DrawMenuBar();
+	/* Re-enable menus that were disabled — only on the
+	 * transition back out of the no-session state, so the
+	 * menu bar isn't redrawn on every Cmd-key (PERF-5). */
+	if (g_menus_bar_disabled) {
+		if (edit_menu)
+			EnableItem(edit_menu, 0);
+		if (go_menu)
+			EnableItem(go_menu, 0);
+		if (favorites_menu)
+			EnableItem(favorites_menu, 0);
+		if (options_menu)
+			EnableItem(options_menu, 0);
+		if (directory_menu)
+			EnableItem(directory_menu, 0);
+		if (window_menu)
+			EnableItem(window_menu, 0);
+		DrawMenuBar();
+		g_menus_bar_disabled = false;
+	}
 
 	front = FrontWindow();
 	/* DA windows have negative windowKind */
@@ -960,10 +985,28 @@ do_show_clipboard(void)
 			scrap_len = 4096;
 		scrap_h = NewHandle(scrap_len);
 		if (scrap_h) {
-			GetScrap(scrap_h, 'TEXT', &scrap_offset);
-			HLock(scrap_h);
-			TESetText(*scrap_h, scrap_len, g_clip_te);
-			HUnlock(scrap_h);
+			long got;
+
+			/* GetScrap resizes scrap_h to the *full* scrap
+			 * length (ignoring our 4096 pre-size) and returns
+			 * it, or a negative Scrap Manager error.  Cap the
+			 * displayed length and shrink the handle back so a
+			 * large cross-app scrap can't blow the heap or
+			 * exceed TextEdit's limit; on error don't set
+			 * garbage text (P2-7). */
+			got = GetScrap(scrap_h, 'TEXT', &scrap_offset);
+			if (got > 0 && MemError() == noErr) {
+				if (got > scrap_len)
+					got = scrap_len;   /* keep 4096 cap */
+				if (got > 32000)
+					got = 32000;       /* TESetText max */
+				SetHandleSize(scrap_h, got);
+				if (MemError() == noErr) {
+					HLock(scrap_h);
+					TESetText(*scrap_h, got, g_clip_te);
+					HUnlock(scrap_h);
+				}
+			}
 			DisposeHandle(scrap_h);
 		}
 	} else {
@@ -1190,6 +1233,12 @@ handle_edit_menu(short item)
 /* First history item number in Go menu (0 = no history shown) */
 static short g_go_history_start = 0;
 
+/* Signature of the last-built Go history list, used to skip the
+ * expensive menu teardown/rebuild when nothing changed (PERF-5). */
+static short g_go_hist_hcount = -1;
+static short g_go_hist_pos = -1;
+static unsigned long g_go_hist_sig = 0;
+
 /*
  * update_go_menu_history - Append history entries to Go menu.
  * Called from update_menus after static items are updated.
@@ -1198,21 +1247,47 @@ static void
 update_go_menu_history(void)
 {
 	short hcount, cur_pos, i, item_num, shown;
+	unsigned long sig;
 	Str255 ps;
-
-	g_go_history_start = 0;
 
 	if (!go_menu)
 		return;
+
+	hcount = history_count();
+	cur_pos = history_current_index();
+
+	/* Cheap change-detection: the appended list only needs
+	 * rebuilding when the count, the current (checkmarked)
+	 * position, or the newest entry changed.  The full-history
+	 * shift keeps count and position but replaces the newest
+	 * entry, so fold it into the signature. */
+	sig = 0;
+	if (hcount > 0) {
+		const HistoryEntry *he = history_get(hcount - 1);
+
+		if (he) {
+			const char *s = he->title[0] ?
+			    he->title : he->host;
+			while (*s)
+				sig = sig * 31 + (unsigned char)*s++;
+		}
+	}
+	if (hcount == g_go_hist_hcount &&
+	    cur_pos == g_go_hist_pos &&
+	    sig == g_go_hist_sig)
+		return;  /* unchanged — keep the existing menu items */
+
+	g_go_hist_hcount = hcount;
+	g_go_hist_pos = cur_pos;
+	g_go_hist_sig = sig;
+
+	g_go_history_start = 0;
 
 	/* Remove any previously appended history items
 	 * (items after GO_MENU_STOP = 6) */
 	while (CountMItems(go_menu) > GO_MENU_STOP)
 		DeleteMenuItem(go_menu,
 		    CountMItems(go_menu));
-
-	hcount = history_count();
-	cur_pos = history_current_index();
 
 	if (hcount <= 0)
 		return;

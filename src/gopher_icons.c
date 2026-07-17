@@ -373,6 +373,44 @@ gopher_sicn_for_type(char type)
 	}
 }
 
+/* SICN handle cache — mirrors the cicn cache below.  Each SICN is fetched
+ * from the resource map once; gopher_sicn_draw runs per icon per row per
+ * repaint, so caching avoids a GetResource trap on every blit.  Covers the
+ * Gopher-type SICN IDs (256-275). */
+#define SICN_CACHE_BASE    256
+#define SICN_CACHE_SIZE     20
+
+static Handle g_sicn_cache[SICN_CACHE_SIZE];
+static unsigned char g_sicn_tried[SICN_CACHE_SIZE];
+
+static Handle
+sicn_get_cached(short sicn_id)
+{
+	short idx;
+	Handle h;
+
+	idx = sicn_id - SICN_CACHE_BASE;
+	if (idx < 0 || idx >= SICN_CACHE_SIZE)
+		return NULL;
+
+	if (!g_sicn_tried[idx]) {
+		g_sicn_tried[idx] = 1;
+		g_sicn_cache[idx] = GetResource('SICN', sicn_id);
+	}
+
+	h = g_sicn_cache[idx];
+	if (!h)
+		return NULL;
+
+	/* Respect resource purging: if the block was purged, reload it. */
+	if (*h == NULL) {
+		LoadResource(h);
+		if (ResError() != noErr || *h == NULL)
+			return NULL;
+	}
+	return h;
+}
+
 void
 gopher_sicn_draw(short sicn_id, short x, short y,
     short invert)
@@ -384,7 +422,7 @@ gopher_sicn_draw(short sicn_id, short x, short y,
 	if (sicn_id == 0)
 		return;
 
-	h = GetResource('SICN', sicn_id);
+	h = sicn_get_cached(sicn_id);
 	if (!h)
 		return;
 

@@ -213,7 +213,7 @@ drag_start_url(WindowPtr win, EventRecord *event,
 		RgnHandle outer = NewRgn();
 
 		RectRgn(outer, item_rect);
-		*inner = *outer;
+		CopyRgn(outer, inner);
 		InsetRgn(inner, 1, 1);
 		DiffRgn(outer, inner, drag_rgn);
 		DisposeRgn(inner);

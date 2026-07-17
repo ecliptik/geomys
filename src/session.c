@@ -52,11 +52,34 @@ session_destroy(BrowserSession *s)
 	/* Cleanup gopher engine (frees items, text_buf, text_lines) */
 	gopher_cleanup(&s->gopher);
 
-	/* Dispose TEHandle (address bar) */
-	if (s->addr_te) {
-		TEDispose(s->addr_te);
-		s->addr_te = 0L;
-	}
+	/* Clear stale navigation state. In single-window builds the app
+	 * keeps running after the only window closes, and the dead
+	 * "if (!active_session)" guards can't stop a Refresh/Back from
+	 * acting on the freed page — so wipe the current page identity
+	 * and receive state here. (s->gopher is the global g_gopher.) */
+	s->gopher.receiving = false;
+	s->gopher.cur_host[0] = '\0';
+	s->gopher.cur_selector[0] = '\0';
+	s->gopher.cur_type = '\0';
+	s->gopher.cur_port = 0;
+	s->gopher.page_type = PAGE_NONE;
+	s->gopher.item_count = 0;
+	s->gopher.text_line_count = 0;
+	s->gopher.text_len = 0;
+
+	/* Dispose the address-bar TextEdit through browser_cleanup so the
+	 * browser module's g_addr_te static is also NULLed. Otherwise it
+	 * would keep pointing at the freed TEHandle and the next keypress
+	 * would TEKey a dangling pointer (use-after-free). s->addr_te is
+	 * never populated in single-window builds, so there is no double
+	 * dispose. */
+	browser_cleanup();
+	s->addr_te = 0L;
+
+	/* Reset history and content module statics so Back/Forward and
+	 * the next redraw can't dereference the freed page. */
+	history_init();
+	content_invalidate_shadow();
 
 	/* Remove drag handlers before window disposal */
 #ifdef GEOMYS_DRAG

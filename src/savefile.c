@@ -472,6 +472,7 @@ start_save_to_disk(const GopherItem *item,
 		gs->dl_written = 0;
 		gs->dl_error = false;
 		gs->dl_vrefnum = sf_reply.sfFile.vRefNum;
+		gs->dl_parid = sf_reply.sfFile.parID;
 		memcpy(gs->dl_filename, sf_reply.sfFile.name,
 		    sf_reply.sfFile.name[0] + 1);
 	} else {
@@ -518,6 +519,7 @@ start_save_to_disk(const GopherItem *item,
 		gs->dl_written = 0;
 		gs->dl_error = false;
 		gs->dl_vrefnum = reply.vRefNum;
+		gs->dl_parid = 0;   /* SFReply vRefNum is a working-dir refNum; use FSDelete */
 		memcpy(gs->dl_filename, reply.fName,
 		    reply.fName[0] + 1);
 	}
@@ -574,7 +576,10 @@ start_save_to_disk(const GopherItem *item,
 		/* Connection failed — clean up file */
 		FSClose(refNum);
 		FlushVol(0L, gs->dl_vrefnum);
-		FSDelete(gs->dl_filename, gs->dl_vrefnum);
+		if (gs->dl_parid)
+			HDelete(gs->dl_vrefnum, gs->dl_parid, gs->dl_filename);
+		else
+			FSDelete(gs->dl_filename, gs->dl_vrefnum);
 		gs->dl_refnum = 0;
 		gs->dl_written = 0;
 		gs->dl_vrefnum = 0;

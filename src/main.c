@@ -594,19 +594,41 @@ poll_active_session(void)
 	if (!g_gopher.receiving)
 		return;
 
-	/* Show connecting status during async TCP handshake */
-	if (g_gopher.conn.state == CONN_STATE_OPENING) {
-		char msg[80];
-		GrafPtr save;
+	/* Show connecting status during async TCP handshake.
+	 * Draw only once per connect — while CONN_STATE_OPENING the
+	 * text is identical every tick, so redrawing ~60x/s just
+	 * flickers the status bar and burns CPU. Remember the host we
+	 * last drew for and skip until it changes; clear it once the
+	 * handshake completes so a later reconnect draws again. */
+	{
+		static char last_conn_host[64];
 
-		snprintf(msg, sizeof(msg),
-		    "Connecting to %.50s\311",
-		    g_gopher.conn.host);
-		browser_set_status(msg);
-		GetPort(&save);
-		SetPort(g_window);
-		browser_draw_status(g_window);
-		SetPort(save);
+		if (g_gopher.conn.state == CONN_STATE_OPENING) {
+			if (strncmp(last_conn_host, g_gopher.conn.host,
+			    sizeof(last_conn_host)) != 0) {
+				char msg[80];
+				GrafPtr save;
+
+				strncpy(last_conn_host,
+				    g_gopher.conn.host,
+				    sizeof(last_conn_host) - 1);
+				last_conn_host[sizeof(last_conn_host)
+				    - 1] = '\0';
+
+				snprintf(msg, sizeof(msg),
+				    "Connecting to %.50s\311",
+				    g_gopher.conn.host);
+				browser_set_status(msg);
+				GetPort(&save);
+				SetPort(g_window);
+				browser_draw_status(g_window);
+				SetPort(save);
+			}
+		} else if (last_conn_host[0]) {
+			/* Handshake finished — reset so the next
+			 * connect, even to the same host, redraws once. */
+			last_conn_host[0] = '\0';
+		}
 	}
 
 	/* Snapshot row count before draining data so we can
@@ -662,8 +684,13 @@ poll_active_session(void)
 			char *p = prog;
 			long val;
 
-			memcpy(p, "Loading\311 ", 10);
-			p += 10;
+			/* Copy the 9 visible bytes ("Loading" + the
+			 * ellipsis char + a space) WITHOUT the trailing
+			 * NUL — copying 10 planted a NUL before the
+			 * digits, so strlen stopped short and the count
+			 * never rendered. */
+			memcpy(p, "Loading\311 ", 9);
+			p += 9;
 
 			if (g_gopher.page_type ==
 			    PAGE_DIRECTORY)
@@ -872,9 +899,14 @@ handle_download_completed(void)
 
 	if (g_gopher.dl_error) {
 		/* Write error — delete partial file */
-		if (g_gopher.dl_filename[0])
-			FSDelete(g_gopher.dl_filename,
-			    g_gopher.dl_vrefnum);
+		if (g_gopher.dl_filename[0]) {
+			if (g_gopher.dl_parid)
+				HDelete(g_gopher.dl_vrefnum,
+				    g_gopher.dl_parid, g_gopher.dl_filename);
+			else
+				FSDelete(g_gopher.dl_filename,
+				    g_gopher.dl_vrefnum);
+		}
 		show_error_alert(
 		    "Error writing file. "
 		    "The disk may be full.");
@@ -929,9 +961,14 @@ handle_image_completed(void)
 	}
 
 	if (g_gopher.dl_error) {
-		if (g_gopher.dl_filename[0])
-			FSDelete(g_gopher.dl_filename,
-			    g_gopher.dl_vrefnum);
+		if (g_gopher.dl_filename[0]) {
+			if (g_gopher.dl_parid)
+				HDelete(g_gopher.dl_vrefnum,
+				    g_gopher.dl_parid, g_gopher.dl_filename);
+			else
+				FSDelete(g_gopher.dl_filename,
+				    g_gopher.dl_vrefnum);
+		}
 		show_error_alert(
 		    "Error writing file. "
 		    "The disk may be full.");
@@ -1064,7 +1101,11 @@ handle_page_loaded(void)
 			    "Done \xD0 %d items",
 			    g_gopher.item_count);
 #endif
-		} else
+		} else if (g_gopher.text_truncated)
+			snprintf(uri, sizeof(uri),
+			    "Done \xD0 %ld bytes (truncated)",
+			    g_gopher.text_len);
+		else
 			snprintf(uri, sizeof(uri),
 			    "Done \xD0 %ld bytes",
 			    g_gopher.text_len);
@@ -1209,6 +1250,13 @@ main_event_loop(void)
 			handle_key_down(&event);
 			break;
 		case autoKey:
+			/* g_window / browser_key below dereference
+			 * active_session; after the last window closes it
+			 * is genuinely NULL in multi-window builds, so a
+			 * held-key repeat would deref NULL / TEKey a freed
+			 * handle. Guard exactly as handle_key_down does. */
+			if (!active_session)
+				break;
 			if (!(event.modifiers & cmdKey)) {
 				char ak = event.message & charCodeMask;
 
@@ -1450,8 +1498,12 @@ do_cancel_loading(void)
 		if (g_gopher.dl_refnum) {
 			FSClose(g_gopher.dl_refnum);
 			FlushVol(0L, g_gopher.dl_vrefnum);
-			FSDelete(g_gopher.dl_filename,
-			    g_gopher.dl_vrefnum);
+			if (g_gopher.dl_parid)
+				HDelete(g_gopher.dl_vrefnum,
+				    g_gopher.dl_parid, g_gopher.dl_filename);
+			else
+				FSDelete(g_gopher.dl_filename,
+				    g_gopher.dl_vrefnum);
 			g_gopher.dl_refnum = 0;
 		}
 
@@ -1655,11 +1707,21 @@ handle_key_down(EventRecord *event)
 			    content_visible_rows());
 			return;
 		case 0x01:  /* Home — top of document */
-			content_set_scroll_pos(0);
-			return;
 		case 0x04:  /* End — bottom of document */
-			content_set_scroll_pos(32767);
+		{
+			/* content_set_scroll_pos only updates the thumb
+			 * and g_scroll_pos; redraw the rows to match, or
+			 * the shadow cache desyncs from the new position. */
+			GrafPtr save;
+
+			content_set_scroll_pos(key == 0x01 ? 0 : 32767);
+			content_mark_all_dirty();
+			GetPort(&save);
+			SetPort(g_window);
+			content_draw(g_window);
+			SetPort(save);
 			return;
+		}
 		case 0x1B:  /* Escape — clear keyboard selection */
 			content_clear_kbd_selection(g_window);
 			return;
@@ -1762,14 +1824,25 @@ do_navigate_url_titled(const char *url, const char *title)
 	char uri[300];
 
 	if (!gopher_parse_uri(url, host, sizeof(host),
-	    &port, &type, selector, sizeof(selector)))
+	    &port, &type, selector, sizeof(selector))) {
+		/* Parse failed — this navigation never loads, so a
+		 * pending "print after load" flag would otherwise linger
+		 * and silently print the next manually-loaded page. */
+#ifdef GEOMYS_PRINT
+		g_print_after_load = false;
+#endif
 		return;
+	}
 
 	/* Create a window if none exists */
 	if (!active_session) {
 		do_new_window();
-		if (!active_session)
+		if (!active_session) {
+#ifdef GEOMYS_PRINT
+			g_print_after_load = false;
+#endif
 			return;
+		}
 	}
 
 	/* Save scroll position before resetting */
@@ -2672,6 +2745,12 @@ navigate_history_entry(const HistoryEntry *e, short direction)
 		 * restored cached page */
 		if (g_gopher.conn.state != CONN_STATE_IDLE)
 			conn_close(&g_gopher.conn);
+		/* conn_close leaves receiving set; with the state now
+		 * IDLE, gopher_idle matches no branch and never clears
+		 * it, so the event loop would pin wait_ticks=1 and
+		 * busy-poll forever. Clear the receive state here. */
+		g_gopher.receiving = false;
+		g_gopher.selector_sent = false;
 		g_app_state = APP_STATE_IDLE;
 
 		content_set_page(&g_gopher);
@@ -2803,6 +2882,7 @@ navigate_history_to(short index)
 {
 	const HistoryEntry *e;
 	short cur = history_current_index();
+	short origin = cur;
 	short direction;
 
 	e = history_get(index);
@@ -2821,6 +2901,20 @@ navigate_history_to(short index)
 	}
 
 	navigate_history_entry(e, direction);
+
+	/* navigate_history_entry only undoes a SINGLE step on failure
+	 * (history_undo_back/forward), but we may have walked many steps
+	 * to reach `index`. If it failed — the position is no longer at
+	 * the target — walk all the way back to the origin so Back/
+	 * Forward, the Go checkmark, and cache indexing stay consistent
+	 * with the page still shown. On success g_pos == index and this
+	 * is a no-op. */
+	if (history_current_index() != index) {
+		while (history_current_index() > origin)
+			history_back();
+		while (history_current_index() < origin)
+			history_forward();
+	}
 }
 
 /*

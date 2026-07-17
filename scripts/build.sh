@@ -193,6 +193,12 @@ if [ "$GEOMYS_THEMES" = "ON" ] && [ "$GEOMYS_OFFSCREEN" = "OFF" ]; then
     echo "Note: --themes requires --offscreen for flicker-free redraw, enabling it"
     GEOMYS_OFFSCREEN=ON
 fi
+# COLOR requires THEMES: the color rendering path draws with theme colors
+# (sel_bg/sel_fg, is_dark), so color without themes cannot compile.
+if [ "$GEOMYS_COLOR" = "ON" ] && [ "$GEOMYS_THEMES" = "OFF" ]; then
+    echo "Note: --color requires --themes (color rendering is theme-driven), disabling color"
+    GEOMYS_COLOR=OFF
+fi
 
 # --- Compute SIZE resource partition ---
 compute_size() {

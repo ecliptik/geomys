@@ -2,19 +2,16 @@
 
 ## Bugs
 
-- [ ] External URL dialog dismissal leaves unredrawn content gap: after
-      dismissing the Copy URL dialog (clicking an `h`-type item with a
-      `URL:` selector), the rectangle the dialog occupied stays white /
-      blank and the Gopher content behind it is not redrawn. Also
-      visible when the "No helper application was found" NoteAlert
-      fires on top of the same flow. Repro: open
-      `gopher://gopher.floodgap.com/`, click any item with a
-      `URL:http://` selector, click OK or Cancel in the External URL
-      dialog, observe gap in content area where the dialog was.
-      Likely updateEvt not being delivered to the browser window after
-      modal dismissal, or the content layer missing an `InvalRect` on
-      the dialog's former bounds. Same shape of bug as Flynn's
-      "multi-session window drag leaves white ghost."
+- [x] External URL dialog dismissal leaves unredrawn content gap.
+      Root-caused during the review-cleanup-v3 sweep: not reproducible on
+      current `main`. `dismiss_modal` already queues a full-window
+      `InvalRect` and `handle_update` does a full repaint; the original
+      repro was against the pre-fix `feature/internet-config` branch
+      (fixed by 7e5c165 `browser_note_alert`). The same investigation did
+      find and fix a real latent bug in the same path — `std_dlg_filter`
+      returned a dialog result through an uninitialized `item` — now
+      resolved on `fix/review-cleanup-v3`. Retest in Snow to confirm and
+      close.
 
 ## Enhancements
 

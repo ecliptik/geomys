@@ -517,8 +517,28 @@ conn_close(Connection *conn)
 		return;
 
 	if (conn->stream) {
-		_TCPAbort(&conn->pb, conn->stream, 0L, 0L, false);
-		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
+		/*
+		 * If an async TCPActiveOpen is still pending, conn->pb is
+		 * owned by the Device Manager (ioResult == 1) and sits on
+		 * the driver's I/O queue.  _TCPAbort() and _TCPRelease()
+		 * both begin by memset()ing the pb they are handed, which
+		 * would zero the qLink/ioResult of a live queued block and
+		 * re-issue PBControl on it — classic "never reuse a pending
+		 * pb" corruption.  Tear the stream down through a separate
+		 * parameter block in that case; the synchronous abort forces
+		 * the queued open (on conn->pb) to complete before we
+		 * release the stream, so conn->pb is safe to reuse
+		 * afterwards.
+		 */
+		if (conn->pb.ioResult == 1) {
+			TCPiopb abort_pb;
+
+			_TCPAbort(&abort_pb, conn->stream, 0L, 0L, false);
+			_TCPRelease(&abort_pb, conn->stream, 0L, 0L, false);
+		} else {
+			_TCPAbort(&conn->pb, conn->stream, 0L, 0L, false);
+			_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
+		}
 		conn->stream = 0L;
 	}
 

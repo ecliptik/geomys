@@ -14,6 +14,7 @@
 #include "main.h"
 
 #define PREFS_FILENAME	"\pGeomys Preferences"
+#define PREFS_TEMPNAME	"\pGeomys Prefs (tmp)"
 
 static OSErr
 prefs_get_location(short *vRefNum, long *dirID)
@@ -143,6 +144,29 @@ prefs_load(GeomysPrefs *prefs)
 		prefs->page_style = STYLE_TURBOGOPHER;
 }
 
+/* Delete the scratch temp file; ignore errors (best-effort cleanup). */
+static void
+prefs_delete_temp(short vRefNum, long dirID)
+{
+	HParamBlockRec pb;
+
+	memset(&pb, 0, sizeof(pb));
+	pb.ioParam.ioNamePtr = (StringPtr)PREFS_TEMPNAME;
+	pb.ioParam.ioVRefNum = vRefNum;
+	pb.fileParam.ioDirID = dirID;
+	PBHDeleteSync(&pb);
+}
+
+/*
+ * prefs_save - persist preferences atomically.
+ *
+ * Writes to a scratch temp file and verifies every step; only once the temp
+ * holds a complete, flushed copy is the old "Geomys Preferences" replaced
+ * (delete + rename).  Any failure leaves the existing prefs untouched, so a
+ * disk-full / locked-volume / interrupted write can no longer wipe the home
+ * URL, DNS server, favorites, theme and fonts.  Returns no error (the
+ * prototype is void and all callers ignore it), but never destroys good data.
+ */
 void
 prefs_save(GeomysPrefs *prefs)
 {
@@ -150,53 +174,88 @@ prefs_save(GeomysPrefs *prefs)
 	long count;
 	short vRefNum;
 	long dirID;
+	short refNum;
 	OSErr err;
 
 	err = prefs_get_location(&vRefNum, &dirID);
 	if (err != noErr)
 		return;
 
-	/* Delete existing file */
-	memset(&pb, 0, sizeof(pb));
-	pb.ioParam.ioNamePtr = (StringPtr)PREFS_FILENAME;
-	pb.ioParam.ioVRefNum = vRefNum;
-	pb.fileParam.ioDirID = dirID;
-	PBHDeleteSync(&pb);
+	prefs->version = PREFS_VERSION;
 
-	/* Create new file */
+	/* Clear any stale temp file left by a previous interrupted save. */
+	prefs_delete_temp(vRefNum, dirID);
+
+	/* Create the temp file. */
 	memset(&pb, 0, sizeof(pb));
-	pb.ioParam.ioNamePtr = (StringPtr)PREFS_FILENAME;
+	pb.ioParam.ioNamePtr = (StringPtr)PREFS_TEMPNAME;
 	pb.ioParam.ioVRefNum = vRefNum;
 	pb.fileParam.ioDirID = dirID;
 	err = PBHCreateSync(&pb);
 	if (err != noErr)
 		return;
 
-	/* Set type and creator */
+	/* Set type and creator so the final file is tagged correctly. */
 	memset(&pb, 0, sizeof(pb));
-	pb.ioParam.ioNamePtr = (StringPtr)PREFS_FILENAME;
+	pb.ioParam.ioNamePtr = (StringPtr)PREFS_TEMPNAME;
 	pb.ioParam.ioVRefNum = vRefNum;
 	pb.fileParam.ioDirID = dirID;
-	err = PBHGetFInfoSync(&pb);
-	if (err != noErr)
-		return;
-	pb.fileParam.ioDirID = dirID;
-	pb.fileParam.ioFlFndrInfo.fdType = 'pref';
-	pb.fileParam.ioFlFndrInfo.fdCreator = 'GEOM';
-	PBHSetFInfoSync(&pb);
+	if (PBHGetFInfoSync(&pb) == noErr) {
+		pb.fileParam.ioDirID = dirID;
+		pb.fileParam.ioFlFndrInfo.fdType = 'pref';
+		pb.fileParam.ioFlFndrInfo.fdCreator = 'GEOM';
+		PBHSetFInfoSync(&pb);
+	}
 
-	/* Open and write */
+	/* Open the temp file for writing. */
 	memset(&pb, 0, sizeof(pb));
-	pb.ioParam.ioNamePtr = (StringPtr)PREFS_FILENAME;
+	pb.ioParam.ioNamePtr = (StringPtr)PREFS_TEMPNAME;
 	pb.ioParam.ioVRefNum = vRefNum;
 	pb.ioParam.ioPermssn = fsWrPerm;
 	pb.fileParam.ioDirID = dirID;
 	err = PBHOpenSync(&pb);
-	if (err != noErr)
+	if (err != noErr) {
+		prefs_delete_temp(vRefNum, dirID);
 		return;
+	}
+	refNum = pb.ioParam.ioRefNum;
 
-	prefs->version = PREFS_VERSION;
+	/* Write the full record; verify both the error and the byte count. */
 	count = sizeof(GeomysPrefs);
-	FSWrite(pb.ioParam.ioRefNum, &count, (Ptr)prefs);
-	FSClose(pb.ioParam.ioRefNum);
+	err = FSWrite(refNum, &count, (Ptr)prefs);
+	if (err == noErr && count != (long)sizeof(GeomysPrefs))
+		err = ioErr;
+
+	/* Close always; a close error can still signal a failed flush. */
+	{
+		OSErr close_err = FSClose(refNum);
+		if (err == noErr)
+			err = close_err;
+	}
+
+	if (err != noErr) {
+		/* Write/flush failed — discard temp, keep existing prefs. */
+		prefs_delete_temp(vRefNum, dirID);
+		return;
+	}
+
+	/* Temp now holds a complete, verified copy.  Remove the old file. */
+	memset(&pb, 0, sizeof(pb));
+	pb.ioParam.ioNamePtr = (StringPtr)PREFS_FILENAME;
+	pb.ioParam.ioVRefNum = vRefNum;
+	pb.fileParam.ioDirID = dirID;
+	err = PBHDeleteSync(&pb);
+	if (err != noErr && err != fnfErr) {
+		/* Old file is locked/busy — leave it intact, drop the temp. */
+		prefs_delete_temp(vRefNum, dirID);
+		return;
+	}
+
+	/* Rename the temp over the real prefs name. */
+	memset(&pb, 0, sizeof(pb));
+	pb.ioParam.ioNamePtr = (StringPtr)PREFS_TEMPNAME;
+	pb.ioParam.ioVRefNum = vRefNum;
+	pb.ioParam.ioMisc = (Ptr)PREFS_FILENAME;
+	pb.fileParam.ioDirID = dirID;
+	PBHRenameSync(&pb);
 }

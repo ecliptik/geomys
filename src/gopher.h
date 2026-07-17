@@ -7,17 +7,33 @@
 
 #include "connection.h"
 
+/* GEOMYS_MAX_WINDOWS is normally supplied by the build (-D). Fall
+ * back to the single-window (minimal) assumption if it is not, so
+ * the preset-aware caps below always resolve to a defined value. */
+#ifndef GEOMYS_MAX_WINDOWS
+#define GEOMYS_MAX_WINDOWS 1
+#endif
+
 /* Directory item array: starts small, grows dynamically */
 #define GOPHER_INIT_ITEMS   128   /* initial allocation */
 #define GOPHER_MAX_ITEMS   2000   /* hard cap */
 
-/* Text buffer: starts small, grows to max */
+/* Text buffer: starts small, grows to a preset-aware maximum.
+ * GEOMYS_MAX_WINDOWS is used as a proxy for the memory partition:
+ * == 1 is the minimal (512KB) preset, which gets a leaner 64KB cap;
+ * larger presets have room for a 128KB cap. GOPHER_MAX_TEXT_LINES
+ * must stay below 32767 because text_line_count is a short. */
 #define GOPHER_TEXT_INIT_SIZE  (8L * 1024L)
-#define GOPHER_TEXT_BUFSIZ     (32L * 1024L)
+#if GEOMYS_MAX_WINDOWS <= 1
+#define GOPHER_TEXT_BUFSIZ     (64L * 1024L)
+#define GOPHER_MAX_TEXT_LINES   4000
+#else
+#define GOPHER_TEXT_BUFSIZ     (128L * 1024L)
+#define GOPHER_MAX_TEXT_LINES   8000
+#endif
 
-/* Text line index: starts small, grows to max */
+/* Text line index: starts small, grows to GOPHER_MAX_TEXT_LINES */
 #define GOPHER_INIT_TEXT_LINES  512
-#define GOPHER_MAX_TEXT_LINES   3000
 
 /* Gopher item types (RFC 1436 canonical) */
 #define GOPHER_TEXT         '0'
@@ -58,7 +74,7 @@ typedef struct {
 	char    display[100];
 	char    selector[128];
 	char    host[64];
-	short   port;
+	unsigned short port;    /* 1..65535 — unsigned to hold high ports */
 #ifdef GEOMYS_GOPHER_PLUS
 	short   score;          /* search relevance 0-100, -1 = none */
 	char    has_plus;       /* 1 if server supports Gopher+ for this item */
@@ -81,6 +97,8 @@ typedef struct {
 	long        *text_lines;    /* byte offsets of each line start */
 	short       text_line_count;
 	short       text_lines_capacity; /* current line index allocation */
+	Boolean     text_truncated; /* content hit the cap and was clipped */
+	Boolean     text_line_start; /* receive parser is at a line start */
 
 	/* Connection */
 	Connection  conn;
@@ -94,7 +112,7 @@ typedef struct {
 
 	/* Current request */
 	char        cur_host[64];
-	short       cur_port;
+	unsigned short cur_port;
 	char        cur_selector[256];
 	char        cur_type;
 	char        cur_title[128]; /* display name of current page */
@@ -113,6 +131,7 @@ typedef struct {
 	long        dl_written;     /* bytes written so far */
 	Boolean     dl_error;       /* sticky write error flag */
 	short       dl_vrefnum;     /* volume for cleanup on error */
+	long        dl_parid;       /* dir ID for cleanup (System 7 FSSpec); 0 = SFReply/WD path */
 	Str63       dl_filename;    /* for cleanup on error */
 	short       dl_prev_page;   /* page_type before download started */
 	char        dl_prev_selector[256]; /* cur_selector before download */
@@ -144,19 +163,29 @@ void gopher_cleanup(GopherState *gs);
 
 /* Navigate to a Gopher URL. Returns true if connection started. */
 Boolean gopher_navigate(GopherState *gs, const char *host,
-    short port, char type, const char *selector);
+    unsigned short port, char type, const char *selector);
 
 /* Poll for data — call from event loop. Returns true if new data arrived. */
 Boolean gopher_idle(GopherState *gs);
 
+/* Grow the text/line buffers by doubling, up to the compile-time
+ * maxima. Return true on success. Shared with the HTML renderer so
+ * it, too, grows the buffers instead of overflowing them. */
+Boolean gopher_grow_text_buf(GopherState *gs);
+Boolean gopher_grow_text_lines(GopherState *gs);
+
 /* Parse a gopher:// URI into components.
- * Returns true on success with host, port, type, selector filled in. */
+ * Returns true on success with host, port, type, selector filled in.
+ * The port is written through a short* for source compatibility with
+ * existing callers; high ports (32768..65535) are stored as the
+ * matching negative bit pattern and round-trip correctly through the
+ * unsigned-short navigate/build_uri path. */
 Boolean gopher_parse_uri(const char *uri, char *host, short host_size,
     short *port, char *type, char *selector, short sel_size);
 
 /* Build a gopher:// URI from components */
 void gopher_build_uri(char *uri, short uri_size, const char *host,
-    short port, char type, const char *selector);
+    unsigned short port, char type, const char *selector);
 
 #ifdef GEOMYS_DEBUG
 /* Format directory parsing diagnostics into buf */

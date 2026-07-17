@@ -405,23 +405,46 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 		    slot->text_len);
 		gs->text_len = slot->text_len;
 
-		/* Reset directory fields — text page has no items */
+		/* Reset directory/line fields — text page has no
+		 * items, and the line index is restored/rebuilt below.
+		 * Clearing text_line_count first ensures the rebuild
+		 * path runs if the cached index can't be restored. */
 		gs->item_count = 0;
+		gs->text_line_count = 0;
 
-		/* Restore line index */
+		/* Restore line index. Reallocate when the existing
+		 * buffer is missing OR too small for the cached count;
+		 * a plain memcpy into a smaller buffer (e.g. a 512-slot
+		 * array after visiting a small page) would corrupt the
+		 * heap. Never publish text_lines_capacity until NewPtr
+		 * succeeds. */
 		if (slot->text_lines &&
 		    slot->text_line_count > 0) {
-			if (!gs->text_lines) {
-				short need = slot->text_line_count * 2;
+			if (!gs->text_lines ||
+			    gs->text_lines_capacity <
+			    slot->text_line_count) {
+				long need =
+				    (long)slot->text_line_count * 2;
+				long *new_tl;
+
 				if (need < GOPHER_INIT_TEXT_LINES)
 					need = GOPHER_INIT_TEXT_LINES;
 				if (need > GOPHER_MAX_TEXT_LINES)
 					need = GOPHER_MAX_TEXT_LINES;
-				gs->text_lines = (long *)NewPtr(
-				    (long)need * sizeof(long));
-				gs->text_lines_capacity = need;
+				new_tl = (long *)NewPtr(
+				    need * sizeof(long));
+				if (new_tl) {
+					if (gs->text_lines)
+						DisposePtr(
+						    (Ptr)gs->text_lines);
+					gs->text_lines = new_tl;
+					gs->text_lines_capacity =
+					    (short)need;
+				}
 			}
-			if (gs->text_lines) {
+			if (gs->text_lines &&
+			    gs->text_lines_capacity >=
+			    slot->text_line_count) {
 				long lsize =
 				    (long)slot->text_line_count
 				    * sizeof(long);
@@ -437,12 +460,18 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 		if (gs->text_line_count == 0 &&
 		    gs->text_len > 0) {
 			if (!gs->text_lines) {
-				short need = GOPHER_INIT_TEXT_LINES;
+				long need = GOPHER_INIT_TEXT_LINES;
+				long *new_tl;
+
 				if (need > GOPHER_MAX_TEXT_LINES)
 					need = GOPHER_MAX_TEXT_LINES;
-				gs->text_lines = (long *)NewPtr(
-				    (long)need * sizeof(long));
-				gs->text_lines_capacity = need;
+				new_tl = (long *)NewPtr(
+				    need * sizeof(long));
+				if (new_tl) {
+					gs->text_lines = new_tl;
+					gs->text_lines_capacity =
+					    (short)need;
+				}
 			}
 			if (gs->text_lines) {
 				long ti;
@@ -454,7 +483,7 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 					if (gs->text_buf[ti] ==
 					    '\r' &&
 					    gs->text_line_count <
-					    GOPHER_MAX_TEXT_LINES) {
+					    gs->text_lines_capacity) {
 						gs->text_lines[
 						    gs->text_line_count]
 						    = ti + 1;

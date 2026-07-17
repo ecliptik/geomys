@@ -8,12 +8,14 @@
  */
 
 #include <OSUtils.h>
+#include <Events.h>
 #include <string.h>
 #include "MacTCP.h"
 #include "tcp.h"
 #include "dns.h"
 
-#define DNS_BUF_SIZE     512   /* max DNS message */
+#define DNS_BUF_SIZE     512   /* max DNS query message */
+#define DNS_TCP_MSG_MAX 1024   /* max DNS-over-TCP response we assemble */
 #define DNS_UDP_BUF     4096   /* UDP stream receive buffer */
 #define DNS_TCP_BUF     4096   /* TCP stream receive buffer */
 #define DNS_RETRY_COUNT    2   /* UDP send attempts */
@@ -21,6 +23,26 @@
 #define DNS_TCP_TIMEOUT   15   /* seconds for TCP connect+response */
 #define DNS_PORT          53
 #define MAX_DNS_RECORDS   64  /* cap qdcount/ancount from response */
+
+/*
+ * DNS_ASYNC selects the async-poll resolver (MacTCP operations issued
+ * asynchronously and driven from a poll loop that yields to the Process
+ * Manager via WaitNextEvent).  This keeps the UI/MultiFinder alive during
+ * the 10-40s a slow or UDP-dropping resolver can take, instead of a hard
+ * blocking freeze.  Set -DDNS_ASYNC=0 (or edit here) to fall back to the
+ * original fully-synchronous behavior if the async path needs debugging.
+ * The async path reuses the exact WaitNextEvent(0, ...) yield idiom already
+ * used in connection.c and gopherplus.c.  MUST be QA'd in Snow before merge.
+ */
+#ifndef DNS_ASYNC
+#define DNS_ASYNC 1
+#endif
+
+#if DNS_ASYNC
+#define DNS_ASYNC_ARG true
+#else
+#define DNS_ASYNC_ARG false
+#endif
 
 /* Header offsets */
 #define HDR_ID         0
@@ -37,6 +59,41 @@
 /* Response codes (low 4 bits of flags) */
 #define RCODE_OK       0
 #define RCODE_NXDOMAIN 3
+
+/*
+ * Complete a MacTCP operation issued with DNS_ASYNC_ARG.
+ *
+ * In async mode the wrappers queue the call and return immediately with
+ * ioResult == 1; we spin the pb's ioResult (read through a volatile
+ * pointer so the interrupt-time completion is observed) while yielding to
+ * the Process Manager with WaitNextEvent(0, ...).  Mask 0 dequeues no
+ * events, so background apps and desk accessories get time but our own
+ * event queue is left untouched — no re-entrant navigation, matching the
+ * poll idiom in connection.c / gopherplus.c.
+ *
+ * In synchronous mode the wrapper already blocked and issue_err is the
+ * final result, so we return it unchanged.
+ */
+static OSErr
+dns_finish(OSErr issue_err, volatile short *ioResult)
+{
+#if DNS_ASYNC
+	EventRecord ev;
+
+	/* A non-noErr/non-1 immediate result means the call was never
+	 * queued; ioResult is not meaningful, so report the error. */
+	if (issue_err != noErr && issue_err != 1)
+		return issue_err;
+
+	while (*ioResult == 1)
+		WaitNextEvent(0, &ev, 1, 0L);
+
+	return (OSErr)*ioResult;
+#else
+	(void)ioResult;
+	return issue_err;
+#endif
+}
 
 /*
  * Encode hostname into DNS wire format.
@@ -235,11 +292,14 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 	OSErr err;
 	short result;
 	static unsigned char send_buf[2 + DNS_BUF_SIZE];
-	static unsigned char recv_buf[2 + DNS_BUF_SIZE];
-	unsigned short rcv_len, msg_len;
+	static unsigned char recv_buf[2 + DNS_TCP_MSG_MAX];
+	unsigned short total, msg_len, want, got;
+	Boolean have_len;
+	unsigned long deadline;
 	wdsEntry wds[2];
 	ip_addr local_ip;
 	tcp_port local_port;
+	EventRecord ev;
 
 	tcp_buf = NewPtr(DNS_TCP_BUF);
 	if (!tcp_buf)
@@ -253,11 +313,12 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 		return DNS_ERR_NETWORK;
 	}
 
-	/* Connect to DNS server port 53 */
+	/* Connect to DNS server port 53 (async — yields while opening) */
 	local_ip = 0;
 	local_port = 0;
 	err = _TCPActiveOpen(&pb, stream, dns_server, DNS_PORT,
-	    &local_ip, &local_port, 0L, 0L, false);
+	    &local_ip, &local_port, 0L, 0L, DNS_ASYNC_ARG);
+	err = dns_finish(err, &pb.ioResult);
 	if (err != noErr) {
 		_TCPRelease(&pb, stream, 0L, 0L, false);
 		DisposePtr(tcp_buf);
@@ -273,7 +334,8 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 	wds[0].ptr = (Ptr)send_buf;
 	wds[0].length = query_len + 2;
 
-	err = _TCPSend(&pb, stream, wds, 0L, 0L, false);
+	err = _TCPSend(&pb, stream, wds, 0L, 0L, DNS_ASYNC_ARG);
+	err = dns_finish(err, &pb.ioResult);
 	if (err != noErr) {
 		_TCPClose(&pb, stream, 0L, 0L, false);
 		_TCPRelease(&pb, stream, 0L, 0L, false);
@@ -281,26 +343,76 @@ dns_resolve_tcp(const char *hostname, ip_addr *ip, ip_addr dns_server,
 		return DNS_ERR_NETWORK;
 	}
 
-	/* Receive response with timeout */
+	/*
+	 * Receive the length-prefixed response.  MacTCP's _TCPRcv returns
+	 * on *any* available data, so a single read can hand back a partial
+	 * length prefix or a partial body, and the per-read timeout is only
+	 * ~1s (tcp.c).  Accumulate across segments, gating completion on the
+	 * 2-byte length prefix, until the whole message has arrived or the
+	 * overall DNS_TCP_TIMEOUT wall-clock deadline passes — so a slow but
+	 * working resolver is no longer dropped at the first ~1s read.
+	 */
 	result = DNS_ERR_TIMEOUT;
+	total = 0;
+	msg_len = 0;
+	have_len = false;
+	deadline = TickCount() + (unsigned long)DNS_TCP_TIMEOUT * 60UL;
 
-	/* First read the 2-byte length prefix */
-	rcv_len = 2;
-	err = _TCPRcv(&pb, stream, (Ptr)recv_buf, &rcv_len,
-	    0L, 0L, false);
-	if (err == noErr && rcv_len == 2) {
-		msg_len = ((unsigned short)recv_buf[0] << 8) | recv_buf[1];
-		if (msg_len > DNS_BUF_SIZE)
-			msg_len = DNS_BUF_SIZE;
+	while ((long)(TickCount() - deadline) < 0) {
+		want = (unsigned short)(sizeof(recv_buf) - total);
+		if (want == 0)
+			break;  /* response larger than we can assemble */
 
-		/* Read the DNS message body */
-		rcv_len = msg_len;
-		err = _TCPRcv(&pb, stream, (Ptr)(recv_buf + 2), &rcv_len,
-		    0L, 0L, false);
-		if (err == noErr && rcv_len > 0) {
-			result = dns_parse_response(recv_buf + 2,
-			    rcv_len, txn_id, ip, ttl);
+		got = want;
+		err = _TCPRcv(&pb, stream, (Ptr)(recv_buf + total), &got,
+		    0L, 0L, DNS_ASYNC_ARG);
+		err = dns_finish(err, &pb.ioResult);
+
+		/* Only a clean completion delivers new bytes; MacTCP returns
+		 * any partial data with noErr and reports 0 on commandTimeout.
+		 * On any other result rcvBuffLen is not a fresh byte count
+		 * (it may still hold the requested size), so treat it as 0. */
+		got = (err == noErr) ? pb.csParam.receive.rcvBuffLen : 0;
+
+		if (got > 0) {
+			total += got;
+
+			if (!have_len && total >= 2) {
+				msg_len = ((unsigned short)recv_buf[0] << 8) |
+				    recv_buf[1];
+				if (msg_len > DNS_TCP_MSG_MAX)
+					msg_len = DNS_TCP_MSG_MAX;
+				have_len = true;
+			}
+
+			if (have_len &&
+			    total >= (unsigned short)(2 + msg_len)) {
+				result = dns_parse_response(recv_buf + 2,
+				    (short)msg_len, txn_id, ip, ttl);
+				break;
+			}
 		}
+
+		if (err == commandTimeout) {
+			/* No data this round — keep waiting until the
+			 * overall deadline, yielding to other processes. */
+			WaitNextEvent(0, &ev, 1, 0L);
+			continue;
+		}
+		if (err != noErr) {
+			/* connectionClosing/terminated or a hard error:
+			 * stop.  A complete message would have returned
+			 * above; connectionClosing is treated as a plain
+			 * timeout so UDP-style retry messaging still fits. */
+			if (result == DNS_ERR_TIMEOUT &&
+			    err != connectionClosing)
+				result = DNS_ERR_NETWORK;
+			break;
+		}
+
+		/* Partial message, connection still open: read the next
+		 * segment.  Yield briefly so we don't spin the CPU. */
+		WaitNextEvent(0, &ev, 1, 0L);
 	}
 
 	_TCPClose(&pb, stream, 0L, 0L, false);
@@ -369,8 +481,13 @@ dns_resolve(const char *hostname, ip_addr *ip, ip_addr dns_server,
 			break;
 		}
 
-		/* Receive response with timeout */
-		err = _UDPRcv(&pb, stream, DNS_TIMEOUT, 0L, 0L, false);
+		/* Receive response with timeout.  Issued async and driven
+		 * from dns_finish's poll loop so the DNS_TIMEOUT-second
+		 * wait yields to the Process Manager instead of freezing
+		 * the UI; the driver's own commandTimeout completes the pb,
+		 * so it is never released while still pending. */
+		err = _UDPRcv(&pb, stream, DNS_TIMEOUT, 0L, 0L, DNS_ASYNC_ARG);
+		err = dns_finish(err, &pb.ioResult);
 		if (err == commandTimeout) {
 			continue;  /* retry on timeout */
 		}

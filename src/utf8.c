@@ -198,10 +198,14 @@ utf8_resolve(long cp)
 			return (short)ch;
 	}
 
-	/* Common punctuation/symbols -> Mac Roman. */
-	ch = unicode_symbol_to_macroman((unsigned short)cp);
-	if (ch)
-		return (short)ch;
+	/* Common punctuation/symbols -> Mac Roman.  Guard the cast so
+	 * supplementary-plane code points (cp > 0xFFFF) don't alias a
+	 * mapped BMP symbol (e.g. U+12013 truncating to U+2013 en dash). */
+	if (cp <= 0xFFFF) {
+		ch = unicode_symbol_to_macroman((unsigned short)cp);
+		if (ch)
+			return (short)ch;
+	}
 
 #ifdef GEOMYS_GLYPHS
 	/* Curated glyph -> its ASCII copy character.  Content view draws flat

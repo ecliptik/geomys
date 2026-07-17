@@ -61,12 +61,23 @@ tag_eq(const char *tag, short tag_len, const char *name)
 
 /*
  * Emit a single character to text_buf, respecting buffer limits.
+ * Bounds are checked against the *actual* allocation
+ * (gs->text_buf_capacity), which starts at GOPHER_TEXT_INIT_SIZE
+ * (8KB) and grows on demand — never against the compile-time
+ * maximum, which would overflow the initial buffer.
  */
 static void
 html_emit(GopherState *gs, char c)
 {
-	if (gs->text_len >= GOPHER_TEXT_BUFSIZ - 1)
+	/* Need room for the char plus a trailing NUL. */
+	if (gs->text_len + 2 > gs->text_buf_capacity &&
+	    gs->text_buf_capacity < GOPHER_TEXT_BUFSIZ)
+		gopher_grow_text_buf(gs);
+
+	if (gs->text_len + 1 >= gs->text_buf_capacity) {
+		gs->text_truncated = true;
 		return;
+	}
 
 	gs->text_buf[gs->text_len++] = c;
 	gs->text_buf[gs->text_len] = '\0';
@@ -84,11 +95,19 @@ html_emit_run(GopherState *gs, const char *s, short len)
 	if (len <= 0)
 		return;
 
-	avail = GOPHER_TEXT_BUFSIZ - 1 - gs->text_len;
-	if (avail <= 0)
+	if (gs->text_len + len + 1 > gs->text_buf_capacity &&
+	    gs->text_buf_capacity < GOPHER_TEXT_BUFSIZ)
+		gopher_grow_text_buf(gs);
+
+	avail = gs->text_buf_capacity - 1 - gs->text_len;
+	if (avail <= 0) {
+		gs->text_truncated = true;
 		return;
-	if (len > avail)
+	}
+	if (len > avail) {
 		len = (short)avail;
+		gs->text_truncated = true;
+	}
 
 	memcpy(gs->text_buf + gs->text_len, s, len);
 	gs->text_len += len;
@@ -97,6 +116,7 @@ html_emit_run(GopherState *gs, const char *s, short len)
 
 /*
  * Emit a carriage return and record a new line in text_lines[].
+ * Grows the line index on demand, bounded by the actual allocation.
  */
 static void
 html_emit_newline(GopherState *gs)
@@ -104,7 +124,12 @@ html_emit_newline(GopherState *gs)
 	html_emit(gs, '\r');
 
 	if (gs->text_lines &&
-	    gs->text_line_count < GOPHER_MAX_TEXT_LINES) {
+	    gs->text_line_count >= gs->text_lines_capacity &&
+	    gs->text_lines_capacity < GOPHER_MAX_TEXT_LINES)
+		gopher_grow_text_lines(gs);
+
+	if (gs->text_lines &&
+	    gs->text_line_count < gs->text_lines_capacity) {
 		gs->text_lines[gs->text_line_count] =
 		    gs->text_len;
 		gs->text_line_count++;
