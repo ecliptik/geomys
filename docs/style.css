@@ -148,6 +148,12 @@ h1, h2 {
   width: min(460px, 100%);
 }
 
+/* The System 7 shot is 4:3 vs the System 6 shot's 830:554; narrow it so
+   both render at the same height and the captions sit on one line. */
+.hero-figures figure:nth-child(2) {
+  width: min(409px, 100%);
+}
+
 .hero-shot {
   width: 100%;
   height: auto;
