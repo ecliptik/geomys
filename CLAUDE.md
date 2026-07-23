@@ -65,7 +65,7 @@ Per-feature CMake options are defined in `CMakeLists.txt` and surfaced via `--fl
 
 ### Releases & Artifact Verification
 
-`scripts/release.sh vX.Y.Z` builds all 3 presets (`build.sh --clean --preset {full,lite,minimal}` → 9 artifacts: `.dsk`/`.hqx`/`.sit`) then tries to publish to Forgejo/Codeberg/GitHub; with no `FORGEJO_TOKEN`/`CODEBERG_TOKEN`/`gh auth` it skips publishing and leaves the artifacts in `build/` (ready for Macintosh Garden upload). The build stamps the version only if tag `vX.Y.Z` is at **HEAD** — bump `CMakeLists.txt`, the resource file (`geomys.r` + its `'vers'` resources), and `docs/About Geomys`, finalize CHANGELOG, then commit + tag before building.
+`scripts/release.sh vX.Y.Z` builds all 3 presets (`build.sh --clean --preset {full,lite,minimal}` → 9 artifacts: `.dsk`/`.hqx`/`.sit`) then tries to publish to Forgejo/GitHub; with no `FORGEJO_TOKEN`/`gh auth` it skips publishing and leaves the artifacts in `build/` (ready for Macintosh Garden upload). The build stamps the version only if tag `vX.Y.Z` is at **HEAD** — bump `CMakeLists.txt`, the resource file (`geomys.r` + its `'vers'` resources), and `docs/About Geomys`, finalize CHANGELOG, then commit + tag before building.
 
 Verify artifacts host-side (no Mac): `.dsk` via `hmount` (valid HFS + app); `.hqx` via `hexbin` (decoded `.bin` differs only in MacBinary header dates — resource fork is byte-identical); `.sit` via `macunpack -f` (resource fork byte-identical). To confirm a `.sit` opens in real StuffIt, test in **Basilisk/System 7** (System 6 has no Expander). Details in the `reference_release_and_artifact_verification` and `reference_sit_stuffit_basilisk_test` memories.
 
@@ -112,9 +112,8 @@ Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for ful
 ## Repository Conventions
 
 - Git remote (primary): `ssh://git@forgejo.ecliptik.com/ecliptik/geomys.git`
-- Codeberg mirror: `https://codeberg.org/ecliptik/geomys` (read-only, auto-mirrored from Forgejo)
-- GitHub mirror: `https://github.com/ecliptik/geomys` (read-only, auto-mirrored from Forgejo)
-- Never push directly to Codeberg or GitHub - only push to Forgejo. Releases are created on all three via `release.sh`.
+- GitHub (public): `https://github.com/ecliptik/geomys` - auto-mirrored from Forgejo; issues and pull requests are handled here
+- Never push directly to GitHub - only push to Forgejo (primary). Releases are created on both via `release.sh`.
 - Use feature branches for new features, squash commits when merging to main
 - Never use git worktrees when working with agent teams
 - Commits carry Claude Code's model-qualified attribution trailer (e.g. `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`, naming the running model); no custom commit hook

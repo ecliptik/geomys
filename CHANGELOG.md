@@ -2,9 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.2.1] - 2026-07-23
+
+### Changed
+
+- Public repository moved from Codeberg to **GitHub** (`https://github.com/ecliptik/geomys`). The About box (`resources/geomys.r`, `docs/About Geomys`), README download links and contribution note, and repo-convention docs now point to GitHub; issues and pull requests are handled there. Forgejo remains the primary push origin.
+- Release pipeline no longer publishes to Codeberg: `scripts/release.sh` releases to Forgejo and GitHub only (dropped the Codeberg publish step, existence check, `CODEBERG_TOKEN`, and config defaults).
 
 ### Fixed
+
+Intermittent connection failure (found during Snow QA of the async connect/DNS
+rework below):
+- The first `TCPActiveOpen` to a host would sporadically drop its SYN or hit a stream-reuse stall on MacTCP (and the emulated DaynaPORT stack), surfacing as a blank "Connecting…" page or a spurious "Could not connect" while an identical retry succeeded instantly. `conn_connect_poll` now transparently retries a failed or stalled open on a fresh stream up to `CONN_MAX_CONNECT_RETRIES` (2) times before reporting an error, using a dedicated 12 s per-attempt connect timeout (`CONN_CONNECT_TIMEOUT_TICKS`) that sits just above MacTCP's own 10 s ulpTimeout. The buffer-alloc + create + open sequence was factored into `conn_start_open` so the initial connect and the retry path share one code path. Validated on Snow across 50 consecutive navigations (rapid-fire and slow-settle, small/medium/large directories and text) with zero user-visible failures. This clears the "Needs Snow QA before release" flag on the async connect/DNS work.
 
 Bug-and-performance review cleanup (branch `fix/review-cleanup-v3`). Findings
 came from a multi-agent review with adversarial verification; the full analysis
