@@ -27,6 +27,14 @@
 /* Gopher default port */
 #define GOPHER_DEFAULT_PORT  70
 
+/* Async connect: retry a failed/stalled TCPActiveOpen this many times
+ * before surfacing an error. The first ActiveOpen to a host on MacTCP
+ * (and the emulated DaynaPORT stack) intermittently drops the SYN or
+ * hits a stream-reuse stall; a fresh stream almost always connects
+ * instantly, so a transparent retry turns a sporadic "Could not
+ * connect" into a reliable load. */
+#define CONN_MAX_CONNECT_RETRIES  2
+
 typedef struct {
 	short       state;
 	StreamPtr   stream;
@@ -41,6 +49,7 @@ typedef struct {
 	unsigned long pending_data;
 	unsigned long start_tick;   /* TickCount at receive start for timeout */
 	unsigned long connect_start_tick;  /* TickCount at async open start */
+	short       connect_retries;  /* async open attempts already retried */
 	Boolean     timed_out;     /* set when receive timeout fires */
 	short       tw_drain;      /* TIME_WAIT drain countdown */
 	char        host[68];

@@ -32,6 +32,12 @@
 /* Receive timeout: 30 seconds (30 * 60 ticks at 60Hz) */
 #define CONN_TIMEOUT_TICKS  (30L * 60L)
 
+/* Async-connect timeout: 12 seconds. Sits just above MacTCP's own 10 s
+ * ulpTimeout on the ActiveOpen so the stack normally reports the failure
+ * itself; this is the backstop for a wedged parameter block whose
+ * ioResult never updates. On expiry we retry (see conn_connect_poll). */
+#define CONN_CONNECT_TIMEOUT_TICKS  (12L * 60L)
+
 static Boolean tcp_initialized = false;
 
 /* Multi-entry LRU DNS cache with TTL support */
@@ -294,12 +300,90 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 	return true;
 }
 
+/*
+ * conn_start_open - allocate buffers, create the stream, and issue an
+ * async TCPActiveOpen using the already-resolved conn->remote_ip and
+ * conn->port. Shared by the initial connect and the retry path in
+ * conn_connect_poll, so it must not touch DNS, host, or retry counters.
+ *
+ * Returns:
+ *    1  async open queued — state is CONN_STATE_OPENING, poll from idle
+ *    0  hard failure (out of memory / stream create) — *err_msg set,
+ *       state left CONN_STATE_ERROR, all buffers/stream freed
+ */
+static short
+conn_start_open(Connection *conn, const char **err_msg)
+{
+	OSErr err;
+
+	conn->rcv_buf = NewPtr(TCP_RCV_BUFSIZ);
+	if (!conn->rcv_buf) {
+		*err_msg = "Not enough memory. Try closing "
+		    "other windows or applications.";
+		conn->state = CONN_STATE_ERROR;
+		return 0;
+	}
+
+	conn->read_buf = NewPtr(TCP_READ_BUFSIZ);
+	if (!conn->read_buf) {
+		DisposePtr(conn->rcv_buf);
+		conn->rcv_buf = 0L;
+		*err_msg = "Not enough memory. Try closing "
+		    "other windows or applications.";
+		conn->state = CONN_STATE_ERROR;
+		return 0;
+	}
+
+	err = _TCPCreate(&conn->pb, &conn->stream, conn->rcv_buf,
+	    TCP_RCV_BUFSIZ, 0L, 0L, 0L, false);
+	if (err != noErr) {
+		DisposePtr(conn->read_buf);
+		conn->read_buf = 0L;
+		DisposePtr(conn->rcv_buf);
+		conn->rcv_buf = 0L;
+		conn->state = CONN_STATE_ERROR;
+		*err_msg = (err == openErr)
+		    ? "Too many open connections. "
+		      "Close a window and try again."
+		    : "Failed to create TCP stream. "
+		      "Verify MacTCP is configured.";
+		return 0;
+	}
+
+	conn->state = CONN_STATE_CONNECTING;
+	conn->local_port = 0;
+
+	err = _TCPActiveOpen(&conn->pb, conn->stream,
+	    conn->remote_ip, conn->remote_port,
+	    &conn->local_ip, &conn->local_port,
+	    0L, 0L, true);  /* async — returns immediately */
+	if (err != noErr && err != 1) {
+		/* Async call failed to queue — clean up without modal alert.
+		 * Treat as a soft failure the caller can retry: leave state
+		 * ERROR but report no message so conn_connect_poll retries. */
+		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
+		DisposePtr(conn->read_buf);
+		conn->read_buf = 0L;
+		DisposePtr(conn->rcv_buf);
+		conn->rcv_buf = 0L;
+		conn->stream = 0L;
+		conn->state = CONN_STATE_ERROR;
+		*err_msg = 0L;
+		return 0;
+	}
+
+	/* Async open started — poll from idle loop */
+	conn->state = CONN_STATE_OPENING;
+	conn->connect_start_tick = TickCount();
+	return 1;
+}
+
 Boolean
 conn_connect(Connection *conn, const char *host, short port,
     WindowPtr status_win)
 {
-	OSErr err;
 	char status_msg[80];
+	const char *err_msg = 0L;
 
 	if (conn->state != CONN_STATE_IDLE) {
 		SysBeep(10);
@@ -324,60 +408,52 @@ conn_connect(Connection *conn, const char *host, short port,
 	    "Connecting to %.50s\311", conn->host);
 	conn_status_update(status_win, status_msg);
 
-	conn->rcv_buf = NewPtr(TCP_RCV_BUFSIZ);
-	if (!conn->rcv_buf)
-		return conn_fail(conn,
-		    "Not enough memory. Try closing "
-		    "other windows or applications.");
+	conn->connect_retries = 0;
 
-	conn->read_buf = NewPtr(TCP_READ_BUFSIZ);
-	if (!conn->read_buf) {
-		DisposePtr(conn->rcv_buf);
-		conn->rcv_buf = 0L;
-		return conn_fail(conn,
-		    "Not enough memory. Try closing "
-		    "other windows or applications.");
-	}
+	if (conn_start_open(conn, &err_msg))
+		return true;
 
-	err = _TCPCreate(&conn->pb, &conn->stream, conn->rcv_buf,
-	    TCP_RCV_BUFSIZ, 0L, 0L, 0L, false);
-	if (err != noErr) {
-		DisposePtr(conn->read_buf);
-		conn->read_buf = 0L;
-		DisposePtr(conn->rcv_buf);
-		conn->rcv_buf = 0L;
-		if (err == openErr)
-			return conn_fail(conn,
-			    "Too many open connections. "
-			    "Close a window and try again.");
-		return conn_fail(conn,
-		    "Failed to create TCP stream. "
-		    "Verify MacTCP is configured.");
-	}
+	/* Failed before the async open could even be queued (out of memory,
+	 * stream create, or a rejected PBControl). The poll-driven retry only
+	 * covers opens that queued and then failed the handshake, so report
+	 * here: the specific message if conn_start_open set one, else a
+	 * generic connect error for a rejected queue. */
+	if (err_msg)
+		return conn_fail(conn, err_msg);
+	return conn_fail(conn,
+	    "Could not connect to the server. "
+	    "Check the address and your network connection.");
+}
 
-	conn->state = CONN_STATE_CONNECTING;
-	conn->local_port = 0;
+/*
+ * conn_retry_open - tear down the current (failed/stalled) stream and
+ * issue a fresh async open to the same already-resolved endpoint, if any
+ * retries remain. Returns 1 if a new attempt is now in progress, -1 if
+ * retries are exhausted or the re-open failed. On -1 the connection is
+ * left in CONN_STATE_ERROR with buffers freed.
+ */
+static short
+conn_retry_open(Connection *conn)
+{
+	const char *err_msg = 0L;
 
-	err = _TCPActiveOpen(&conn->pb, conn->stream,
-	    conn->remote_ip, conn->remote_port,
-	    &conn->local_ip, &conn->local_port,
-	    0L, 0L, true);  /* async — returns immediately */
-	if (err != noErr && err != 1) {
-		/* Async call failed to queue — clean up without modal alert */
-		_TCPRelease(&conn->pb, conn->stream, 0L, 0L, false);
-		DisposePtr(conn->read_buf);
-		conn->read_buf = 0L;
-		DisposePtr(conn->rcv_buf);
-		conn->rcv_buf = 0L;
-		conn->stream = 0L;
+	if (conn->connect_retries >= CONN_MAX_CONNECT_RETRIES) {
 		conn->state = CONN_STATE_ERROR;
-		return false;
+		return -1;
 	}
 
-	/* Async open started — poll from idle loop */
-	conn->state = CONN_STATE_OPENING;
-	conn->connect_start_tick = TickCount();
-	return true;
+	/* conn_close frees the stream/buffers and resets state to IDLE.
+	 * It picks the safe pb-teardown path based on conn->pb.ioResult
+	 * (separate pb while an open is still queued), so it is correct
+	 * whether we got here from a timeout or a reported failure. */
+	conn_close(conn);
+	conn->connect_retries++;
+
+	if (conn_start_open(conn, &err_msg))
+		return 1;   /* fresh attempt in progress */
+
+	conn->state = CONN_STATE_ERROR;
+	return -1;
 }
 
 short
@@ -388,10 +464,13 @@ conn_connect_poll(Connection *conn)
 
 	/* Check async operation status */
 	if (conn->pb.ioResult == 1) {
-		/* Still in progress — check for timeout */
+		/* Still in progress — check for timeout. A stalled open
+		 * retries on a fresh stream before giving up. */
 		if (TickCount() - conn->connect_start_tick >
-		    CONN_TIMEOUT_TICKS) {
-			conn_close(conn);
+		    CONN_CONNECT_TIMEOUT_TICKS) {
+			short r = conn_retry_open(conn);
+			if (r == 1)
+				return 1;   /* retrying */
 			conn->timed_out = true;
 			conn->state = CONN_STATE_ERROR;
 			return -1;
@@ -400,10 +479,10 @@ conn_connect_poll(Connection *conn)
 	}
 
 	if (conn->pb.ioResult != noErr) {
-		/* Connection failed — release stream + buffer */
-		conn_close(conn);
-		conn->state = CONN_STATE_ERROR;
-		return -1;
+		/* Connection failed — retry on a fresh stream if we can,
+		 * otherwise surface the error. The first open to a host
+		 * intermittently fails on MacTCP; a clean retry succeeds. */
+		return conn_retry_open(conn);
 	}
 
 	/* Connected — read back local address from completed pb */
