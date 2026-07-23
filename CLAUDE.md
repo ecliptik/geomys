@@ -113,6 +113,7 @@ Emulator infrastructure lives in `/home/claude/emulators/`. See its docs for ful
 
 - Git remote (primary): `ssh://git@forgejo.ecliptik.com/ecliptik/geomys.git`
 - GitHub (public): `https://github.com/ecliptik/geomys` - auto-mirrored from Forgejo; issues and pull requests are handled here
+- GitHub Pages: marketing site at `https://ecliptik.github.io/geomys/`, served from `/docs` on `main` (`docs/index.html` + `docs/style.css`; hero images reference `docs/screenshots/` directly)
 - Never push directly to GitHub - only push to Forgejo (primary). Releases are created on both via `release.sh`.
 - Use feature branches for new features, squash commits when merging to main
 - Never use git worktrees when working with agent teams
