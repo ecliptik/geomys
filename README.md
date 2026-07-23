@@ -40,7 +40,7 @@ Each edition is available as `.dsk` (800K floppy image), `.hqx` (BinHex archive)
 
 ## Requirements
 
-- Macintosh Plus or later (4MB RAM, 68000 CPU)
+- Macintosh Plus or later (68000 CPU, 1 MB RAM minimum with the minimal build; 2 MB recommended)
 - System 6.0.8 or System 7 with MacTCP
 - 256-color themes require Mac II or later with Color QuickDraw
 

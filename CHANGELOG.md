@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- GitHub Pages marketing site (`docs/index.html`, `docs/style.css`), a 1980s Apple print-ad-style single page implementing the Claude design handoff. Hero screenshots reference `docs/screenshots/` directly so the site updates when screenshots are retaken; the rainbow-tinted desktop icon and favicon live in `docs/assets/`. Served from the `/docs` folder on `main` (enable in GitHub repo Settings → Pages).
+
+### Changed
+
+- README requirements now state the actual memory floor (1 MB with the minimal build, 2 MB recommended) instead of a blanket 4 MB.
+
 ## [1.2.1] - 2026-07-23
 
 ### Changed
