@@ -10,6 +10,9 @@
 #include <ToolUtils.h>
 #include <Files.h>
 #include <Multiverse.h>
+#ifdef GEOMYS_TALKIP
+#include "talkip.h"
+#endif
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +56,10 @@ gopher_init(GopherState *gs)
 {
 	memset(gs, 0, sizeof(GopherState));
 	gs->conn.dns_server = 0x01010101UL;  /* 1.1.1.1 default */
+#ifdef GEOMYS_TALKIP
+	if (talkip_nameserver())	/* the MacIP gateway's DNS server */
+		gs->conn.dns_server = talkip_nameserver();
+#endif
 	gs->cso_last_entry = -1;
 }
 

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 project(Geomys VERSION 1.2.1)
 
 # --- Feature flags with defaults (all ON for full preset) ---
+option(GEOMYS_TALKIP       "TCP/IP over LocalTalk with talkip instead of MacTCP (512Ke)" OFF)
 option(GEOMYS_OFFSCREEN    "Enable offscreen double-buffer"     ON)
 option(GEOMYS_STATUS_BAR   "Enable status bar"                  ON)
 option(GEOMYS_FAVORITES    "Enable favorites system"            ON)
@@ -102,7 +103,19 @@ if(GEOMYS_DRAG)
     list(APPEND GEOMYS_SOURCES src/drag.c)
 endif()
 
+# talkip: its library replaces src/tcp.c (same _TCP*/_UDP* API, no MacTCP needed)
+if(GEOMYS_TALKIP)
+    list(REMOVE_ITEM GEOMYS_SOURCES src/tcp.c)
+    if(NOT DEFINED TALKIP_DIR)
+        set(TALKIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../talkip)
+    endif()
+    add_subdirectory(${TALKIP_DIR} talkip)
+endif()
+
 add_application(Geomys ${GEOMYS_SOURCES} resources/geomys.r)
+if(GEOMYS_TALKIP)
+    target_link_libraries(Geomys talkip)
+endif()
 
 # Include path for MacTCP.h and local headers
 target_include_directories(Geomys PRIVATE
@@ -112,6 +125,7 @@ target_include_directories(Geomys PRIVATE
 
 # --- Pass all flags to C code as compile definitions ---
 target_compile_definitions(Geomys PRIVATE
+    $<$<BOOL:${GEOMYS_TALKIP}>:GEOMYS_TALKIP>
     $<$<BOOL:${GEOMYS_OFFSCREEN}>:GEOMYS_OFFSCREEN>
     $<$<BOOL:${GEOMYS_STATUS_BAR}>:GEOMYS_STATUS_BAR>
     $<$<BOOL:${GEOMYS_FAVORITES}>:GEOMYS_FAVORITES>

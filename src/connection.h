@@ -21,8 +21,14 @@
 #define CONN_STATE_OPENING     8  /* async TCPActiveOpen in progress */
 
 /* TCP buffer sizes */
+#ifdef GEOMYS_TALKIP
+/* talkip (512Ke): the window is at most 1092 bytes, and two 8 KB buffers don't fit beside a page */
+#define TCP_RCV_BUFSIZ   2048
+#define TCP_READ_BUFSIZ  2048
+#else
 #define TCP_RCV_BUFSIZ   8192
 #define TCP_READ_BUFSIZ  8192
+#endif
 
 /* Gopher default port */
 #define GOPHER_DEFAULT_PORT  70

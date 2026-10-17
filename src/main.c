@@ -15,6 +15,9 @@
 #include <OSUtils.h>
 #include <ToolUtils.h>
 #include <Resources.h>
+#ifdef GEOMYS_TALKIP
+#include "talkip.h"
+#endif
 #include <Multiverse.h>
 #include <string.h>
 #include <stdio.h>
@@ -1209,6 +1212,9 @@ main_event_loop(void)
 		}
 
 		WaitNextEvent(everyEvent, &event, wait_ticks, 0L);
+#ifdef GEOMYS_TALKIP
+		talkip_idle();	/* talkip runs in the app: process datagrams, run timers */
+#endif
 
 		switch (event.what) {
 		case nullEvent:
