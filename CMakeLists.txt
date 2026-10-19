@@ -109,6 +109,10 @@ if(GEOMYS_TALKIP)
     if(NOT DEFINED TALKIP_DIR)
         set(TALKIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../talkip)
     endif()
+    if(NOT EXISTS ${TALKIP_DIR}/CMakeLists.txt)
+        message(FATAL_ERROR "GEOMYS_TALKIP needs the talkip source: clone it next to this repository "
+                            "(../talkip) or pass -DTALKIP_DIR=<path>. Looked in ${TALKIP_DIR}")
+    endif()
     add_subdirectory(${TALKIP_DIR} talkip)
 endif()
 

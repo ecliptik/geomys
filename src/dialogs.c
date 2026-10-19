@@ -19,6 +19,9 @@
 #include "dialogs.h"
 #include "macutil.h"
 #include "sysutil.h"
+#ifdef GEOMYS_TALKIP
+#include "talkip.h"
+#endif
 
 /* ---- Status window UI ---- */
 
@@ -226,6 +229,12 @@ center_dialog_on_screen(DialogPtr dlg)
 pascal Boolean
 std_dlg_filter(DialogPtr dlg, EventRecord *evt, short *item)
 {
+#ifdef GEOMYS_TALKIP
+	/* the event loop isn't running behind a modal dialog; without
+	 * this the MacIP lease expires after a few minutes */
+	talkip_idle();
+#endif
+
 	/* Handle dragging of movableDBoxProc dialogs.
 	 * Some System 7 ROMs don't have ModalDialog handle
 	 * inDrag for movable modals — do it explicitly. */

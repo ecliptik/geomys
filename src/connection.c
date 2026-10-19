@@ -261,8 +261,11 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 
 #ifdef GEOMYS_TALKIP
 				/* the MacIP gateway's DNS server, once
-				 * talkip has its lease */
-				if (talkip_nameserver())
+				 * talkip has its lease; a server typed
+				 * into Options wins, only the 1.1.1.1
+				 * default gives way to the gateway's */
+				if (talkip_nameserver() &&
+				    dns_server == 0x01010101UL)
 					dns_server = talkip_nameserver();
 #endif
 				dns_err = dns_resolve(
