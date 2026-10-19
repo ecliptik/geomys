@@ -4,8 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-19
+
 ### Added
 
+- **Geomys Lite on talkip** (`--talkip`, CMake `GEOMYS_TALKIP`): builds against [talkip](https://github.com/ecliptik/talkip), a small TCP/IP stack for LocalTalk Macs (MacIP to a gateway such as netatalk's `macipgw`), instead of MacTCP, so Geomys runs on a Macintosh 512Ke with no MacTCP or INIT. Build it from source with `./scripts/build.sh --preset minimal --talkip` (talkip cloned at `../talkip`, or `-DTALKIP_DIR=...`); the release artifacts are the regular MacTCP builds. Verified on a real 512Ke over LocalTalk. Details in the README.
+- DNS on the talkip build uses the MacIP gateway's DNS server once talkip has its lease. A server typed into Options → DNS Server wins; only the 1.1.1.1 default gives way to the gateway's.
+- `--talkip` fails CMake configure with a clear message when the talkip source isn't found.
+- On the talkip build, `talkip_idle()` also runs from the shared modal-dialog filter, so the MacIP lease isn't lost while a dialog stays open.
 - GitHub Pages marketing site (`docs/index.html`, `docs/style.css`), a 1980s Apple print-ad-style single page implementing the Claude design handoff. Hero screenshots reference `docs/screenshots/` directly so the site updates when screenshots are retaken; the rainbow-tinted desktop icon and favicon live in `docs/assets/`. Served from the `/docs` folder on `main` (enable in GitHub repo Settings → Pages).
 
 ### Changed
