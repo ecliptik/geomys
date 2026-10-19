@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-19
+
 ### Changed
 
 - Error and note alerts (such as "DNS lookup for ... failed" and the out-of-memory stops) show an OK button only; the Cancel button had nothing to cancel. The favorite-remove confirmation keeps Cancel.
