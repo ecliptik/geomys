@@ -15,7 +15,11 @@
 #endif
 
 /* Directory item array: starts small, grows dynamically */
+#ifdef GEOMYS_TALKIP
+#define GOPHER_INIT_ITEMS   32    /* 512Ke: ~9.5 KB, grows as needed */
+#else
 #define GOPHER_INIT_ITEMS   128   /* initial allocation */
+#endif
 #define GOPHER_MAX_ITEMS   2000   /* hard cap */
 
 /* Text buffer: starts small, grows to a preset-aware maximum.
@@ -24,7 +28,10 @@
  * larger presets have room for a 128KB cap. GOPHER_MAX_TEXT_LINES
  * must stay below 32767 because text_line_count is a short. */
 #define GOPHER_TEXT_INIT_SIZE  (8L * 1024L)
-#if GEOMYS_MAX_WINDOWS <= 1
+#if defined(GEOMYS_TALKIP)
+#define GOPHER_TEXT_BUFSIZ     (32L * 1024L)    /* 512Ke with AppleShare: ~250 KB heap, code included */
+#define GOPHER_MAX_TEXT_LINES   2000
+#elif GEOMYS_MAX_WINDOWS <= 1
 #define GOPHER_TEXT_BUFSIZ     (64L * 1024L)
 #define GOPHER_MAX_TEXT_LINES   4000
 #else

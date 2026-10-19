@@ -35,6 +35,7 @@ GEOMYS_TELNET=ON
 GEOMYS_DRAG=OFF
 GEOMYS_APPLESCRIPT=OFF
 GEOMYS_DEBUG=OFF
+GEOMYS_TALKIP=OFF
 GEOMYS_MAX_WINDOWS=3
 
 PRESET=""
@@ -172,6 +173,7 @@ while [[ $# -gt 0 ]]; do
         --no-drag)       GEOMYS_DRAG=OFF;             shift ;;
         --applescript)   GEOMYS_APPLESCRIPT=ON;       shift ;;
         --no-applescript) GEOMYS_APPLESCRIPT=OFF;     shift ;;
+        --talkip)        GEOMYS_TALKIP=ON;            shift ;;  # TCP/IP over LocalTalk (talkip), no MacTCP
         --debug)         GEOMYS_DEBUG=ON;             shift ;;
         --no-debug)      GEOMYS_DEBUG=OFF;            shift ;;
         --max-windows)   GEOMYS_MAX_WINDOWS="$2";    shift 2 ;;
@@ -323,7 +325,8 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_DRAG="$GEOMYS_DRAG" \
     -DGEOMYS_APPLESCRIPT="$GEOMYS_APPLESCRIPT" \
     -DGEOMYS_DEBUG="$GEOMYS_DEBUG" \
-    -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS"
+    -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS" \
+    -DGEOMYS_TALKIP="$GEOMYS_TALKIP"
 make "${MAKE_ARGS[@]}"
 
 # Fix MacBinary header: Retro68 writes '????' as creator and leaves ctime/mtime

@@ -7,6 +7,9 @@
  * Uses 1.1.1.1 (Cloudflare) as the default DNS server.
  */
 
+#ifdef GEOMYS_TALKIP
+#include "talkip.h"
+#endif
 #include <OSUtils.h>
 #include <Events.h>
 #include <string.h>
@@ -85,8 +88,12 @@ dns_finish(OSErr issue_err, volatile short *ioResult)
 	if (issue_err != noErr && issue_err != 1)
 		return issue_err;
 
-	while (*ioResult == 1)
+	while (*ioResult == 1) {
 		WaitNextEvent(0, &ev, 1, 0L);
+#ifdef GEOMYS_TALKIP
+		talkip_idle();	/* talkip completes async calls as it runs */
+#endif
+	}
 
 	return (OSErr)*ioResult;
 #else

@@ -136,6 +136,20 @@ Then build Geomys:
 ./scripts/build.sh
 ```
 
+### Macintosh 512Ke without MacTCP: Geomys Lite on talkip
+
+MacTCP doesn't fit in a 512K Mac alongside System 6 and AppleShare. [talkip](https://github.com/ecliptik/talkip) is
+a small TCP/IP stack for LocalTalk Macs (MacIP to a gateway such as netatalk's `macipgw`) with the same `_TCP*`/`_UDP*`
+API as Geomys's `tcp.c`, so Geomys can be built against it. Clone talkip next to this repository (or pass
+`-DTALKIP_DIR=...`), then:
+
+```bash
+./scripts/build.sh --preset minimal --talkip
+```
+
+The result runs on a real Macintosh 512Ke over LocalTalk, with no MacTCP or INIT. Alternatively, install talkip's
+TalkIP Driver INIT and run the regular MacTCP build.
+
 ### Build Presets
 
 Geomys supports fully customizable builds. Three presets cover common configurations:
