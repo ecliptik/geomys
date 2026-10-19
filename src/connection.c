@@ -221,10 +221,17 @@ conn_resolve_host(Connection *conn, WindowPtr status_win)
 	{
 		OSErr tcp_err = conn_ensure_tcp();
 		if (tcp_err != noErr)
+#ifdef GEOMYS_TALKIP
+			return conn_fail(conn,
+			    "AppleTalk is not available. "
+			    "Turn it on in the Chooser (LocalTalk) "
+			    "and check the MacIP gateway.");
+#else
 			return conn_fail(conn,
 			    "MacTCP is not available. "
 			    "Verify MacTCP is installed in "
 			    "your System Folder.");
+#endif
 	}
 
 	if (!conn_validate_host(conn->host)) {
