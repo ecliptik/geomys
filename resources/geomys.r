@@ -556,7 +556,8 @@ resource 'DITL' (129, "Remove Confirm") {
 	}
 };
 
-/* Generic alert for ParamText messages */
+/* Generic alert for ParamText messages (errors and notes): OK only,
+ * nothing to cancel. Confirmations use their own ALRT, e.g. 129 */
 resource 'ALRT' (128) {
 	{60, 80, 180, 420},
 	128,
@@ -575,15 +576,11 @@ resource 'DITL' (128, "Alert") {
 		{85, 250, 105, 320},
 		Button { enabled, "OK" };
 
-		/* 2: Cancel button */
-		{85, 160, 105, 230},
-		Button { enabled, "Cancel" };
-
-		/* 3: Text */
+		/* 2: Text */
 		{15, 75, 70, 325},
 		StaticText { disabled, "^0" };
 
-		/* 4: Default button outline (UserItem) */
+		/* 3: Default button outline (UserItem) */
 		{81, 246, 109, 324},
 		UserItem { disabled };
 	}
