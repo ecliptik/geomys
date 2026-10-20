@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-10-20
+
 ### Fixed
 
 - Latin Extended-A letters (ā ş ő Ł ž and the rest of Central/Eastern European Latin) now show as their base letters in UTF-8 text and directory titles. Œ œ Ÿ ƒ π also reach their Mac Roman characters. The CP437 box-drawing guard for 2-byte sequences used to reject these lines, so the whole line fell back to CP437 and every accent on it came out as mojibake. The guard now relaxes once the page has shown it is UTF-8 (a 3/4-byte sequence such as an em dash or emoji, or a Latin-1 letter such as é); raw CP437 box art is unchanged before that. A page whose only non-ASCII is Latin Extended-A still falls back to CP437.
