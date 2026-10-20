@@ -32,9 +32,9 @@ Pre-built binaries are available on the [Releases](https://github.com/ecliptik/g
 
 | Edition | Description | Memory | Download |
 |---------|-------------|--------|----------|
-| **Geomys** | All features - 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-1.3.1.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-1.3.1.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-1.3.1.sit) |
-| **Geomys Lite** | Core browsing - 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-Lite-1.3.1.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-Lite-1.3.1.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-Lite-1.3.1.sit) |
-| **Geomys Minimal** | Only essentials - 1 window, smallest footprint | ~512KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-Minimal-1.3.1.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-Minimal-1.3.1.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.1/Geomys-Minimal-1.3.1.sit) |
+| **Geomys** | All features - 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-1.3.2.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-1.3.2.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-1.3.2.sit) |
+| **Geomys Lite** | Core browsing - 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-Lite-1.3.2.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-Lite-1.3.2.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-Lite-1.3.2.sit) |
+| **Geomys Minimal** | Only essentials - 1 window, smallest footprint | ~512KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-Minimal-1.3.2.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-Minimal-1.3.2.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.2/Geomys-Minimal-1.3.2.sit) |
 
 Each edition is available as `.dsk` (800K floppy image), `.hqx` (BinHex archive), or `.sit` (StuffIt 1.5.1 archive). See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 

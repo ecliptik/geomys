@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-19
+
 ### Changed
 
 - On the talkip build, the connection failure alert says "AppleTalk is not available. Turn it on in the Chooser (LocalTalk) and check the MacIP gateway." instead of the MacTCP message, matching Flynn Lite.
