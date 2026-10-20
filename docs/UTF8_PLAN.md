@@ -100,6 +100,10 @@ short utf8_transcode_line(char *dst, short dstcap, const char *src, short len);
 3. Apply Flynn's CP437-ambiguity guard: a 2-byte sequence decoding to
    `U+0100–U+07FF` with `glyph_lookup() < 0` is almost certainly two raw CP437
    bytes, not UTF-8 → treat the **whole line** as not-UTF-8, return `-1`.
+   The guard is skipped (`relax`) once the page has shown it is UTF-8:
+   `utf8_scan_confirm()` latches `GopherState.utf8_confirmed` on the first
+   well-formed 3/4-byte sequence or Latin-1 letter (`C3 80–BF`) in the page's
+   text or directory titles. Until then raw CP437 box art is unaffected.
 4. Otherwise the line is UTF-8. For each decoded code point, resolve to one
    output byte (the resolution chain, mirroring `term_put_unicode`):
    1. Invisible/formatting (soft hyphen, ZWSP, BOM, variation selectors, …)

@@ -75,7 +75,7 @@ utf8_decode(const unsigned char *buf, short len)
 static const unsigned char latin1_to_macroman[128] = {
 	0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,		/* 0x80-0x8F: C1 */
 	0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,		/* 0x90-0x9F: C1 */
-	0xCA,0xC1,0xA2,0xA3, 0xB4,0xB4,0x7C,0xA4,	/* 0xA0-0xA7 */
+	0xCA,0xC1,0xA2,0xA3, 0xDB,0xB4,0x7C,0xA4,	/* 0xA0-0xA7 */
 	0xAC,0xA9,0xBB,0xC7, 0xC2,0,0xA8,0xF8,		/* 0xA8-0xAF */
 	0xA1,0xB1,0,0, 0xAB,0xB5,0xA6,0xE1,		/* 0xB0-0xB7 */
 	0xFC,0,0xBC,0xC8, 0,0,0,0xC0,			/* 0xB8-0xBF */
@@ -230,8 +230,44 @@ utf8_resolve(long cp)
 	return '?';
 }
 
+long
+utf8_scan_confirm(const char *buf, long len, short *confirmed)
+{
+	long i = 0;
+
+	while (i < len) {
+		unsigned char c = (unsigned char)buf[i];
+		short seqlen;
+
+		if (c < 0x80) {
+			i++;
+			continue;
+		}
+		if ((c & 0xE0) == 0xC0)
+			seqlen = 2;
+		else if ((c & 0xF0) == 0xE0)
+			seqlen = 3;
+		else if ((c & 0xF8) == 0xF0)
+			seqlen = 4;
+		else {
+			i++;
+			continue;
+		}
+		if (i + seqlen > len)
+			break;		/* incomplete tail: rescan later */
+		if (utf8_decode((const unsigned char *)buf + i, seqlen) >= 0 &&
+		    (seqlen >= 3 || c == 0xC3)) {
+			*confirmed = 1;
+			return i + seqlen;
+		}
+		i += seqlen;
+	}
+	return i;
+}
+
 short
-utf8_transcode_line(char *dst, short dstcap, const char *src, short len)
+utf8_transcode_line(char *dst, short dstcap, const char *src, short len,
+    short relax)
 {
 	short i, out;
 
@@ -283,8 +319,11 @@ utf8_transcode_line(char *dst, short dstcap, const char *src, short len)
 
 		/* CP437-ambiguity guard (Flynn heuristic): a 2-byte sequence
 		 * decoding to U+0100-U+07FF with no glyph is almost certainly
-		 * two raw CP437 bytes misread as UTF-8. */
-		if (seqlen == 2 && cp > 0xFF && cp < 0x800 &&
+		 * two raw CP437 bytes misread as UTF-8 (C4/C5 + B0-BF is also
+		 * CP437 box drawing).  Skipped once the document has shown it
+		 * is UTF-8 (relax), so Latin Extended-A and the OE/Y-diaeresis/
+		 * florin/pi Mac Roman mappings are reachable. */
+		if (!relax && seqlen == 2 && cp > 0xFF && cp < 0x800 &&
 		    glyph_lookup(cp) < 0)
 			return -1;
 

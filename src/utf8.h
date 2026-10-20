@@ -45,13 +45,29 @@
  * 2-byte sequence that is more likely raw CP437); the caller should then fall
  * back to CP437/raw rendering.  Output never grows past the input length;
  * dst must hold at least min(len, dstcap) bytes.
+ *
+ * relax: nonzero once the document is known to be UTF-8 (see
+ * utf8_scan_confirm); it disables the 2-byte CP437-ambiguity guard so
+ * accented Latin Extended-A and the 2-byte Mac Roman symbols resolve.
  */
-short utf8_transcode_line(char *dst, short dstcap, const char *src, short len);
+short utf8_transcode_line(char *dst, short dstcap, const char *src, short len,
+    short relax);
+
+/*
+ * utf8_scan_confirm - look for evidence that a document is UTF-8.
+ *
+ * Scans buf for a well-formed 3/4-byte sequence or a Latin-1 letter
+ * (C3 80-BF), none of which is plausible CP437 text, and sets *confirmed
+ * to 1 on the first one.  Returns the bytes consumed; it stops before an
+ * incomplete trailing sequence, so the caller can resume from that offset
+ * as more text arrives.
+ */
+long utf8_scan_confirm(const char *buf, long len, short *confirmed);
 
 #else /* !GEOMYS_UTF8 */
 
 /* Stub: always "not UTF-8" so callers fall through to CP437/raw. */
-#define utf8_transcode_line(dst, dstcap, src, len)  (-1)
+#define utf8_transcode_line(dst, dstcap, src, len, relax)  (-1)
 
 #endif /* GEOMYS_UTF8 */
 

@@ -474,11 +474,49 @@ cp437_translate_if_needed(char *dst, const char *src, short len)
  * out, so this would otherwise be an unused static function.
  */
 #if defined(GEOMYS_UTF8) || defined(GEOMYS_CP437)
+#ifdef GEOMYS_UTF8
+/*
+ * page_utf8_confirmed - has the current page shown it is UTF-8?
+ *
+ * Lines are drawn in any order, so the decision is per page, not per
+ * line: scan whatever text (or directory titles) has arrived since the
+ * last call, and latch gs->utf8_confirmed on the first clean 3/4-byte
+ * or Latin-1 sequence.  Until then the 2-byte CP437 guard stays on.
+ * The cursors are reset wherever a page is cleared or restored.
+ */
+static short
+page_utf8_confirmed(GopherState *gs)
+{
+	short found = 0;
+
+	if (!gs)
+		return 0;
+	if (gs->utf8_confirmed)
+		return 1;
+
+	if (gs->text_buf && gs->utf8_scan_pos < gs->text_len)
+		gs->utf8_scan_pos += utf8_scan_confirm(
+		    gs->text_buf + gs->utf8_scan_pos,
+		    gs->text_len - gs->utf8_scan_pos, &found);
+
+	while (!found && gs->items && gs->utf8_scan_item < gs->item_count) {
+		const char *d = gs->items[gs->utf8_scan_item++].display;
+
+		utf8_scan_confirm(d, (long)strlen(d), &found);
+	}
+
+	if (found)
+		gs->utf8_confirmed = true;
+	return found;
+}
+#endif
+
 static short
 text_transcode_if_needed(char *dst, short dstcap, const char *src, short len)
 {
 #ifdef GEOMYS_UTF8
-	short n = utf8_transcode_line(dst, dstcap, src, len);
+	short n = utf8_transcode_line(dst, dstcap, src, len,
+	    page_utf8_confirmed(g_page));
 	if (n >= 0)
 		return n;
 #endif

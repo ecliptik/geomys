@@ -106,6 +106,9 @@ typedef struct {
 	short       text_lines_capacity; /* current line index allocation */
 	Boolean     text_truncated; /* content hit the cap and was clipped */
 	Boolean     text_line_start; /* receive parser is at a line start */
+	Boolean     utf8_confirmed; /* page shown to be UTF-8 (relax CP437 guard) */
+	long        utf8_scan_pos;  /* text_buf bytes already scanned */
+	short       utf8_scan_item; /* items already scanned */
 
 	/* Connection */
 	Connection  conn;

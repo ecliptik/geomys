@@ -372,6 +372,10 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 
 		/* Reset text fields — directory page has no text */
 		gs->text_len = 0;
+		gs->utf8_confirmed = false;
+		gs->utf8_scan_pos = 0;
+		gs->utf8_scan_item = 0;
+
 		gs->text_line_count = 0;
 		return true;
 	}
@@ -411,6 +415,9 @@ cache_retrieve(short session_id, short history_idx, GopherState *gs)
 		 * path runs if the cached index can't be restored. */
 		gs->item_count = 0;
 		gs->text_line_count = 0;
+		gs->utf8_confirmed = false;
+		gs->utf8_scan_pos = 0;
+		gs->utf8_scan_item = 0;
 
 		/* Restore line index. Reallocate when the existing
 		 * buffer is missing OR too small for the cached count;

@@ -98,6 +98,9 @@ gopher_clear_page(GopherState *gs)
 	}
 	gs->item_count = 0;
 	gs->item_capacity = 0;
+	gs->utf8_confirmed = false;
+	gs->utf8_scan_pos = 0;
+	gs->utf8_scan_item = 0;
 
 	if (gs->text_buf) {
 		DisposePtr(gs->text_buf);
@@ -573,6 +576,9 @@ gopher_ensure_text_buf(GopherState *gs)
 	}
 	gs->text_buf_capacity = GOPHER_TEXT_INIT_SIZE;
 	gs->text_len = 0;
+	gs->utf8_confirmed = false;
+	gs->utf8_scan_pos = 0;
+	gs->utf8_scan_item = 0;
 	gs->text_buf[0] = '\0';
 	gs->text_truncated = false;
 	gs->text_line_start = true;
