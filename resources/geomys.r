@@ -204,7 +204,7 @@ resource 'DITL' (130, "About Geomys") {
 
 		/* 3: App name + version */
 		{10, 55, 30, 280},
-		StaticText { disabled, "Geomys 1.3.3" };
+		StaticText { disabled, "Geomys 1.3.4" };
 
 		/* 4: Machine type (set at runtime) */
 		{33, 55, 49, 280},
@@ -1888,12 +1888,12 @@ data 'cicn' (275, "Refresh") {
 /* Version resource — shown in Finder Get Info (System 7) */
 resource 'vers' (1) {
 	0x01, 0x10, release, 0x00, verUS,
-	"1.3.3",
-	"Geomys 1.3.3 \0xA9 2025\0x962026"
+	"1.3.4",
+	"Geomys 1.3.4 \0xA9 2025\0x962026"
 };
 
 resource 'vers' (2) {
 	0x01, 0x10, release, 0x00, verUS,
-	"1.3.3",
+	"1.3.4",
 	"Gopher browser for classic Macintosh"
 };

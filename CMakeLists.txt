@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(Geomys VERSION 1.3.3)
+project(Geomys VERSION 1.3.4)
 
 # --- Feature flags with defaults (all ON for full preset) ---
 option(GEOMYS_TALKIP       "TCP/IP over LocalTalk with talkip instead of MacTCP (512Ke)" OFF)
