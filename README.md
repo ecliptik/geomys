@@ -151,7 +151,7 @@ To build it yourself, clone talkip next to this repository (or pass `--talkip-di
 ./scripts/build.sh --preset 512ke
 ```
 
-Alternatively, install talkip's TalkIP Driver INIT and run Geomys Minimal, the MacTCP edition sized for a 512K Mac.
+Alternatively, install talkip's TalkIP Driver INIT ([talkip releases](https://github.com/ecliptik/talkip/releases)) and run Geomys Minimal, the MacTCP edition sized for a 512K Mac.
 
 ### Build Presets
 
