@@ -36,6 +36,7 @@ GEOMYS_DRAG=OFF
 GEOMYS_APPLESCRIPT=OFF
 GEOMYS_DEBUG=OFF
 GEOMYS_TALKIP=OFF
+TALKIP_DIR=""          # talkip source; empty = CMake default (../talkip)
 GEOMYS_MAX_WINDOWS=3
 
 PRESET=""
@@ -103,8 +104,13 @@ apply_preset() {
             GEOMYS_APPLESCRIPT=OFF
             GEOMYS_MAX_WINDOWS=3
             ;;
+        512ke)
+            # Released 512Ke edition: minimal linked against talkip (no MacTCP)
+            apply_preset minimal
+            GEOMYS_TALKIP=ON
+            ;;
         *)
-            echo "Error: unknown preset '$1' (valid: minimal, lite, full; macplus is alias for lite)"
+            echo "Error: unknown preset '$1' (valid: minimal, lite, full, 512ke; macplus is alias for lite)"
             exit 1
             ;;
     esac
@@ -174,6 +180,7 @@ while [[ $# -gt 0 ]]; do
         --applescript)   GEOMYS_APPLESCRIPT=ON;       shift ;;
         --no-applescript) GEOMYS_APPLESCRIPT=OFF;     shift ;;
         --talkip)        GEOMYS_TALKIP=ON;            shift ;;  # TCP/IP over LocalTalk (talkip), no MacTCP
+        --talkip-dir)    TALKIP_DIR="$2";             shift 2 ;;
         --debug)         GEOMYS_DEBUG=ON;             shift ;;
         --no-debug)      GEOMYS_DEBUG=OFF;            shift ;;
         --max-windows)   GEOMYS_MAX_WINDOWS="$2";    shift 2 ;;
@@ -302,6 +309,10 @@ sed -i "0,/[0-9]* \* 1024/{s/[0-9]* \* 1024/${SIZE_MINIMUM} * 1024/}" "$REZ_FILE
 cleanup() { cp "$REZ_BACKUP" "$REZ_FILE" 2>/dev/null; rm -f "$REZ_BACKUP"; }
 trap cleanup EXIT
 
+# talkip source location, when given (release.sh passes a pinned clone)
+CMAKE_EXTRA=()
+[ -n "$TALKIP_DIR" ] && CMAKE_EXTRA+=(-DTALKIP_DIR="$TALKIP_DIR")
+
 # Clean CMake cache to prevent stale flags from a previous preset
 rm -f "$BUILD_DIR/CMakeCache.txt"
 
@@ -326,7 +337,8 @@ cmake "$SCRIPT_DIR" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=MinSi
     -DGEOMYS_APPLESCRIPT="$GEOMYS_APPLESCRIPT" \
     -DGEOMYS_DEBUG="$GEOMYS_DEBUG" \
     -DGEOMYS_MAX_WINDOWS="$GEOMYS_MAX_WINDOWS" \
-    -DGEOMYS_TALKIP="$GEOMYS_TALKIP"
+    -DGEOMYS_TALKIP="$GEOMYS_TALKIP" \
+    "${CMAKE_EXTRA[@]}"
 make "${MAKE_ARGS[@]}"
 
 # Fix MacBinary header: Retro68 writes '????' as creator and leaves ctime/mtime
@@ -412,8 +424,13 @@ PRESET_LABEL="${PRESET:-full}"
 case "$PRESET_LABEL" in
     full)    FILE_PREFIX="Geomys" ;;
     minimal) FILE_PREFIX="Geomys-Minimal" ;;
+    512ke)   FILE_PREFIX="Geomys-512Ke" ;;
     *)       FILE_PREFIX="Geomys-Lite" ;;
 esac
+# Other talkip builds get their own name so they never overwrite a MacTCP edition
+if [ "$GEOMYS_TALKIP" = "ON" ] && [ "$PRESET_LABEL" != "512ke" ]; then
+    FILE_PREFIX="${FILE_PREFIX}-TalkIP"
+fi
 
 # Create versioned copies with preset in filename
 cp "$BUILD_DIR/Geomys.bin" "$BUILD_DIR/${FILE_PREFIX}-${VERSION_DISPLAY}.bin"
@@ -456,6 +473,7 @@ echo "Build complete (v${VERSION_DISPLAY}, ${PRESET_LABEL} preset):"
 echo "  Features:${ENABLED}"
 [ -n "$DISABLED" ] && echo "  Disabled:${DISABLED}"
 echo "  Windows: ${GEOMYS_MAX_WINDOWS} max"
+[ "$GEOMYS_TALKIP" = "ON" ] && echo "  Network: talkip (TCP/IP over LocalTalk, no MacTCP)"
 echo "  SIZE: ${SIZE_PREFERRED}KB preferred / ${SIZE_MINIMUM}KB minimum"
 echo ""
 echo "Artifacts:"

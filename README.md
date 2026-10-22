@@ -35,6 +35,7 @@ Pre-built binaries are available on the [Releases](https://github.com/ecliptik/g
 | **Geomys** | All features - 3 windows, 256-color themes, Gopher+ | ~2560KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-1.3.3.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-1.3.3.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-1.3.3.sit) |
 | **Geomys Lite** | Core browsing - 2 windows, favorites, monochrome | ~1024KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-Lite-1.3.3.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-Lite-1.3.3.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-Lite-1.3.3.sit) |
 | **Geomys Minimal** | Only essentials - 1 window, smallest footprint | ~512KB | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-Minimal-1.3.3.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-Minimal-1.3.3.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.3/Geomys-Minimal-1.3.3.sit) |
+| **Geomys 512Ke** | Minimal over LocalTalk with [talkip](https://github.com/ecliptik/talkip) - no MacTCP or INIT | 512K Mac | [.dsk](https://github.com/ecliptik/geomys/releases/download/v1.3.4/Geomys-512Ke-1.3.4.dsk) · [.hqx](https://github.com/ecliptik/geomys/releases/download/v1.3.4/Geomys-512Ke-1.3.4.hqx) · [.sit](https://github.com/ecliptik/geomys/releases/download/v1.3.4/Geomys-512Ke-1.3.4.sit) |
 
 Each edition is available as `.dsk` (800K floppy image), `.hqx` (BinHex archive), or `.sit` (StuffIt 1.5.1 archive). See [docs/BUILD.md](docs/BUILD.md) for custom builds.
 
@@ -42,6 +43,7 @@ Each edition is available as `.dsk` (800K floppy image), `.hqx` (BinHex archive)
 
 - Macintosh Plus or later (68000 CPU, 1 MB RAM minimum with the minimal build; 2 MB recommended)
 - System 6.0.8 or System 7 with MacTCP
+- Macintosh 512Ke: the Geomys 512Ke edition on System 6.0.8, over LocalTalk to a MacIP gateway (see below)
 - 256-color themes require Mac II or later with Color QuickDraw
 
 ## Features
@@ -136,29 +138,31 @@ Then build Geomys:
 ./scripts/build.sh
 ```
 
-### Macintosh 512Ke without MacTCP: Geomys Lite on talkip
+### Macintosh 512Ke without MacTCP: Geomys 512Ke on talkip
 
 MacTCP doesn't fit in a 512K Mac alongside System 6 and AppleShare. [talkip](https://github.com/ecliptik/talkip) is
 a small TCP/IP stack for LocalTalk Macs (MacIP to a gateway such as netatalk's `macipgw`) with the same `_TCP*`/`_UDP*`
-API as Geomys's `tcp.c`, so Geomys can be built against it. Clone talkip next to this repository (or pass
-`-DTALKIP_DIR=...`), then:
+API as Geomys's `tcp.c`. The **Geomys 512Ke** edition in [Download](#download) is the Minimal build linked against
+talkip: it runs over LocalTalk with no MacTCP or INIT.
+
+To build it yourself, clone talkip next to this repository (or pass `--talkip-dir <path>`), then:
 
 ```bash
-./scripts/build.sh --preset minimal --talkip
+./scripts/build.sh --preset 512ke
 ```
 
-The result runs on a real Macintosh 512Ke over LocalTalk, with no MacTCP or INIT. Alternatively, install talkip's
-TalkIP Driver INIT and run the regular MacTCP build.
+Alternatively, install talkip's TalkIP Driver INIT and run Geomys Minimal, the MacTCP edition sized for a 512K Mac.
 
 ### Build Presets
 
-Geomys supports fully customizable builds. Three presets cover common configurations:
+Geomys supports fully customizable builds. Four presets cover common configurations:
 
 | Preset | Windows | Features | Memory |
 |--------|---------|----------|--------|
 | `full` | 3 | all features | ~2560KB |
 | `lite` | 2 | core browsing | ~1024KB |
 | `minimal` | 1 | only essentials | ~512KB |
+| `512ke` | 1 | minimal on talkip (LocalTalk, no MacTCP) | 512K Mac |
 
 The default build uses the **full** preset. Select a preset with `--preset`:
 

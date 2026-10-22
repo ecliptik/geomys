@@ -47,6 +47,7 @@ Geomys supports build presets for different configurations. The default preset i
 | `full` | 3 | 2560 KB | All features enabled (default) |
 | `lite` | 2 | 1024 KB | Core browsing features, recommended for Mac Plus (`macplus` is an alias) |
 | `minimal` | 1 | 512 KB | Bare-bones - smallest possible binary, single window |
+| `512ke` | 1 | 512 KB | `minimal` linked against [talkip](https://github.com/ecliptik/talkip) for a Macintosh 512Ke over LocalTalk (no MacTCP); output is `Geomys-512Ke-*` |
 
 Select a preset:
 
@@ -55,7 +56,10 @@ Select a preset:
 ./scripts/build.sh --preset minimal
 ./scripts/build.sh --preset lite
 ./scripts/build.sh --preset full
+./scripts/build.sh --preset 512ke     # needs talkip in ../talkip or --talkip-dir <path>
 ```
+
+`--talkip` links any preset against talkip instead of MacTCP; outside the `512ke` preset its artifacts get a `-TalkIP` suffix (e.g. `Geomys-Lite-TalkIP-*`) so they never overwrite the MacTCP editions. `release.sh` builds the 512Ke edition from a fresh clone of talkip pinned by `TALKIP_REF` (default `v0.1.0`; override with e.g. `TALKIP_REF=a2b8c84`).
 
 ## Feature Flags
 

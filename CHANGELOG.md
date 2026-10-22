@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Geomys 512Ke, a fourth release edition for the Macintosh 512Ke: the Minimal build linked against [talkip](https://github.com/ecliptik/talkip) v0.1.0, so it runs over LocalTalk to a MacIP gateway with no MacTCP or INIT. Build it with `./scripts/build.sh --preset 512ke`. The TalkIP Driver INIT with Geomys Minimal remains an alternative.
+
 ## [1.3.3] - 2026-10-20
 
 ### Fixed

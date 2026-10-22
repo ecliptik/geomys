@@ -21,6 +21,11 @@ FORGEJO_URL="${FORGEJO_URL:-https://$(git -C "$SCRIPT_DIR" remote get-url origin
     -e 's#^[a-z+]+://([^@/]+@)?([^/:]+).*#\2#' -e 's#^[^@/]+@([^:/]+):.*#\1#')}"
 FORGEJO_REPO="${FORGEJO_REPO:-ecliptik/geomys}"
 GITHUB_REPO="${GITHUB_REPO:-ecliptik/geomys}"
+# talkip source for the 512Ke edition, pinned to a tag (override for testing,
+# e.g. TALKIP_REF=a2b8c84). Cloned fresh, never the sibling ../talkip.
+TALKIP_REPO="${TALKIP_REPO:-https://github.com/ecliptik/talkip.git}"
+TALKIP_REF="${TALKIP_REF:-v0.1.0}"
+TALKIP_SHA=""
 
 # Extract changelog section for a given version (without the v prefix)
 extract_changelog() {
@@ -37,7 +42,8 @@ collect_artifacts() {
     for artifact in \
         "Geomys-${ver}.dsk" "Geomys-${ver}.hqx" "Geomys-${ver}.sit" \
         "Geomys-Lite-${ver}.dsk" "Geomys-Lite-${ver}.hqx" "Geomys-Lite-${ver}.sit" \
-        "Geomys-Minimal-${ver}.dsk" "Geomys-Minimal-${ver}.hqx" "Geomys-Minimal-${ver}.sit"; do
+        "Geomys-Minimal-${ver}.dsk" "Geomys-Minimal-${ver}.hqx" "Geomys-Minimal-${ver}.sit" \
+        "Geomys-512Ke-${ver}.dsk" "Geomys-512Ke-${ver}.hqx" "Geomys-512Ke-${ver}.sit"; do
         [ -f "$build_dir/$artifact" ] && RELEASE_FILES+=("$build_dir/$artifact")
     done
 }
@@ -136,7 +142,21 @@ release_github() {
     echo "  GitHub release complete: https://github.com/$GITHUB_REPO/releases/tag/$tag"
 }
 
-# Build all three presets (build.sh produces correctly-named artifacts)
+# Clone talkip at TALKIP_REF into a fresh temp dir; sets TALKIP_SRC and TALKIP_SHA
+fetch_talkip() {
+    TALKIP_SRC=$(mktemp -d)
+    echo "  Cloning talkip $TALKIP_REF from $TALKIP_REPO..."
+    git clone --quiet "$TALKIP_REPO" "$TALKIP_SRC"
+    if ! git -C "$TALKIP_SRC" -c advice.detachedHead=false checkout --quiet "$TALKIP_REF"; then
+        echo "Error: talkip ref $TALKIP_REF not found in $TALKIP_REPO"
+        rm -rf "$TALKIP_SRC"
+        return 1
+    fi
+    TALKIP_SHA=$(git -C "$TALKIP_SRC" rev-parse --short HEAD)
+    echo "  talkip $TALKIP_REF is $TALKIP_SHA"
+}
+
+# Build all presets plus the 512Ke edition (build.sh produces correctly-named artifacts)
 build_all_presets() {
     local ver="$1"
 
@@ -153,6 +173,12 @@ build_all_presets() {
     # Minimal preset → Geomys-Minimal-{ver}.*
     echo "  Building minimal preset..."
     "$SCRIPT_DIR/scripts/build.sh" --clean --preset minimal
+
+    # 512Ke edition: minimal linked against pinned talkip → Geomys-512Ke-{ver}.*
+    echo "  Building 512Ke edition (minimal on talkip)..."
+    fetch_talkip
+    "$SCRIPT_DIR/scripts/build.sh" --clean --preset 512ke --talkip-dir "$TALKIP_SRC"
+    rm -rf "$TALKIP_SRC"
 
     echo "  All presets built:"
     ls -la "$SCRIPT_DIR/build"/Geomys*-${ver}.* 2>/dev/null
@@ -171,8 +197,8 @@ update_readme_downloads() {
 
     if grep -q "releases/download/v" "$readme"; then
         # Rewrite version in existing GitHub download URLs.
-        # Matches: /releases/download/vX.Y.Z/Geomys...-X.Y.Z.ext
-        sed -i -E "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/([A-Za-z-]*)-[0-9]+\.[0-9]+\.[0-9]+\.|releases/download/${tag}/\1-${ver}.|g" "$readme"
+        # Matches: /releases/download/vX.Y.Z/Geomys...-X.Y.Z.ext (incl. Geomys-512Ke)
+        sed -i -E "s|releases/download/v[0-9]+\.[0-9]+\.[0-9]+/([A-Za-z0-9-]*)-[0-9]+\.[0-9]+\.[0-9]+\.|releases/download/${tag}/\1-${ver}.|g" "$readme"
         # For each row carrying an .hqx link but no .sit link, append a .sit
         # link pointing at the same versioned URL with a swapped extension.
         # The /[.sit]/! address makes this idempotent on re-run.
@@ -214,7 +240,7 @@ do_release() {
 
     if [ ${#RELEASE_FILES[@]} -eq 0 ]; then
         echo "Warning: No artifacts found for $ver"
-        echo "  Expected: Geomys-${ver}.dsk/.hqx/.sit, Geomys-Lite-${ver}.dsk/.hqx/.sit, Geomys-Minimal-${ver}.dsk/.hqx/.sit"
+        echo "  Expected: Geomys-${ver}.dsk/.hqx/.sit, Geomys-Lite-${ver}.dsk/.hqx/.sit, Geomys-Minimal-${ver}.dsk/.hqx/.sit, Geomys-512Ke-${ver}.dsk/.hqx/.sit"
     else
         echo "  Artifacts: ${#RELEASE_FILES[@]} files"
         for f in "${RELEASE_FILES[@]}"; do echo "    $(basename "$f")"; done
@@ -232,11 +258,14 @@ do_release() {
 | **Geomys** | All features — 3 windows, 256-color themes, Gopher+ | ~2560KB |
 | **Geomys Lite** | Core browsing — 2 windows, favorites, monochrome | ~1024KB |
 | **Geomys Minimal** | Only essentials — 1 window, smallest footprint | ~512KB |
+| **Geomys 512Ke** | Minimal over LocalTalk with [talkip](https://github.com/ecliptik/talkip) ${TALKIP_REF}${TALKIP_SHA:+ (${TALKIP_SHA})} — no MacTCP or INIT needed | 512K Mac |
 
 Each edition ships in three formats — pick whichever suits your transfer path:
 - **.dsk** — 800K floppy disk image; mount in an emulator or write to a real floppy
 - **.hqx** — BinHex archive; safe for email, BBS, and text-only channels
 - **.sit** — StuffIt 1.5.1 archive; expand with StuffIt Expander on the Mac
+
+On a 512Ke, talkip's TalkIP Driver INIT with Geomys Minimal is an alternative to the 512Ke edition.
 
 See [BUILD.md](https://github.com/$GITHUB_REPO/blob/main/docs/BUILD.md) for custom build options."
 

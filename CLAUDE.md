@@ -65,7 +65,7 @@ Per-feature CMake options are defined in `CMakeLists.txt` and surfaced via `--fl
 
 ### Releases & Artifact Verification
 
-`scripts/release.sh vX.Y.Z` builds all 3 presets (`build.sh --clean --preset {full,lite,minimal}` → 9 artifacts: `.dsk`/`.hqx`/`.sit`) then tries to publish to Forgejo/GitHub; with no `FORGEJO_TOKEN`/`gh auth` it skips publishing and leaves the artifacts in `build/` (ready for Macintosh Garden upload). The build stamps the version only if tag `vX.Y.Z` is at **HEAD** — bump `CMakeLists.txt`, the resource file (`geomys.r` + its `'vers'` resources), and `docs/About Geomys`, finalize CHANGELOG, then commit + tag before building.
+`scripts/release.sh vX.Y.Z` builds all 4 editions (`build.sh --clean --preset {full,lite,minimal,512ke}` → 12 artifacts: `.dsk`/`.hqx`/`.sit`; 512ke links a fresh talkip clone pinned by `TALKIP_REF`, default `v0.1.0`) then tries to publish to Forgejo/GitHub; with no `FORGEJO_TOKEN`/`gh auth` it skips publishing and leaves the artifacts in `build/` (ready for Macintosh Garden upload). The build stamps the version only if tag `vX.Y.Z` is at **HEAD** — bump `CMakeLists.txt`, the resource file (`geomys.r` + its `'vers'` resources), and `docs/About Geomys`, finalize CHANGELOG, then commit + tag before building.
 
 Verify artifacts host-side (no Mac): `.dsk` via `hmount` (valid HFS + app); `.hqx` via `hexbin` (decoded `.bin` differs only in MacBinary header dates — resource fork is byte-identical); `.sit` via `macunpack -f` (resource fork byte-identical). To confirm a `.sit` opens in real StuffIt, test in **Basilisk/System 7** (System 6 has no Expander). Details in the `reference_release_and_artifact_verification` and `reference_sit_stuffit_basilisk_test` memories.
 
