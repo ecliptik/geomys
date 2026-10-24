@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- A very large directory, such as a Hacker News thread on hngopher.com (3,000+ lines), no longer quits Geomys with "out of application memory" on a Mac Plus. The item list grew until the heap was full, leaving nothing for the Toolbox. Page buffers and the page cache now leave 32 KB of the heap free (16 KB on the 512Ke edition) and stop growing at that point. The status bar shows "Done – N items (truncated)", which it also now shows when a directory hits the 2,000-item cap.
+- The Drag Manager trap selectors in `src/drag.h` now match Apple's `Drag.h` (for example `NewDrag` is 0x05 and `InstallTrackingHandler` is 0x01). Builds with `--drag` called the wrong routines and crashed. `GEOMYS_DRAG` is off in every preset and release, so no release was affected.
+- The `.bin` written by `build.sh` sets the MacBinary II version bytes (122 and 123) to 129, so strict tools no longer treat it as MacBinary I.
+
 ## [1.3.4] - 2026-10-22
 
 ### Added

@@ -506,6 +506,16 @@ gopher_idle(GopherState *gs)
 }
 
 /*
+ * True if the heap can give a page buffer `extra` more bytes and
+ * still keep GOPHER_HEAP_RESERVE free for the Toolbox.
+ */
+static Boolean
+gopher_heap_has_room(long extra)
+{
+	return FreeMem() - extra >= GOPHER_HEAP_RESERVE;
+}
+
+/*
  * Double the text_buf capacity up to GOPHER_TEXT_BUFSIZ.
  * Returns true on success, false if allocation fails.
  * Non-static: shared with the HTML renderer (html.c).
@@ -518,6 +528,8 @@ gopher_grow_text_buf(GopherState *gs)
 
 	if (new_cap > GOPHER_TEXT_BUFSIZ)
 		new_cap = GOPHER_TEXT_BUFSIZ;
+	if (!gopher_heap_has_room(new_cap - gs->text_buf_capacity))
+		return false;
 	new_buf = NewPtr(new_cap);
 	if (new_buf) {
 		memcpy(new_buf, gs->text_buf, gs->text_len);
@@ -542,6 +554,9 @@ gopher_grow_text_lines(GopherState *gs)
 
 	if (new_lc > GOPHER_MAX_TEXT_LINES)
 		new_lc = GOPHER_MAX_TEXT_LINES;
+	if (!gopher_heap_has_room((long)(new_lc -
+	    gs->text_lines_capacity) * sizeof(long)))
+		return false;
 	new_tl = (long *)NewPtr((long)new_lc * sizeof(long));
 	if (new_tl) {
 		memcpy(new_tl, gs->text_lines,
@@ -1122,6 +1137,7 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 #ifdef GEOMYS_DEBUG
 		g_diag.lines_capped++;
 #endif
+		gs->text_truncated = true;
 		return;
 	}
 
@@ -1136,6 +1152,15 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 			new_cap = GOPHER_MAX_ITEMS;
 		new_size = (long)sizeof(GopherItem) * new_cap;
 
+		if (!gopher_heap_has_room(new_size -
+		    (long)sizeof(GopherItem) * gs->item_capacity)) {
+#ifdef GEOMYS_DEBUG
+			g_diag.alloc_fails++;
+#endif
+			gs->text_truncated = true;
+			return;  /* keep the reserve — stop adding */
+		}
+
 		SetPtrSize((Ptr)gs->items, new_size);
 		if (MemError() == noErr) {
 			gs->item_capacity = new_cap;
@@ -1149,6 +1174,7 @@ gopher_parse_line(GopherState *gs, const char *line, short len)
 #ifdef GEOMYS_DEBUG
 				g_diag.alloc_fails++;
 #endif
+				gs->text_truncated = true;
 				return;  /* out of memory — stop adding */
 			}
 			memcpy(new_items, gs->items,

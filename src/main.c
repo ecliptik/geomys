@@ -1101,6 +1101,8 @@ handle_page_loaded(void)
 			    g_gopher.item_count, diag);
 #else
 			snprintf(uri, sizeof(uri),
+			    g_gopher.text_truncated ?
+			    "Done \xD0 %d items (truncated)" :
 			    "Done \xD0 %d items",
 			    g_gopher.item_count);
 #endif

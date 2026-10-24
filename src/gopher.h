@@ -22,6 +22,15 @@
 #endif
 #define GOPHER_MAX_ITEMS   2000   /* hard cap */
 
+/* Heap left free when a page buffer grows: a big page stops growing
+ * (and is marked truncated) instead of taking the memory the Toolbox
+ * needs for regions, fonts and dialogs, which ends in system error 25 */
+#ifdef GEOMYS_TALKIP
+#define GOPHER_HEAP_RESERVE  (16L * 1024L)
+#else
+#define GOPHER_HEAP_RESERVE  (32L * 1024L)
+#endif
+
 /* Text buffer: starts small, grows to a preset-aware maximum.
  * GEOMYS_MAX_WINDOWS is used as a proxy for the memory partition:
  * == 1 is the minimal (512KB) preset, which gets a leaner 64KB cap;

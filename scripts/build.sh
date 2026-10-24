@@ -356,6 +356,8 @@ with open('$BUILD_DIR/Geomys.bin', 'r+b') as f:
     hdr = bytearray(f.read(128))
     hdr[91:95] = struct.pack('>I', now_mac)   # creation date
     hdr[95:99] = struct.pack('>I', now_mac)   # modification date
+    hdr[122] = 129                            # MacBinary II version
+    hdr[123] = 129                            # minimum version to read
     crc = 0
     for b in hdr[:124]:
         crc ^= b << 8

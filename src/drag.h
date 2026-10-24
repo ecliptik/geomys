@@ -51,60 +51,61 @@ typedef pascal OSErr (*DragReceiveHandlerUPP)(
     WindowPtr theWindow, void *handlerRefCon,
     DragReference theDrag);
 
-/* ===== Drag Manager trap functions (0xABED dispatch) ===== */
+/* ===== Drag Manager trap functions (0xABED dispatch) =====
+ * Selectors from Apple's Drag.h (as in multiversal defs/DragMgr.yaml) */
 
 pascal OSErr NewDrag(DragReference *theDragRef)
-    M68K_INLINE(0x7001, 0xABED);
+    M68K_INLINE(0x7005, 0xABED);
 pascal OSErr DisposeDrag(DragReference theDragRef)
-    M68K_INLINE(0x7002, 0xABED);
+    M68K_INLINE(0x7006, 0xABED);
 pascal OSErr AddDragItemFlavor(DragReference theDrag,
     ItemReference theItemRef, FlavorType theType,
     const void *dataPtr, Size dataSize, FlavorFlags theFlags)
-    M68K_INLINE(0x7003, 0xABED);
+    M68K_INLINE(0x7007, 0xABED);
 pascal OSErr SetDragItemBounds(DragReference theDrag,
     ItemReference theItemRef, const Rect *itemBounds)
-    M68K_INLINE(0x7004, 0xABED);
+    M68K_INLINE(0x7016, 0xABED);
 pascal OSErr TrackDrag(DragReference theDrag,
     const EventRecord *theEvent, RgnHandle theRegion)
-    M68K_INLINE(0x7005, 0xABED);
+    M68K_INLINE(0x700D, 0xABED);
 pascal OSErr CountDragItems(DragReference theDrag,
     unsigned short *numItems)
-    M68K_INLINE(0x7006, 0xABED);
+    M68K_INLINE(0x700E, 0xABED);
 pascal OSErr GetDragItemReferenceNumber(DragReference theDrag,
     unsigned short index, ItemReference *theItemRef)
-    M68K_INLINE(0x7007, 0xABED);
+    M68K_INLINE(0x700F, 0xABED);
 pascal OSErr GetFlavorDataSize(DragReference theDrag,
     ItemReference theItemRef, FlavorType theType,
     Size *dataSize)
-    M68K_INLINE(0x700B, 0xABED);
+    M68K_INLINE(0x7013, 0xABED);
 pascal OSErr GetFlavorData(DragReference theDrag,
     ItemReference theItemRef, FlavorType theType,
     void *dataPtr, Size *dataSize, unsigned long dataOffset)
-    M68K_INLINE(0x700C, 0xABED);
+    M68K_INLINE(0x7014, 0xABED);
 pascal OSErr ShowDragHilite(DragReference theDrag,
     RgnHandle hiliteFrame, Boolean inside)
-    M68K_INLINE(0x7009, 0xABED);
+    M68K_INLINE(0x701E, 0xABED);
 pascal OSErr HideDragHilite(DragReference theDrag)
-    M68K_INLINE(0x700A, 0xABED);
+    M68K_INLINE(0x701F, 0xABED);
 pascal OSErr GetDragMouse(DragReference theDrag,
     Point *mouse, Point *pinnedMouse)
-    M68K_INLINE(0x700D, 0xABED);
+    M68K_INLINE(0x701A, 0xABED);
 pascal OSErr InstallTrackingHandler(
     DragTrackingHandlerUPP trackingHandler,
     WindowPtr theWindow, void *handlerRefCon)
-    M68K_INLINE(0x7013, 0xABED);
+    M68K_INLINE(0x7001, 0xABED);
 pascal OSErr InstallReceiveHandler(
     DragReceiveHandlerUPP receiveHandler,
     WindowPtr theWindow, void *handlerRefCon)
-    M68K_INLINE(0x7014, 0xABED);
+    M68K_INLINE(0x7002, 0xABED);
 pascal OSErr RemoveTrackingHandler(
     DragTrackingHandlerUPP trackingHandler,
     WindowPtr theWindow)
-    M68K_INLINE(0x7015, 0xABED);
+    M68K_INLINE(0x7003, 0xABED);
 pascal OSErr RemoveReceiveHandler(
     DragReceiveHandlerUPP receiveHandler,
     WindowPtr theWindow)
-    M68K_INLINE(0x7016, 0xABED);
+    M68K_INLINE(0x7004, 0xABED);
 
 /* ===== Geomys drag API ===== */
 

@@ -73,7 +73,9 @@ cache_alloc(long size, Handle *out_h)
 		}
 	}
 
-	/* Fall back to app heap */
+	/* Fall back to app heap, but never into the Toolbox's reserve */
+	if (FreeMem() - size < GOPHER_HEAP_RESERVE)
+		return 0L;
 	return NewPtr(size);
 }
 
